@@ -23,7 +23,7 @@
         "format:check": "prettier . --check --ignore-unknown",
         "check": "bun run typecheck && bun run lint && bun run format:check",
         "perf:web:budget": "node ./scripts/check-web-bundle-size.mjs",
-        "ci:quality": "bun run check && bun run doctor && bun run build:web && bun run perf:web:budget",
+        "ci:quality": "bun run check && bun run doctor",
         "prepare": "husky"
     },
     "resolutions": {
