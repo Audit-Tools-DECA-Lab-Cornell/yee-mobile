@@ -267,7 +267,7 @@ export default function ExecuteScreen() {
                                         setRatingValue(value);
                                     }}
                                 >
-                                    {value}
+                                    <Text color="$color10">{value}</Text>
                                 </Button>
                             );
                         })}

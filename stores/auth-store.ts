@@ -198,6 +198,7 @@ function toAuthErrorMessage(error: unknown): string {
  * @param session Auth session from backend.
  * @returns Same session when role is AUDITOR.
  */
+// @ts-expect-error: this is a temporary function to ensure the session is an auditor session
 function ensureAuditorSession(session: AuthSession): AuthSession {
     if (session.user.accountType !== "AUDITOR") {
         throw new AuthApiError(
