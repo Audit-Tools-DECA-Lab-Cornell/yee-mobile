@@ -75,7 +75,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         }));
 
         try {
-            const session = ensureAuditorSession(await loginWithPassword(payload));
+            const session = await loginWithPassword(payload);
+            // const session = ensureAuditorSession(await loginWithPassword(payload));
             await saveAuthSession(session);
 
             set(() => ({
@@ -105,7 +106,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         }));
 
         try {
-            const session = ensureAuditorSession(await signupWithPassword(payload));
+            const session = await signupWithPassword(payload);
+            // const session = ensureAuditorSession(await signupWithPassword(payload));
             await saveAuthSession(session);
 
             set(() => ({
