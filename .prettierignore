@@ -1,0 +1,10 @@
+node_modules
+.expo
+android
+ios
+dist
+coverage
+bun.lock
+tsconfig.tsbuildinfo
+tamagui.generated.css
+tamagui-web.css

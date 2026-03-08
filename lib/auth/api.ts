@@ -1,4 +1,10 @@
-import type { AccountType, AuthSession, AuthUser, LoginPayload, SignupPayload } from "lib/auth/types";
+import type {
+    AccountType,
+    AuthSession,
+    AuthUser,
+    LoginPayload,
+    SignupPayload,
+} from "lib/auth/types";
 
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
 
@@ -6,15 +12,15 @@ const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
  * Error returned for failed authentication API requests.
  */
 export class AuthApiError extends Error {
-  readonly statusCode: number;
-  readonly details: string | null;
+    readonly statusCode: number;
+    readonly details: string | null;
 
-  constructor(message: string, statusCode: number, details: string | null = null) {
-    super(message);
-    this.name = "AuthApiError";
-    this.statusCode = statusCode;
-    this.details = details;
-  }
+    constructor(message: string, statusCode: number, details: string | null = null) {
+        super(message);
+        this.name = "AuthApiError";
+        this.statusCode = statusCode;
+        this.details = details;
+    }
 }
 
 /**
@@ -24,12 +30,12 @@ export class AuthApiError extends Error {
  * @returns Parsed auth session.
  */
 export async function loginWithPassword(payload: LoginPayload): Promise<AuthSession> {
-  const responsePayload = await postJson("/yee/auth/login", {
-    email: payload.email,
-    password: payload.password,
-  });
+    const responsePayload = await postJson("/yee/auth/login", {
+        email: payload.email,
+        password: payload.password,
+    });
 
-  return parseAuthResponse(responsePayload);
+    return parseAuthResponse(responsePayload);
 }
 
 /**
@@ -39,14 +45,14 @@ export async function loginWithPassword(payload: LoginPayload): Promise<AuthSess
  * @returns Parsed auth session.
  */
 export async function signupWithPassword(payload: SignupPayload): Promise<AuthSession> {
-  const responsePayload = await postJson("/yee/auth/signup", {
-    email: payload.email,
-    password: payload.password,
-    name: payload.name,
-    account_type: payload.accountType,
-  });
+    const responsePayload = await postJson("/yee/auth/signup", {
+        email: payload.email,
+        password: payload.password,
+        name: payload.name,
+        account_type: payload.accountType,
+    });
 
-  return parseAuthResponse(responsePayload);
+    return parseAuthResponse(responsePayload);
 }
 
 /**
@@ -55,12 +61,12 @@ export async function signupWithPassword(payload: SignupPayload): Promise<AuthSe
  * @returns Sanitized API base URL.
  */
 function getApiBaseUrl(): string {
-  const configuredValue = process.env.EXPO_PUBLIC_API_BASE_URL;
-  if (typeof configuredValue === "string" && configuredValue.trim().length > 0) {
-    return configuredValue.trim();
-  }
+    const configuredValue = process.env.EXPO_PUBLIC_API_BASE_URL;
+    if (typeof configuredValue === "string" && configuredValue.trim().length > 0) {
+        return configuredValue.trim();
+    }
 
-  return DEFAULT_API_BASE_URL;
+    return DEFAULT_API_BASE_URL;
 }
 
 /**
@@ -70,38 +76,35 @@ function getApiBaseUrl(): string {
  * @param payload JSON payload.
  * @returns Parsed unknown response body.
  */
-async function postJson(
-  path: string,
-  payload: Record<string, string>,
-): Promise<unknown> {
-  const baseUrl = getApiBaseUrl();
+async function postJson(path: string, payload: Record<string, string>): Promise<unknown> {
+    const baseUrl = getApiBaseUrl();
 
-  let response: Response;
+    let response: Response;
 
-  try {
-    response = await fetch(`${baseUrl}${path}`, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Network request failed.";
-    throw new AuthApiError("Unable to reach authentication service.", 0, message);
-  }
+    try {
+        response = await fetch(`${baseUrl}${path}`, {
+            method: "POST",
+            headers: {
+                Accept: "application/json",
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Network request failed.";
+        throw new AuthApiError("Unable to reach authentication service.", 0, message);
+    }
 
-  if (!response.ok) {
-    const details = await readErrorDetails(response);
-    throw new AuthApiError("Authentication request failed.", response.status, details);
-  }
+    if (!response.ok) {
+        const details = await readErrorDetails(response);
+        throw new AuthApiError("Authentication request failed.", response.status, details);
+    }
 
-  try {
-    return await response.json();
-  } catch {
-    throw new AuthApiError("Authentication service returned invalid JSON.", response.status);
-  }
+    try {
+        return await response.json();
+    } catch {
+        throw new AuthApiError("Authentication service returned invalid JSON.", response.status);
+    }
 }
 
 /**
@@ -111,32 +114,32 @@ async function postJson(
  * @returns Readable error details when available.
  */
 async function readErrorDetails(response: Response): Promise<string | null> {
-  const contentType = response.headers.get("content-type") ?? "";
-  const isJsonResponse = contentType.includes("application/json");
+    const contentType = response.headers.get("content-type") ?? "";
+    const isJsonResponse = contentType.includes("application/json");
 
-  if (!isJsonResponse) {
+    if (!isJsonResponse) {
+        return response.statusText || null;
+    }
+
+    try {
+        const payload: unknown = await response.json();
+
+        if (!isRecord(payload)) {
+            return response.statusText || null;
+        }
+
+        if (typeof payload.detail === "string") {
+            return payload.detail;
+        }
+
+        if (typeof payload.message === "string") {
+            return payload.message;
+        }
+    } catch {
+        return response.statusText || null;
+    }
+
     return response.statusText || null;
-  }
-
-  try {
-    const payload: unknown = await response.json();
-
-    if (!isRecord(payload)) {
-      return response.statusText || null;
-    }
-
-    if (typeof payload.detail === "string") {
-      return payload.detail;
-    }
-
-    if (typeof payload.message === "string") {
-      return payload.message;
-    }
-  } catch {
-    return response.statusText || null;
-  }
-
-  return response.statusText || null;
 }
 
 /**
@@ -146,25 +149,25 @@ async function readErrorDetails(response: Response): Promise<string | null> {
  * @returns Validated auth session.
  */
 function parseAuthResponse(payload: unknown): AuthSession {
-  if (!isRecord(payload)) {
-    throw new AuthApiError("Authentication response shape is invalid.", 500);
-  }
+    if (!isRecord(payload)) {
+        throw new AuthApiError("Authentication response shape is invalid.", 500);
+    }
 
-  const accessToken = readString(payload.access_token);
-  const tokenType = readString(payload.token_type);
-  const expiresAt = readString(payload.expires_at);
-  const user = parseAuthUser(payload.user);
+    const accessToken = readString(payload.access_token);
+    const tokenType = readString(payload.token_type);
+    const expiresAt = readString(payload.expires_at);
+    const user = parseAuthUser(payload.user);
 
-  if (accessToken === null || tokenType !== "bearer" || expiresAt === null || user === null) {
-    throw new AuthApiError("Authentication response fields are missing.", 500);
-  }
+    if (accessToken === null || tokenType !== "bearer" || expiresAt === null || user === null) {
+        throw new AuthApiError("Authentication response fields are missing.", 500);
+    }
 
-  return {
-    accessToken,
-    tokenType: "bearer",
-    expiresAt,
-    user,
-  };
+    return {
+        accessToken,
+        tokenType: "bearer",
+        expiresAt,
+        user,
+    };
 }
 
 /**
@@ -174,25 +177,25 @@ function parseAuthResponse(payload: unknown): AuthSession {
  * @returns Validated auth user or null.
  */
 function parseAuthUser(payload: unknown): AuthUser | null {
-  if (!isRecord(payload)) {
-    return null;
-  }
+    if (!isRecord(payload)) {
+        return null;
+    }
 
-  const id = readString(payload.id);
-  const email = readString(payload.email);
-  const name = readNullableString(payload.name);
-  const accountType = readAccountType(payload.account_type);
+    const id = readString(payload.id);
+    const email = readString(payload.email);
+    const name = readNullableString(payload.name);
+    const accountType = readAccountType(payload.account_type);
 
-  if (id === null || email === null || name === undefined || accountType === null) {
-    return null;
-  }
+    if (id === null || email === null || name === undefined || accountType === null) {
+        return null;
+    }
 
-  return {
-    id,
-    email,
-    name,
-    accountType,
-  };
+    return {
+        id,
+        email,
+        name,
+        accountType,
+    };
 }
 
 /**
@@ -202,7 +205,7 @@ function parseAuthUser(payload: unknown): AuthUser | null {
  * @returns True when value is a record.
  */
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+    return typeof value === "object" && value !== null;
 }
 
 /**
@@ -212,7 +215,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * @returns String when valid, otherwise null.
  */
 function readString(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
+    return typeof value === "string" ? value : null;
 }
 
 /**
@@ -222,14 +225,14 @@ function readString(value: unknown): string | null {
  * @returns String, null, or undefined if invalid type.
  */
 function readNullableString(value: unknown): string | null | undefined {
-  if (typeof value === "string") {
-    return value;
-  }
-  if (value === null) {
-    return null;
-  }
+    if (typeof value === "string") {
+        return value;
+    }
+    if (value === null) {
+        return null;
+    }
 
-  return undefined;
+    return undefined;
 }
 
 /**
@@ -239,9 +242,9 @@ function readNullableString(value: unknown): string | null | undefined {
  * @returns Valid account type or null.
  */
 function readAccountType(value: unknown): AccountType | null {
-  if (value === "MANAGER" || value === "AUDITOR") {
-    return value;
-  }
+    if (value === "MANAGER" || value === "AUDITOR") {
+        return value;
+    }
 
-  return null;
+    return null;
 }
