@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import { BarChart3, ClipboardCheck, LayoutDashboard, MapPinned } from "@tamagui/lucide-icons";
-import { useTheme } from "tamagui";
+import { designSystem } from "lib/design-system";
 
 interface TabIconProps {
     readonly focused: boolean;
@@ -11,57 +11,75 @@ interface TabIconProps {
  * Dashboard tab icon renderer.
  */
 function DashboardTabIcon({ focused, size }: TabIconProps) {
-    return <LayoutDashboard color={focused ? "$blue10" : "$color10"} size={size} />;
+    return (
+        <LayoutDashboard
+            color={focused ? designSystem.colors.primary : designSystem.colors.mutedForeground}
+            size={size}
+        />
+    );
 }
 
 /**
  * Places tab icon renderer.
  */
 function PlacesTabIcon({ focused, size }: TabIconProps) {
-    return <MapPinned color={focused ? "$blue10" : "$color10"} size={size} />;
+    return (
+        <MapPinned
+            color={focused ? designSystem.colors.primary : designSystem.colors.mutedForeground}
+            size={size}
+        />
+    );
 }
 
 /**
  * Execute tab icon renderer.
  */
 function ExecuteTabIcon({ focused, size }: TabIconProps) {
-    return <ClipboardCheck color={focused ? "$blue10" : "$color10"} size={size} />;
+    return (
+        <ClipboardCheck
+            color={focused ? designSystem.colors.primary : designSystem.colors.mutedForeground}
+            size={size}
+        />
+    );
 }
 
 /**
  * Reports tab icon renderer.
  */
 function ReportsTabIcon({ focused, size }: TabIconProps) {
-    return <BarChart3 color={focused ? "$blue10" : "$color10"} size={size} />;
+    return (
+        <BarChart3
+            color={focused ? designSystem.colors.primary : designSystem.colors.mutedForeground}
+            size={size}
+        />
+    );
 }
 
 /**
- * Main tab layout for the YEE mobile demo.
+ * Main tab layout for the playspace mobile demo.
  */
 export default function TabLayout() {
-    const theme = useTheme();
-
     return (
         <Tabs
             screenOptions={{
-                tabBarActiveTintColor: theme.blue10.val,
-                tabBarInactiveTintColor: theme.color10.val,
+                headerShown: false,
+                sceneStyle: {
+                    backgroundColor: designSystem.colors.background,
+                },
+                tabBarActiveTintColor: designSystem.colors.primary,
+                tabBarInactiveTintColor: designSystem.colors.mutedForeground,
                 tabBarStyle: {
-                    backgroundColor: theme.background.val,
-                    borderTopColor: theme.borderColor.val,
-                    height: 64,
-                    paddingTop: 6,
-                    paddingBottom: 8,
+                    backgroundColor: designSystem.colors.overlay,
+                    borderTopColor: designSystem.colors.border,
+                    height: 78,
+                    paddingTop: 8,
+                    paddingBottom: 12,
                 },
-                headerStyle: {
-                    backgroundColor: theme.background.val,
-                    borderBottomColor: theme.borderColor.val,
-                },
-                headerTintColor: theme.color.val,
-                headerShadowVisible: false,
                 tabBarLabelStyle: {
-                    fontSize: 12,
-                    fontWeight: "600",
+                    fontSize: 10,
+                    fontFamily: designSystem.fonts.bodyBold,
+                    letterSpacing: 1,
+                    textTransform: "uppercase",
                 },
             }}
         >
@@ -69,15 +87,13 @@ export default function TabLayout() {
                 name="index"
                 options={{
                     title: "Home",
-                    headerTitle: "Auditor Home",
                     tabBarIcon: DashboardTabIcon,
                 }}
             />
             <Tabs.Screen
                 name="places"
                 options={{
-                    title: "Assigned",
-                    headerTitle: "Assigned Places",
+                    title: "Places",
                     tabBarIcon: PlacesTabIcon,
                 }}
             />
@@ -85,15 +101,13 @@ export default function TabLayout() {
                 name="execute"
                 options={{
                     title: "Execute",
-                    headerTitle: "Audit Execution",
                     tabBarIcon: ExecuteTabIcon,
                 }}
             />
             <Tabs.Screen
                 name="reports"
                 options={{
-                    title: "Scoring",
-                    headerTitle: "Scoring",
+                    title: "Reports",
                     tabBarIcon: ReportsTabIcon,
                 }}
             />

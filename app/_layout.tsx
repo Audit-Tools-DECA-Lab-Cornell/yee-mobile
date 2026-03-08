@@ -1,12 +1,30 @@
 import "../tamagui.generated.css";
 
 import { useEffect } from "react";
-import { useColorScheme } from "react-native";
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
+import {
+    Geist_400Regular,
+    Geist_500Medium,
+    Geist_600SemiBold,
+    Geist_700Bold,
+} from "@expo-google-fonts/geist";
+import {
+    JetBrainsMono_400Regular,
+    JetBrainsMono_500Medium,
+    JetBrainsMono_600SemiBold,
+    JetBrainsMono_700Bold,
+} from "@expo-google-fonts/jetbrains-mono";
 import { SplashScreen, Stack, useRouter, useSegments } from "expo-router";
+import {
+    SpaceGrotesk_400Regular,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+} from "@expo-google-fonts/space-grotesk";
 import { StatusBar } from "expo-status-bar";
 import { Provider } from "components/Provider";
+import { designSystem } from "lib/design-system";
 import { useAuthStore } from "stores/auth-store";
 
 export { ErrorBoundary } from "expo-router";
@@ -20,22 +38,45 @@ export const unstable_settings = {
  */
 SplashScreen.preventAutoHideAsync();
 
+const navigationTheme = {
+    ...DarkTheme,
+    colors: {
+        ...DarkTheme.colors,
+        background: designSystem.colors.background,
+        card: designSystem.colors.background,
+        primary: designSystem.colors.primary,
+        text: designSystem.colors.foreground,
+        border: designSystem.colors.border,
+        notification: designSystem.colors.primary,
+    },
+};
+
 /**
  * Root app layout that mounts providers and tab routes.
  */
 export default function RootLayout() {
-    const [interLoaded, interError] = useFonts({
-        Inter: require("@tamagui/font-inter/otf/Inter-Medium.otf"),
-        InterBold: require("@tamagui/font-inter/otf/Inter-Bold.otf"),
+    const [fontsLoaded, fontError] = useFonts({
+        "Geist-Regular": Geist_400Regular,
+        "Geist-Medium": Geist_500Medium,
+        "Geist-SemiBold": Geist_600SemiBold,
+        "Geist-Bold": Geist_700Bold,
+        "SpaceGrotesk-Regular": SpaceGrotesk_400Regular,
+        "SpaceGrotesk-Medium": SpaceGrotesk_500Medium,
+        "SpaceGrotesk-SemiBold": SpaceGrotesk_600SemiBold,
+        "SpaceGrotesk-Bold": SpaceGrotesk_700Bold,
+        "JetBrainsMono-Regular": JetBrainsMono_400Regular,
+        "JetBrainsMono-Medium": JetBrainsMono_500Medium,
+        "JetBrainsMono-SemiBold": JetBrainsMono_600SemiBold,
+        "JetBrainsMono-Bold": JetBrainsMono_700Bold,
     });
 
     useEffect(() => {
-        if (interLoaded || interError) {
-            SplashScreen.hideAsync();
+        if (fontsLoaded || fontError) {
+            void SplashScreen.hideAsync();
         }
-    }, [interLoaded, interError]);
+    }, [fontError, fontsLoaded]);
 
-    if (!interLoaded && !interError) {
+    if (!fontsLoaded && !fontError) {
         return null;
     }
 
@@ -61,7 +102,6 @@ function Providers({ children }: ProvidersProps) {
  * Root navigator with auth and app route groups.
  */
 function RootLayoutNav() {
-    const colorScheme = useColorScheme();
     const router = useRouter();
     const segments = useSegments();
     const authStatus = useAuthStore((state) => state.status);
@@ -93,9 +133,15 @@ function RootLayoutNav() {
     }
 
     return (
-        <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-            <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-            <Stack>
+        <ThemeProvider value={navigationTheme}>
+            <StatusBar style="light" />
+            <Stack
+                screenOptions={{
+                    contentStyle: {
+                        backgroundColor: designSystem.colors.background,
+                    },
+                }}
+            >
                 <Stack.Screen
                     name="(auth)"
                     options={{

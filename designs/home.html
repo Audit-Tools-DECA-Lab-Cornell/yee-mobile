@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Home</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Geist:wght@100;200;300;400;500;600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;200;300;400;500;600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+        <script src="https://code.iconify.design/iconify-icon/3.0.0/iconify-icon.min.js"></script>
+        <style type="text/tailwindcss">
+            @theme inline {
+                --color-background: var(--background);
+                --color-foreground: var(--foreground);
+                --color-primary: var(--primary);
+                --color-primary-foreground: var(--primary-foreground);
+                --color-secondary: var(--secondary);
+                --color-secondary-foreground: var(--secondary-foreground);
+                --color-muted: var(--muted);
+                --color-muted-foreground: var(--muted-foreground);
+                --color-accent: var(--accent);
+                --color-accent-foreground: var(--accent-foreground);
+                --color-destructive: var(--destructive);
+                --color-card: var(--card);
+                --color-card-foreground: var(--card-foreground);
+                --color-popover: var(--popover);
+                --color-popover-foreground: var(--popover-foreground);
+                --color-border: var(--border);
+                --color-input: var(--input);
+                --color-ring: var(--ring);
+                --color-chart-1: var(--chart-1);
+                --color-chart-2: var(--chart-2);
+                --color-chart-3: var(--chart-3);
+                --color-chart-4: var(--chart-4);
+                --color-chart-5: var(--chart-5);
+
+                --font-font-sans: var(--font-sans);
+                --font-font-heading: var(--font-heading);
+                --font-font-serif: var(--font-serif);
+                --font-font-mono: var(--font-mono);
+
+                --radius-sm: calc(var(--radius) - 4px);
+                --radius-md: calc(var(--radius) - 2px);
+                --radius-lg: var(--radius);
+                --radius-xl: calc(var(--radius) + 4px);
+            }
+
+            :root {
+                --background: #111111;
+                --foreground: #fafafa;
+                --primary: #ff6b00;
+                --primary-foreground: #ffffff;
+                --secondary: #2a2d33;
+                --secondary-foreground: #d4d4d8;
+                --muted: #272a30;
+                --muted-foreground: #a1a1aa;
+                --accent: #ff6b00;
+                --accent-foreground: #ffffff;
+                --destructive: #ef4444;
+                --card: #1e2024;
+                --card-foreground: #fafafa;
+                --popover: #1e2024;
+                --popover-foreground: #fafafa;
+                --border: #33373e;
+                --input: #1a1d21;
+                --ring: #ff6b00;
+                --chart-1: #10b981;
+                --chart-2: #eab308;
+                --chart-3: #ef4444;
+                --chart-4: #3b82f6;
+                --chart-5: #8b5cf6;
+
+                --font-sans: "Geist";
+                --font-heading: "Space Grotesk";
+                --font-serif: "Playfair Display";
+                --font-mono: "JetBrains Mono";
+
+                --radius: 0.25rem;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="flex flex-col h-screen bg-background text-foreground font-sans">
+            <header class="p-6 pb-2 shrink-0">
+                <div class="flex items-center justify-between mb-8">
+                    <div class="flex items-center gap-3">
+                        <div
+                            class="size-10 rounded bg-secondary flex items-center justify-center border border-border"
+                        >
+                            <iconify-icon
+                                icon="solar:user-bold"
+                                class="text-primary size-6"
+                            ></iconify-icon>
+                        </div>
+                        <div>
+                            <p
+                                class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider"
+                            >
+                                Active Auditor
+                            </p>
+                            <h2 class="font-bold text-sm">Pratyush Sudhakar</h2>
+                        </div>
+                    </div>
+                    <button
+                        class="size-10 rounded-full bg-secondary flex items-center justify-center border border-border"
+                    >
+                        <iconify-icon
+                            icon="solar:bell-bold"
+                            class="text-foreground size-5"
+                        ></iconify-icon>
+                        <div
+                            class="absolute top-2 right-2 size-2 bg-primary rounded-full border-2 border-background"
+                        ></div>
+                    </button>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <h1 class="font-heading text-3xl font-bold tracking-tight">Field Dashboard</h1>
+                    <p class="text-muted-foreground font-medium">October 24, 2023 • Tuesday</p>
+                </div>
+            </header>
+            <main class="flex-1 overflow-y-auto px-6 py-4 space-y-8">
+                <section class="grid grid-cols-2 gap-4">
+                    <div
+                        class="bg-card border border-border rounded-xl p-4 flex flex-col justify-between h-32 relative overflow-hidden"
+                    >
+                        <div
+                            class="absolute -right-4 -top-4 size-20 bg-primary/5 rounded-full"
+                        ></div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-primary font-black text-3xl">08</span
+                            ><span
+                                class="text-xs font-bold text-muted-foreground uppercase tracking-widest"
+                                >Assigned</span
+                            >
+                        </div>
+                        <iconify-icon
+                            icon="solar:map-point-bold"
+                            class="text-primary/20 size-8 self-end"
+                        ></iconify-icon>
+                    </div>
+                    <div
+                        class="bg-card border border-border rounded-xl p-4 flex flex-col justify-between h-32 relative overflow-hidden"
+                    >
+                        <div
+                            class="absolute -right-4 -top-4 size-20 bg-chart-1/5 rounded-full"
+                        ></div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-chart-1 font-black text-3xl">03</span
+                            ><span
+                                class="text-xs font-bold text-muted-foreground uppercase tracking-widest"
+                                >Completed</span
+                            >
+                        </div>
+                        <iconify-icon
+                            icon="solar:check-circle-bold"
+                            class="text-chart-1/20 size-8 self-end"
+                        ></iconify-icon>
+                    </div>
+                </section>
+                <section class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h2
+                            class="text-xs font-black text-muted-foreground uppercase tracking-widest"
+                        >
+                            Priority Task
+                        </h2>
+                        <span
+                            class="text-[10px] font-bold text-chart-3 flex items-center gap-1 uppercase tracking-wider"
+                            ><iconify-icon icon="solar:fire-bold" class="size-3"></iconify-icon>Due
+                            Today</span
+                        >
+                    </div>
+                    <div
+                        class="bg-card border-2 border-primary rounded-xl overflow-hidden shadow-lg shadow-primary/5"
+                    >
+                        <div class="h-40 relative">
+                            <img
+                                src="https://ggrhecslgdflloszjkwl.supabase.co/storage/v1/object/public/user-assets/HpG8ELsSoZF/components/rpC8K7MZfo4.png"
+                                alt="Central Park"
+                                class="w-full h-full object-cover grayscale-[0.3] hover:grayscale-0 transition-all duration-500"
+                            />
+                            <div
+                                class="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent"
+                            ></div>
+                            <div class="absolute bottom-4 left-4 right-4">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span
+                                        class="px-2 py-0.5 rounded bg-primary text-[10px] font-black text-primary-foreground uppercase tracking-wider"
+                                        >Urgent Audit</span
+                                    ><span
+                                        class="px-2 py-0.5 rounded bg-secondary text-[10px] font-bold text-secondary-foreground uppercase tracking-wider"
+                                        >1.2km Away</span
+                                    >
+                                </div>
+                                <h3 class="font-heading text-xl font-bold text-white">
+                                    Central Comm. Playspace
+                                </h3>
+                            </div>
+                        </div>
+                        <div class="p-4 flex items-center justify-between gap-4">
+                            <div class="flex-1 space-y-2">
+                                <div class="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                                    <div class="h-full bg-primary w-[65%] rounded-full"></div>
+                                </div>
+                                <p
+                                    class="text-[10px] font-bold text-muted-foreground uppercase tracking-wider"
+                                >
+                                    65% Progress • NBO-KBR-01
+                                </p>
+                            </div>
+                            <button
+                                class="h-10 px-4 bg-primary text-primary-foreground font-bold text-xs uppercase tracking-widest rounded flex items-center gap-2 whitespace-nowrap"
+                            >
+                                Resume
+                                <iconify-icon icon="solar:play-bold" class="size-4"></iconify-icon>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+                <section class="space-y-4 pb-24">
+                    <div class="flex items-center justify-between">
+                        <h2
+                            class="text-xs font-black text-muted-foreground uppercase tracking-widest"
+                        >
+                            Connectivity Status
+                        </h2>
+                    </div>
+                    <div
+                        class="bg-secondary/50 border border-border rounded-lg p-4 flex items-center gap-4"
+                    >
+                        <div class="size-10 rounded bg-chart-1/20 flex items-center justify-center">
+                            <iconify-icon
+                                icon="solar:check-read-bold"
+                                class="text-chart-1 size-6"
+                            ></iconify-icon>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="text-sm font-bold">Offline Ready</h4>
+                            <p class="text-xs text-muted-foreground">
+                                All assigned audit data is synced locally.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+            </main>
+            <nav
+                class="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-md border-t border-border px-6 py-4 z-50 flex items-center justify-between"
+            >
+                <button class="flex flex-col items-center gap-1 text-primary">
+                    <iconify-icon icon="solar:home-2-bold" class="size-6"></iconify-icon
+                    ><span class="text-[10px] font-black uppercase tracking-widest leading-none"
+                        >Home</span
+                    ></button
+                ><button
+                    class="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                    <iconify-icon icon="solar:list-bold" class="size-6"></iconify-icon
+                    ><span class="text-[10px] font-black uppercase tracking-widest leading-none"
+                        >Places</span
+                    ></button
+                ><button
+                    class="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                    <iconify-icon icon="solar:chart-square-bold" class="size-6"></iconify-icon
+                    ><span class="text-[10px] font-black uppercase tracking-widest leading-none"
+                        >Reports</span
+                    ></button
+                ><button
+                    class="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                    <iconify-icon icon="solar:settings-bold" class="size-6"></iconify-icon
+                    ><span class="text-[10px] font-black uppercase tracking-widest leading-none"
+                        >App</span
+                    >
+                </button>
+            </nav>
+        </div>
+    </body>
+</html>

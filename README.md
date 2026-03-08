@@ -2,8 +2,7 @@
 
 Mobile app for the Youth Enabling Environments (YEE) audit workflow.
 
-The app is built with Expo + Expo Router, uses Tamagui for UI, and includes TypeScript, ESLint, and
-Prettier for consistent code quality.
+The app is built with Expo + Expo Router, uses Tamagui for UI, and includes TypeScript, ESLint, and Prettier for consistent code quality.
 
 ## Product Scope
 

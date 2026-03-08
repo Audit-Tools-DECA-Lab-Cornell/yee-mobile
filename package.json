@@ -30,6 +30,9 @@
         "hermes-compiler": "250829098.0.1"
     },
     "dependencies": {
+        "@expo-google-fonts/geist": "^0.4.1",
+        "@expo-google-fonts/jetbrains-mono": "^0.4.1",
+        "@expo-google-fonts/space-grotesk": "^0.4.1",
         "@react-navigation/native": "^7.0.14",
         "@tamagui/config": "^2.0.0-rc.22",
         "@tamagui/lucide-icons": "^2.0.0-rc.22",

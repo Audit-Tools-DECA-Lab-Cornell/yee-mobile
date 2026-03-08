@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Login</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Geist:wght@100;200;300;400;500;600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;200;300;400;500;600;700;800&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+        <script src="https://code.iconify.design/iconify-icon/3.0.0/iconify-icon.min.js"></script>
+        <style type="text/tailwindcss">
+            @theme inline {
+                --color-background: var(--background);
+                --color-foreground: var(--foreground);
+                --color-primary: var(--primary);
+                --color-primary-foreground: var(--primary-foreground);
+                --color-secondary: var(--secondary);
+                --color-secondary-foreground: var(--secondary-foreground);
+                --color-muted: var(--muted);
+                --color-muted-foreground: var(--muted-foreground);
+                --color-accent: var(--accent);
+                --color-accent-foreground: var(--accent-foreground);
+                --color-destructive: var(--destructive);
+                --color-card: var(--card);
+                --color-card-foreground: var(--card-foreground);
+                --color-popover: var(--popover);
+                --color-popover-foreground: var(--popover-foreground);
+                --color-border: var(--border);
+                --color-input: var(--input);
+                --color-ring: var(--ring);
+                --color-chart-1: var(--chart-1);
+                --color-chart-2: var(--chart-2);
+                --color-chart-3: var(--chart-3);
+                --color-chart-4: var(--chart-4);
+                --color-chart-5: var(--chart-5);
+
+                --font-font-sans: var(--font-sans);
+                --font-font-heading: var(--font-heading);
+                --font-font-serif: var(--font-serif);
+                --font-font-mono: var(--font-mono);
+
+                --radius-sm: calc(var(--radius) - 4px);
+                --radius-md: calc(var(--radius) - 2px);
+                --radius-lg: var(--radius);
+                --radius-xl: calc(var(--radius) + 4px);
+            }
+
+            :root {
+                --background: #111111;
+                --foreground: #fafafa;
+                --primary: #ff6b00;
+                --primary-foreground: #ffffff;
+                --secondary: #2a2d33;
+                --secondary-foreground: #d4d4d8;
+                --muted: #272a30;
+                --muted-foreground: #a1a1aa;
+                --accent: #ff6b00;
+                --accent-foreground: #ffffff;
+                --destructive: #ef4444;
+                --card: #1e2024;
+                --card-foreground: #fafafa;
+                --popover: #1e2024;
+                --popover-foreground: #fafafa;
+                --border: #33373e;
+                --input: #1a1d21;
+                --ring: #ff6b00;
+                --chart-1: #10b981;
+                --chart-2: #eab308;
+                --chart-3: #ef4444;
+                --chart-4: #3b82f6;
+                --chart-5: #8b5cf6;
+
+                --font-sans: "Geist";
+                --font-heading: "Space Grotesk";
+                --font-serif: "Playfair Display";
+                --font-mono: "JetBrains Mono";
+
+                --radius: 0.25rem;
+            }
+        </style>
+    </head>
+    <body>
+        <div
+            class="flex flex-col min-h-screen bg-background text-foreground font-sans p-6 justify-center max-w-md mx-auto"
+        >
+            <div class="flex flex-col items-center mb-12 text-center">
+                <div
+                    class="w-20 h-20 mb-6 bg-secondary/50 rounded-2xl flex items-center justify-center p-3 border border-border/50"
+                >
+                    <img
+                        src="https://ggrhecslgdflloszjkwl.supabase.co/storage/v1/object/public/user-assets/HpG8ELsSoZF/components/5jAFrlh5GGA.png"
+                        alt="Playspace Logo"
+                        class="w-full h-full object-contain"
+                    />
+                </div>
+                <h1
+                    class="font-heading text-3xl font-bold tracking-tight text-foreground uppercase italic leading-none"
+                >
+                    Playspace
+                </h1>
+                <p class="text-muted-foreground font-medium mt-2 tracking-wide uppercase text-xs">
+                    Field Audit Professional v2.4
+                </p>
+            </div>
+            <div class="space-y-6">
+                <div class="space-y-2">
+                    <label
+                        class="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1"
+                        >Auditor Identity</label
+                    >
+                    <div class="relative group">
+                        <iconify-icon
+                            icon="solar:user-bold"
+                            class="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground size-5 group-focus-within:text-primary transition-colors"
+                        ></iconify-icon
+                        ><input
+                            type="text"
+                            placeholder="Auditor Code (e.g., OP-992)"
+                            class="w-full h-14 bg-input border border-border rounded px-12 text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all font-medium"
+                        />
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between px-1">
+                        <label
+                            class="text-xs font-bold text-muted-foreground uppercase tracking-widest"
+                            >Access Key</label
+                        ><button
+                            class="text-[10px] font-bold text-primary uppercase tracking-wider hover:underline"
+                        >
+                            Forgot Key?
+                        </button>
+                    </div>
+                    <div class="relative group">
+                        <iconify-icon
+                            icon="solar:key-bold"
+                            class="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground size-5 group-focus-within:text-primary transition-colors"
+                        ></iconify-icon
+                        ><input
+                            type="password"
+                            placeholder="••••••••"
+                            class="w-full h-14 bg-input border border-border rounded px-12 text-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/20 transition-all font-medium"
+                        />
+                    </div>
+                </div>
+                <div class="flex items-center gap-3 pt-2">
+                    <input
+                        type="checkbox"
+                        id="offline"
+                        class="size-5 accent-primary rounded bg-input border-border"
+                        checked
+                    /><label
+                        for="offline"
+                        class="text-sm font-medium text-muted-foreground leading-none"
+                        >Stay signed in for offline use</label
+                    >
+                </div>
+                <button
+                    class="w-full h-14 bg-primary text-primary-foreground font-bold uppercase tracking-widest rounded shadow-[0_4px_20px_rgba(255,107,0,0.25)] hover:bg-primary/90 active:scale-[0.98] transition-all flex items-center justify-center gap-3 mt-4"
+                >
+                    <span>Initialize Access</span
+                    ><iconify-icon icon="solar:arrow-right-bold" class="size-5"></iconify-icon>
+                </button>
+                <div class="pt-8 border-t border-border flex flex-col items-center gap-4">
+                    <p class="text-sm text-muted-foreground">New auditor or need access?</p>
+                    <button
+                        class="text-sm font-bold text-primary uppercase tracking-widest hover:bg-primary/10 px-4 py-2 rounded transition-colors border border-primary/20"
+                    >
+                        Access Setup Guide
+                    </button>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

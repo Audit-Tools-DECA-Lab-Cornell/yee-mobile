@@ -3,6 +3,7 @@ import { ScrollView } from "react-native";
 import { Download, FileBarChart, TriangleAlert } from "@tamagui/lucide-icons";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { REPORT_COMPARISON_ROWS, type ReportComparisonRow } from "lib/yee-demo-data";
+import { designSystem } from "lib/design-system";
 
 /**
  * Scoring tab with base-score focused visuals for auditor workflows.
@@ -18,133 +19,201 @@ export default function ReportsScreen() {
     const topBasePlaceScore = topBasePlace?.baseScore ?? 0;
 
     return (
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+        <ScrollView
+            contentInsetAdjustmentBehavior="automatic"
+            style={{ backgroundColor: designSystem.colors.background }}
+            contentContainerStyle={{
+                paddingHorizontal: designSystem.spacing.screenPaddingHorizontal,
+                paddingTop: designSystem.spacing.screenPaddingVertical,
+                paddingBottom: 132,
+                gap: 24,
+            }}
+        >
             <YStack gap="$4">
-                <Text fontSize={28} fontWeight="700">
-                    Scoring Summary
-                </Text>
-                <Paragraph color="$color10">
-                    Base scoring snapshots for your assigned field audits.
-                </Paragraph>
-            </YStack>
-
-            <XStack gap="$3">
-                <YStack
-                    flex={1}
-                    borderWidth={1}
-                    borderColor="$borderColor"
-                    rounded={16}
-                    p="$4"
-                    bg="$background"
-                    gap="$2"
-                >
-                    <Paragraph color="$color10">Average Base Score</Paragraph>
-                    <Text fontSize={28} fontWeight="700" color="$blue10">
-                        {averageBaseScore}%
+                <YStack gap="$1.5">
+                    <Text
+                        color={designSystem.colors.foreground}
+                        fontFamily={designSystem.fonts.headingBold}
+                        fontSize={32}
+                        lineHeight={36}
+                        letterSpacing={-0.7}
+                    >
+                        YEE Scoring
                     </Text>
+                    <Paragraph
+                        color={designSystem.colors.mutedForeground}
+                        fontFamily={designSystem.fonts.bodyMedium}
+                    >
+                        Review base-score performance, see which places are export-ready, and track
+                        where weighted scoring will be introduced next.
+                    </Paragraph>
                 </YStack>
-                <YStack
-                    flex={1}
-                    borderWidth={1}
-                    borderColor="$borderColor"
-                    rounded={16}
-                    p="$4"
-                    bg="$background"
-                    gap="$2"
-                >
-                    <Paragraph color="$color10">Top Place Score</Paragraph>
-                    <Text fontSize={28} fontWeight="700" color="$green10">
-                        {topBasePlaceScore}%
-                    </Text>
-                    <Paragraph color="$color10">{topBasePlaceLabel}</Paragraph>
-                </YStack>
-            </XStack>
 
-            <YStack
-                borderWidth={1}
-                borderColor="$borderColor"
-                rounded={16}
-                p="$4"
-                bg="$background"
-                gap="$2"
-            >
-                <Paragraph color="$color10">Base score by place</Paragraph>
-                {REPORT_COMPARISON_ROWS.map((row) => {
-                    return (
-                        <YStack key={row.id} gap="$1.5">
-                            <XStack justify="space-between" items="center">
-                                <YStack flex={1}>
-                                    <Paragraph>{row.placeName}</Paragraph>
-                                    <Paragraph color="$color10" fontSize={12}>
-                                        Ready for export
-                                    </Paragraph>
-                                </YStack>
-                                <Paragraph color="$blue10" fontWeight="700">
-                                    {row.baseScore}%
-                                </Paragraph>
-                            </XStack>
-                            <YStack height={10} rounded={999} bg="$background">
-                                <YStack
-                                    height={10}
-                                    rounded={999}
-                                    bg="$blue9"
-                                    width={`${row.baseScore}%`}
-                                />
-                            </YStack>
-                        </YStack>
-                    );
-                })}
-            </YStack>
-
-            <YStack
-                borderWidth={1}
-                borderColor="$orange7"
-                rounded={16}
-                bg="$orange3"
-                p="$4"
-                gap="$2"
-            >
-                <XStack items="center" gap="$2">
-                    <TriangleAlert size={16} color="$orange10" />
-                    <Text color="$orange10" fontWeight="700">
-                        Weighted scoring is planned for a future release.
-                    </Text>
+                <XStack gap="$3">
+                    <MetricCard
+                        label="Average base score"
+                        value={`${averageBaseScore}%`}
+                        accentColor={designSystem.colors.primary}
+                        helperText="Across assigned audits"
+                    />
+                    <MetricCard
+                        label="Top place score"
+                        value={`${topBasePlaceScore}%`}
+                        accentColor={designSystem.colors.success}
+                        helperText={topBasePlaceLabel}
+                    />
                 </XStack>
-                <Paragraph color="$orange10">
-                    The current mobile form does not yet include pre-audit weighting questions.
-                </Paragraph>
             </YStack>
 
             <YStack
+                rounded={designSystem.radii.lg}
                 borderWidth={1}
-                borderColor="$borderColor"
-                rounded={16}
-                bg="$background"
+                borderColor={designSystem.colors.border}
+                bg={designSystem.colors.surface}
+                p="$4"
+                gap="$3"
+                style={{
+                    boxShadow: designSystem.shadows.card,
+                }}
+            >
+                <Text
+                    color={designSystem.colors.mutedForeground}
+                    fontFamily={designSystem.fonts.bodyBold}
+                    fontSize={11}
+                    textTransform="uppercase"
+                    letterSpacing={1.5}
+                >
+                    Base score by place
+                </Text>
+
+                <YStack gap="$3">
+                    {REPORT_COMPARISON_ROWS.map((row) => {
+                        return (
+                            <YStack
+                                key={row.id}
+                                rounded={designSystem.radii.md}
+                                borderWidth={1}
+                                borderColor={designSystem.colors.border}
+                                bg={designSystem.colors.input}
+                                p="$3"
+                                gap="$2.5"
+                            >
+                                <XStack justify="space-between" items="flex-start" gap="$3">
+                                    <YStack flex={1}>
+                                        <Text
+                                            color={designSystem.colors.foreground}
+                                            fontFamily={designSystem.fonts.bodyBold}
+                                            fontSize={15}
+                                        >
+                                            {row.placeName}
+                                        </Text>
+                                        <Paragraph
+                                            color={designSystem.colors.mutedForeground}
+                                            fontFamily={designSystem.fonts.bodyMedium}
+                                            fontSize={12}
+                                        >
+                                            Ready for export
+                                        </Paragraph>
+                                    </YStack>
+                                    <YStack items="flex-end" gap="$0.5">
+                                        <Paragraph
+                                            color={designSystem.colors.primary}
+                                            fontFamily={designSystem.fonts.bodyBold}
+                                        >
+                                            Base {row.baseScore}%
+                                        </Paragraph>
+                                        <Paragraph
+                                            color={designSystem.colors.warning}
+                                            fontFamily={designSystem.fonts.bodyBold}
+                                        >
+                                            Weighting planned
+                                        </Paragraph>
+                                    </YStack>
+                                </XStack>
+
+                                <YStack
+                                    height={6}
+                                    rounded={designSystem.radii.full}
+                                    bg={designSystem.colors.mutedSurface}
+                                    overflow="hidden"
+                                >
+                                    <YStack
+                                        height={6}
+                                        rounded={designSystem.radii.full}
+                                        bg={designSystem.colors.primary}
+                                        width={`${row.baseScore}%`}
+                                    />
+                                </YStack>
+                            </YStack>
+                        );
+                    })}
+                </YStack>
+            </YStack>
+
+            <YStack
+                rounded={designSystem.radii.lg}
+                borderWidth={1}
+                borderColor={designSystem.colors.warning}
+                bg={designSystem.colors.warningSoft}
                 p="$4"
                 gap="$3"
             >
+                <XStack items="flex-start" gap="$2.5" width="100%">
+                    <TriangleAlert size={16} color={designSystem.colors.warning} />
+                    <Text
+                        flex={1}
+                        color={designSystem.colors.warning}
+                        fontFamily={designSystem.fonts.bodyBold}
+                        fontSize={13}
+                        textTransform="uppercase"
+                        letterSpacing={1.1}
+                        style={{ flexShrink: 1, lineHeight: 18 }}
+                    >
+                        Weighted scoring arrives after the pre-audit setup flow is available
+                    </Text>
+                </XStack>
+                <Paragraph
+                    color={designSystem.colors.secondaryForeground}
+                    fontFamily={designSystem.fonts.bodyMedium}
+                    lineHeight={20}
+                >
+                    The current mobile workflow exports base score immediately, while weighted
+                    scoring will be added once pre-audit weighting questions are supported across
+                    the YEE setup flow.
+                </Paragraph>
+            </YStack>
+
+            <YStack
+                rounded={designSystem.radii.lg}
+                borderWidth={1}
+                borderColor={designSystem.colors.border}
+                bg={designSystem.colors.surface}
+                p="$4"
+                gap="$3"
+                style={{
+                    boxShadow: designSystem.shadows.card,
+                }}
+            >
                 <XStack items="center" gap="$2">
-                    <FileBarChart size={16} color="$purple10" />
-                    <Text fontSize={19} fontWeight="700">
+                    <FileBarChart size={16} color={designSystem.colors.primary} />
+                    <Text
+                        color={designSystem.colors.foreground}
+                        fontFamily={designSystem.fonts.headingBold}
+                        fontSize={20}
+                    >
                         Export preview
                     </Text>
                 </XStack>
-                <Paragraph color="$color10">
-                    Export package includes base score, section table, and metadata.
+                <Paragraph
+                    color={designSystem.colors.mutedForeground}
+                    fontFamily={designSystem.fonts.bodyMedium}
+                >
+                    Export packages can include base score, section-level results, and place
+                    metadata for reporting and QA review.
                 </Paragraph>
                 <XStack gap="$2">
-                    <Button flex={1} size="$3">
-                        <XStack items="center" gap="$2">
-                            <Download size={14} />
-                            <Text>Export PDF</Text>
-                        </XStack>
-                    </Button>
-                    <Button flex={1} size="$3" theme="purple">
-                        <XStack items="center" gap="$2">
-                            <Download size={14} />
-                            <Text>Export CSV</Text>
-                        </XStack>
-                    </Button>
+                    <ActionButton label="Export PDF" />
+                    <ActionButton label="Export CSV" variant="primary" />
                 </XStack>
             </YStack>
         </ScrollView>
@@ -188,4 +257,109 @@ function getTopBasePlace(rows: readonly ReportComparisonRow[]): ReportComparison
 
         return highest;
     }, firstRow);
+}
+
+interface MetricCardProps {
+    readonly label: string;
+    readonly value: string;
+    readonly accentColor: string;
+    readonly helperText: string;
+}
+
+/**
+ * Summary metric card used in the reports header.
+ *
+ * @param props Metric content and styling.
+ * @returns Highlight card.
+ */
+function MetricCard({ label, value, accentColor, helperText }: MetricCardProps) {
+    return (
+        <YStack
+            flex={1}
+            rounded={designSystem.radii.lg}
+            borderWidth={1}
+            borderColor={designSystem.colors.border}
+            bg={designSystem.colors.surface}
+            p="$4"
+            gap="$2"
+            style={{
+                boxShadow: designSystem.shadows.card,
+            }}
+        >
+            <Paragraph
+                color={designSystem.colors.mutedForeground}
+                fontFamily={designSystem.fonts.bodyBold}
+                fontSize={10}
+                textTransform="uppercase"
+                letterSpacing={1.2}
+            >
+                {label}
+            </Paragraph>
+            <Text
+                fontFamily={designSystem.fonts.headingBold}
+                fontSize={28}
+                style={{ color: accentColor }}
+            >
+                {value}
+            </Text>
+            <Paragraph
+                color={designSystem.colors.mutedForeground}
+                fontFamily={designSystem.fonts.bodyMedium}
+                fontSize={12}
+            >
+                {helperText}
+            </Paragraph>
+        </YStack>
+    );
+}
+
+interface ActionButtonProps {
+    readonly label: string;
+    readonly variant?: "default" | "primary";
+}
+
+/**
+ * Export action button styled to match the shared design system.
+ *
+ * @param props Button label and visual variant.
+ * @returns Styled export action.
+ */
+function ActionButton({ label, variant = "default" }: ActionButtonProps) {
+    const isPrimary = variant === "primary";
+
+    return (
+        <Button
+            flex={1}
+            height={46}
+            rounded={designSystem.radii.md}
+            borderWidth={isPrimary ? 0 : 1}
+            borderColor={designSystem.colors.border}
+            bg={isPrimary ? designSystem.colors.primary : designSystem.colors.input}
+            pressStyle={{ opacity: 0.92, scale: 0.985 }}
+        >
+            <XStack items="center" gap="$2">
+                <Download
+                    size={14}
+                    color={
+                        isPrimary
+                            ? designSystem.colors.primaryForeground
+                            : designSystem.colors.foreground
+                    }
+                />
+                <Text
+                    color={
+                        isPrimary
+                            ? designSystem.colors.primaryForeground
+                            : designSystem.colors.foreground
+                    }
+                    fontFamily={designSystem.fonts.bodyBold}
+                    fontSize={11}
+                    textTransform="uppercase"
+                    letterSpacing={1.2}
+                >
+                    {label}
+                </Text>
+            </XStack>
+        </Button>
+    );
 }

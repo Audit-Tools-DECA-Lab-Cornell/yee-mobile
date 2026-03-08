@@ -2,66 +2,27 @@ import { useMemo } from "react";
 import { ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { Clock3, LocateFixed, MapPin } from "@tamagui/lucide-icons";
-import { Button, Paragraph, Separator, Text, XStack, YStack } from "tamagui";
+import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { YEE_PLACES, type PlaceStatus, type PreAuditStatus } from "lib/yee-demo-data";
+import {
+    designSystem,
+    getPlaceStatusTone,
+    getPreAuditTone,
+    type DesignTone,
+} from "lib/design-system";
 import { useDemoUiStore } from "stores/demo-ui-store";
 
-type StatusTextColor = "$orange10" | "$blue10" | "$purple10" | "$green10";
-type StatusBackgroundColor = "$orange4" | "$blue4" | "$purple4" | "$green4";
-
-const PLACE_STATUS_VIEW: Record<
-    PlaceStatus,
-    {
-        readonly label: string;
-        readonly textColor: StatusTextColor;
-        readonly backgroundColor: StatusBackgroundColor;
-    }
-> = {
-    not_started: {
-        label: "Not Started",
-        textColor: "$orange10",
-        backgroundColor: "$orange4",
-    },
-    in_progress: {
-        label: "In Progress",
-        textColor: "$blue10",
-        backgroundColor: "$blue4",
-    },
-    ready_for_review: {
-        label: "Ready for Review",
-        textColor: "$purple10",
-        backgroundColor: "$purple4",
-    },
-    submitted: {
-        label: "Submitted",
-        textColor: "$green10",
-        backgroundColor: "$green4",
-    },
+const PLACE_STATUS_LABELS: Record<PlaceStatus, string> = {
+    not_started: "Not Started",
+    in_progress: "In Progress",
+    ready_for_review: "Ready for Review",
+    submitted: "Submitted",
 };
 
-const PRE_AUDIT_STATUS_VIEW: Record<
-    PreAuditStatus,
-    {
-        readonly label: string;
-        readonly textColor: StatusTextColor;
-        readonly backgroundColor: StatusBackgroundColor;
-    }
-> = {
-    pending: {
-        label: "Base Mode",
-        textColor: "$orange10",
-        backgroundColor: "$orange4",
-    },
-    in_progress: {
-        label: "Profile Setup",
-        textColor: "$blue10",
-        backgroundColor: "$blue4",
-    },
-    completed: {
-        label: "Profile Ready",
-        textColor: "$green10",
-        backgroundColor: "$green4",
-    },
+const PRE_AUDIT_STATUS_LABELS: Record<PreAuditStatus, string> = {
+    pending: "Base mode",
+    in_progress: "Profile setup",
+    completed: "Profile ready",
 };
 
 /**
@@ -86,198 +47,264 @@ export default function PlacesScreen() {
     }, []);
 
     return (
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+        <ScrollView
+            contentInsetAdjustmentBehavior="automatic"
+            style={{ backgroundColor: designSystem.colors.background }}
+            contentContainerStyle={{
+                paddingHorizontal: designSystem.spacing.screenPaddingHorizontal,
+                paddingTop: designSystem.spacing.screenPaddingVertical,
+                paddingBottom: 132,
+                gap: 24,
+            }}
+        >
             <YStack gap="$4">
-                <Text fontSize={28} fontWeight="700">
-                    Assigned Places
-                </Text>
-                <Paragraph color="$color10">
-                    View and complete audits for the places assigned to your account.
-                </Paragraph>
-                <XStack gap="$2">
-                    <YStack
-                        flex={1}
-                        borderWidth={1}
-                        borderColor="$blue6"
-                        rounded={12}
-                        p="$3"
-                        bg="$blue2"
+                <YStack gap="$1.5">
+                    <Text
+                        color={designSystem.colors.foreground}
+                        fontFamily={designSystem.fonts.headingBold}
+                        fontSize={32}
+                        lineHeight={36}
+                        letterSpacing={-0.7}
                     >
-                        <Paragraph color="$color10" fontSize={12}>
-                            In Progress
-                        </Paragraph>
-                        <Text fontSize={20} fontWeight="700" color="$blue10">
-                            {placeStatusCounts.in_progress}
-                        </Text>
-                    </YStack>
-                    <YStack
-                        flex={1}
-                        borderWidth={1}
-                        borderColor="$purple6"
-                        rounded={12}
-                        p="$3"
-                        bg="$purple2"
+                        Assigned Places
+                    </Text>
+                    <Paragraph
+                        color={designSystem.colors.mutedForeground}
+                        fontFamily={designSystem.fonts.bodyMedium}
                     >
-                        <Paragraph color="$color10" fontSize={12}>
-                            Ready for Review
-                        </Paragraph>
-                        <Text fontSize={20} fontWeight="700" color="$purple10">
-                            {placeStatusCounts.ready_for_review}
-                        </Text>
-                    </YStack>
-                    <YStack
-                        flex={1}
-                        borderWidth={1}
-                        borderColor="$green6"
-                        rounded={12}
-                        p="$3"
-                        bg="$green2"
-                    >
-                        <Paragraph color="$color10" fontSize={12}>
-                            Submitted
-                        </Paragraph>
-                        <Text fontSize={20} fontWeight="700" color="$green10">
-                            {placeStatusCounts.submitted}
-                        </Text>
-                    </YStack>
+                        Review your field queue, monitor base-score progress, and jump back into
+                        active YEE audits.
+                    </Paragraph>
+                </YStack>
+
+                <XStack gap="$3">
+                    <SummaryTile label="In progress" value={placeStatusCounts.in_progress} />
+                    <SummaryTile
+                        label="Ready"
+                        value={placeStatusCounts.ready_for_review}
+                        tone={{
+                            accent: designSystem.colors.violet,
+                            surface: designSystem.colors.violetSoft,
+                            text: designSystem.colors.violet,
+                        }}
+                    />
+                    <SummaryTile
+                        label="Submitted"
+                        value={placeStatusCounts.submitted}
+                        tone={{
+                            accent: designSystem.colors.success,
+                            surface: designSystem.colors.successSoft,
+                            text: designSystem.colors.success,
+                        }}
+                    />
                 </XStack>
             </YStack>
 
             <YStack gap="$3">
                 {YEE_PLACES.map((place) => {
-                    const placeStatus = PLACE_STATUS_VIEW[place.status];
-                    const preAuditStatus = PRE_AUDIT_STATUS_VIEW[place.preAuditStatus];
+                    const placeTone = getPlaceStatusTone(place.status);
+                    const preAuditTone = getPreAuditTone(place.preAuditStatus);
+                    const weightedScoreLabel = getWeightedScoreLabel(
+                        place.preAuditStatus,
+                        place.weightedScore,
+                    );
 
                     return (
                         <YStack
                             key={place.id}
+                            rounded={designSystem.radii.lg}
                             borderWidth={1}
-                            borderColor="$borderColor"
-                            rounded={16}
-                            bg="$background"
-                            p="$4"
-                            gap="$3"
-                            shadowColor="$shadowColor"
-                            shadowOpacity={0.07}
-                            shadowRadius={8}
-                            shadowOffset={{ width: 0, height: 3 }}
-                            elevation={2}
-                            pressStyle={{ scale: 0.995 }}
+                            borderColor={designSystem.colors.border}
+                            bg={designSystem.colors.surface}
+                            overflow="hidden"
+                            style={{
+                                boxShadow: designSystem.shadows.card,
+                            }}
                         >
-                            <XStack justify="space-between" items="center" gap="$3">
-                                <YStack flex={1} gap="$1">
-                                    <Text fontSize={17} fontWeight="700">
-                                        {place.placeName}
-                                    </Text>
-                                    <Paragraph color="$color10">{place.projectName}</Paragraph>
-                                </YStack>
-                                <YStack
-                                    rounded={999}
-                                    px="$3"
-                                    py="$1.5"
-                                    bg={placeStatus.backgroundColor}
-                                >
-                                    <Paragraph color={placeStatus.textColor} fontWeight="700">
-                                        {placeStatus.label}
-                                    </Paragraph>
-                                </YStack>
-                            </XStack>
+                            <XStack>
+                                <YStack width={4} style={{ backgroundColor: placeTone.accent }} />
 
-                            <XStack items="center" gap="$2">
-                                <MapPin size={14} color="$color10" />
-                                <Paragraph color="$color10">{place.locality}</Paragraph>
-                            </XStack>
+                                <YStack flex={1} p="$4" gap="$3">
+                                    <XStack justify="space-between" items="flex-start" gap="$3">
+                                        <YStack flex={1} gap="$1">
+                                            <Text
+                                                color={designSystem.colors.foreground}
+                                                fontFamily={designSystem.fonts.bodyBold}
+                                                fontSize={17}
+                                            >
+                                                {place.placeName}
+                                            </Text>
+                                            <Paragraph
+                                                color={designSystem.colors.mutedForeground}
+                                                fontFamily={designSystem.fonts.bodyMedium}
+                                            >
+                                                {place.projectName}
+                                            </Paragraph>
+                                        </YStack>
+                                        <YStack
+                                            rounded={designSystem.radii.full}
+                                            px="$3"
+                                            py="$1"
+                                            style={{ backgroundColor: placeTone.surface }}
+                                        >
+                                            <Text
+                                                style={{ color: placeTone.text }}
+                                                fontFamily={designSystem.fonts.bodyBold}
+                                                fontSize={10}
+                                                textTransform="uppercase"
+                                                letterSpacing={1.2}
+                                            >
+                                                {PLACE_STATUS_LABELS[place.status]}
+                                            </Text>
+                                        </YStack>
+                                    </XStack>
 
-                            <XStack gap="$3">
-                                <YStack
-                                    flex={1}
-                                    borderWidth={1}
-                                    borderColor="$borderColor"
-                                    rounded={12}
-                                    p="$3"
-                                >
-                                    <Paragraph color="$color10">Base Score</Paragraph>
-                                    <Text fontSize={23} fontWeight="700" color="$blue10">
-                                        {place.baseScore}%
-                                    </Text>
-                                </YStack>
-                                <YStack
-                                    flex={1}
-                                    borderWidth={1}
-                                    borderColor="$borderColor"
-                                    rounded={12}
-                                    p="$3"
-                                >
-                                    <Paragraph color="$color10">Weighted Score</Paragraph>
-                                    <Paragraph color="$purple10" fontWeight="700">
-                                        Planned in a future release
-                                    </Paragraph>
-                                </YStack>
-                            </XStack>
-
-                            <YStack gap="$1.5">
-                                <XStack justify="space-between" items="center">
-                                    <Paragraph color="$color10">Mandatory completion</Paragraph>
-                                    <Paragraph color="$blue10" fontWeight="700">
-                                        {place.mandatoryCompletionPercent}%
-                                    </Paragraph>
-                                </XStack>
-                                <YStack height={8} rounded={999} bg="$background">
-                                    <YStack
-                                        height={8}
-                                        rounded={999}
-                                        bg="$blue9"
-                                        width={`${place.mandatoryCompletionPercent}%`}
-                                    />
-                                </YStack>
-                            </YStack>
-
-                            <XStack
-                                justify="space-between"
-                                items="center"
-                                bg="$background"
-                                rounded={12}
-                                p="$3"
-                            >
-                                <YStack gap="$1.5">
                                     <XStack items="center" gap="$2">
-                                        <Clock3 size={14} color="$color10" />
-                                        <Paragraph color="$color10">
-                                            {place.updatedAtLabel}
+                                        <MapPin
+                                            size={14}
+                                            color={designSystem.colors.mutedForeground}
+                                        />
+                                        <Paragraph
+                                            color={designSystem.colors.mutedForeground}
+                                            fontFamily={designSystem.fonts.bodyMedium}
+                                        >
+                                            {place.locality}
                                         </Paragraph>
                                     </XStack>
-                                </YStack>
-                                <XStack
-                                    rounded={999}
-                                    px="$3"
-                                    py="$1.5"
-                                    bg={preAuditStatus.backgroundColor}
-                                >
-                                    <Paragraph color={preAuditStatus.textColor} fontWeight="700">
-                                        {preAuditStatus.label}
-                                    </Paragraph>
-                                </XStack>
-                            </XStack>
 
-                            <Separator borderColor="$borderColor" />
+                                    <XStack gap="$3">
+                                        <ScoreTile
+                                            label="Base score"
+                                            value={
+                                                place.baseScore === 0 ? "--" : `${place.baseScore}%`
+                                            }
+                                            valueColor={
+                                                place.baseScore === 0
+                                                    ? designSystem.colors.warning
+                                                    : designSystem.colors.primary
+                                            }
+                                        />
+                                        <ScoreTile
+                                            label="Weighted score"
+                                            value={weightedScoreLabel}
+                                            valueColor={
+                                                place.preAuditStatus === "completed"
+                                                    ? designSystem.colors.success
+                                                    : designSystem.colors.warning
+                                            }
+                                        />
+                                    </XStack>
 
-                            <XStack justify="space-between" items="center">
-                                <Paragraph color="$color10">{place.projectName}</Paragraph>
-                                <XStack gap="$2">
-                                    <Button
-                                        size="$2"
-                                        theme="blue"
-                                        onPress={() => {
-                                            setSelectedPlaceId(place.id);
-                                            router.push("/(tabs)/execute");
-                                        }}
-                                    >
-                                        <XStack items="center" gap="$1">
-                                            <LocateFixed size={14} />
-                                            <Text>Open Audit</Text>
+                                    <YStack gap="$2">
+                                        <XStack justify="space-between" items="center">
+                                            <Paragraph
+                                                color={designSystem.colors.mutedForeground}
+                                                fontFamily={designSystem.fonts.bodyMedium}
+                                            >
+                                                Mandatory completion
+                                            </Paragraph>
+                                            <Text
+                                                color={designSystem.colors.primary}
+                                                fontFamily={designSystem.fonts.monoBold}
+                                                fontSize={12}
+                                            >
+                                                {place.mandatoryCompletionPercent}%
+                                            </Text>
                                         </XStack>
-                                    </Button>
-                                </XStack>
+                                        <YStack
+                                            height={6}
+                                            rounded={designSystem.radii.full}
+                                            bg={designSystem.colors.mutedSurface}
+                                            overflow="hidden"
+                                        >
+                                            <YStack
+                                                height={6}
+                                                rounded={designSystem.radii.full}
+                                                bg={designSystem.colors.primary}
+                                                width={`${place.mandatoryCompletionPercent}%`}
+                                            />
+                                        </YStack>
+                                    </YStack>
+
+                                    <YStack
+                                        gap="$3"
+                                        rounded={designSystem.radii.md}
+                                        borderWidth={1}
+                                        borderColor={designSystem.colors.border}
+                                        bg={designSystem.colors.input}
+                                        p="$3"
+                                    >
+                                        <XStack justify="space-between" items="center" gap="$2.5">
+                                            <XStack
+                                                items="center"
+                                                gap="$2"
+                                                flex={1}
+                                                style={{ minWidth: 0 }}
+                                            >
+                                                <Clock3
+                                                    size={14}
+                                                    color={designSystem.colors.mutedForeground}
+                                                />
+                                                <Paragraph
+                                                    color={designSystem.colors.mutedForeground}
+                                                    fontFamily={designSystem.fonts.bodyMedium}
+                                                >
+                                                    {place.updatedAtLabel}
+                                                </Paragraph>
+                                            </XStack>
+
+                                            <YStack
+                                                height={30}
+                                                justify="center"
+                                                rounded={designSystem.radii.sm}
+                                                px="$3"
+                                                style={{
+                                                    backgroundColor: preAuditTone.surface,
+                                                }}
+                                            >
+                                                <Text
+                                                    style={{ color: preAuditTone.text }}
+                                                    fontFamily={designSystem.fonts.bodyBold}
+                                                    fontSize={10}
+                                                    textTransform="uppercase"
+                                                    letterSpacing={1.1}
+                                                >
+                                                    {PRE_AUDIT_STATUS_LABELS[place.preAuditStatus]}
+                                                </Text>
+                                            </YStack>
+                                        </XStack>
+
+                                        <Button
+                                            width="100%"
+                                            height={42}
+                                            px="$3"
+                                            rounded={designSystem.radii.sm}
+                                            borderWidth={0}
+                                            bg={designSystem.colors.primary}
+                                            pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                                            onPress={() => {
+                                                setSelectedPlaceId(place.id);
+                                                router.push("/(tabs)/execute");
+                                            }}
+                                        >
+                                            <XStack items="center" justify="center" gap="$1.5">
+                                                <LocateFixed
+                                                    size={14}
+                                                    color={designSystem.colors.primaryForeground}
+                                                />
+                                                <Text
+                                                    color={designSystem.colors.primaryForeground}
+                                                    fontFamily={designSystem.fonts.bodyBold}
+                                                    fontSize={10}
+                                                    textTransform="uppercase"
+                                                    letterSpacing={1.1}
+                                                >
+                                                    Open audit
+                                                </Text>
+                                            </XStack>
+                                        </Button>
+                                    </YStack>
+                                </YStack>
                             </XStack>
                         </YStack>
                     );
@@ -285,4 +312,115 @@ export default function PlacesScreen() {
             </YStack>
         </ScrollView>
     );
+}
+
+interface SummaryTileProps {
+    readonly label: string;
+    readonly value: number;
+    readonly tone?: DesignTone;
+}
+
+/**
+ * Compact summary tile used above the assigned places queue.
+ *
+ * @param props Summary tile props.
+ * @returns Small metric card.
+ */
+function SummaryTile({ label, value, tone }: SummaryTileProps) {
+    const tileTone = tone ?? {
+        accent: designSystem.colors.primary,
+        surface: designSystem.colors.primarySoft,
+        text: designSystem.colors.primary,
+    };
+
+    return (
+        <YStack
+            flex={1}
+            rounded={designSystem.radii.lg}
+            borderWidth={1}
+            borderColor={designSystem.colors.border}
+            bg={designSystem.colors.surface}
+            p="$3"
+        >
+            <Paragraph
+                color={designSystem.colors.mutedForeground}
+                fontFamily={designSystem.fonts.bodyBold}
+                fontSize={10}
+                textTransform="uppercase"
+                letterSpacing={1.2}
+            >
+                {label}
+            </Paragraph>
+            <Text
+                fontFamily={designSystem.fonts.headingBold}
+                fontSize={24}
+                mt="$2"
+                style={{ color: tileTone.text }}
+            >
+                {value}
+            </Text>
+        </YStack>
+    );
+}
+
+interface ScoreTileProps {
+    readonly label: string;
+    readonly value: string;
+    readonly valueColor: string;
+}
+
+/**
+ * Small score tile used inside each place card.
+ *
+ * @param props Score tile props.
+ * @returns Bordered score surface.
+ */
+function ScoreTile({ label, value, valueColor }: ScoreTileProps) {
+    return (
+        <YStack
+            flex={1}
+            rounded={designSystem.radii.md}
+            borderWidth={1}
+            borderColor={designSystem.colors.border}
+            bg={designSystem.colors.input}
+            p="$3"
+        >
+            <Paragraph
+                color={designSystem.colors.mutedForeground}
+                fontFamily={designSystem.fonts.bodyBold}
+                fontSize={10}
+                textTransform="uppercase"
+                letterSpacing={1.2}
+            >
+                {label}
+            </Paragraph>
+            <Text
+                fontFamily={designSystem.fonts.headingBold}
+                fontSize={22}
+                mt="$2"
+                style={{ color: valueColor }}
+            >
+                {value}
+            </Text>
+        </YStack>
+    );
+}
+
+/**
+ * Resolve the weighted-score label based on pre-audit readiness.
+ *
+ * @param preAuditStatus Current pre-audit setup state.
+ * @param weightedScore Weighted score from demo data.
+ * @returns Display-ready weighted score label.
+ */
+function getWeightedScoreLabel(preAuditStatus: PreAuditStatus, weightedScore: number): string {
+    if (preAuditStatus !== "completed") {
+        return "Planned";
+    }
+
+    if (weightedScore <= 0) {
+        return "--";
+    }
+
+    return `${weightedScore}%`;
 }

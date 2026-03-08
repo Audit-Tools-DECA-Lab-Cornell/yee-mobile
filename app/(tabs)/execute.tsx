@@ -2,19 +2,26 @@ import { useMemo, useState } from "react";
 import { ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CircleCheckBig, Clock3, Link2, Save, Send, TriangleAlert } from "@tamagui/lucide-icons";
-import { Button, Paragraph, Separator, Text, XStack, YStack } from "tamagui";
+import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import {
     AUDIT_SECTION_PREVIEW,
     YEE_PLACES,
     type PreAuditStatus,
     toCompletionPercent,
 } from "lib/yee-demo-data";
+import { designSystem, getPreAuditTone } from "lib/design-system";
 import { useDemoUiStore } from "stores/demo-ui-store";
 
 const PRE_AUDIT_STATUS_LABELS: Record<PreAuditStatus, string> = {
     pending: "Base scoring active",
     in_progress: "Scoring profile setup in progress",
     completed: "Scoring profile ready",
+};
+
+const PRE_AUDIT_BADGE_LABELS: Record<PreAuditStatus, string> = {
+    pending: "Base mode",
+    in_progress: "Profile setup",
+    completed: "Profile ready",
 };
 
 /**
@@ -33,7 +40,6 @@ export default function ExecuteScreen() {
     const activePlace = useMemo(() => {
         return YEE_PLACES.find((place) => place.id === selectedPlaceId) ?? defaultPlace;
     }, [defaultPlace, selectedPlaceId]);
-
     const totalAnswered = useMemo(() => {
         return AUDIT_SECTION_PREVIEW.reduce((sum, section) => {
             return sum + section.answeredItems;
@@ -44,7 +50,6 @@ export default function ExecuteScreen() {
             return sum + section.totalItems;
         }, 0);
     }, []);
-
     const mandatoryAnswered = useMemo(() => {
         return AUDIT_SECTION_PREVIEW.reduce((sum, section) => {
             if (!section.mandatory) {
@@ -54,7 +59,6 @@ export default function ExecuteScreen() {
             return sum + section.answeredItems;
         }, 0);
     }, []);
-
     const mandatoryQuestions = useMemo(() => {
         return AUDIT_SECTION_PREVIEW.reduce((sum, section) => {
             if (!section.mandatory) {
@@ -64,232 +68,447 @@ export default function ExecuteScreen() {
             return sum + section.totalItems;
         }, 0);
     }, []);
+    const activeSectionIndex = useMemo(() => {
+        const firstIncompleteSectionIndex = AUDIT_SECTION_PREVIEW.findIndex((section) => {
+            return section.answeredItems < section.totalItems;
+        });
+
+        return Math.max(firstIncompleteSectionIndex, 0);
+    }, []);
 
     const overallCompletion = toCompletionPercent(totalAnswered, totalQuestions);
     const mandatoryCompletion = toCompletionPercent(mandatoryAnswered, mandatoryQuestions);
     const scorePreviewBase = Math.round((ratingValue / 5) * 100);
+    const preAuditTone = getPreAuditTone(activePlace.preAuditStatus);
+    const activeSection = AUDIT_SECTION_PREVIEW[activeSectionIndex];
 
     return (
-        <YStack flex={1}>
+        <YStack flex={1} bg={designSystem.colors.background}>
             <ScrollView
-                contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: insets.bottom + 96 }}
+                contentInsetAdjustmentBehavior="automatic"
+                style={{ backgroundColor: designSystem.colors.background }}
+                contentContainerStyle={{
+                    paddingHorizontal: designSystem.spacing.screenPaddingHorizontal,
+                    paddingTop: designSystem.spacing.screenPaddingVertical,
+                    gap: 20,
+                    paddingBottom: insets.bottom + 116,
+                }}
             >
-                <YStack gap="$4">
-                    <Text fontSize={28} fontWeight="700">
-                        Execute YEE Audit
-                    </Text>
-                    <Paragraph color="$color10">
-                        Complete your assigned field audit offline and sync updates when connected.
-                    </Paragraph>
-                </YStack>
-
                 <YStack
+                    rounded={designSystem.radii.lg}
                     borderWidth={1}
-                    borderColor="$borderColor"
-                    rounded={16}
+                    borderColor={designSystem.colors.border}
+                    bg={designSystem.colors.surface}
                     p="$4"
-                    bg="$background"
                     gap="$3"
-                    shadowColor="$shadowColor"
-                    shadowOpacity={0.08}
-                    shadowRadius={8}
-                    shadowOffset={{ width: 0, height: 3 }}
-                    elevation={2}
+                    style={{
+                        boxShadow: designSystem.shadows.card,
+                    }}
                 >
                     <XStack justify="space-between" items="center">
-                        <YStack gap="$1">
-                            <Text fontSize={18} fontWeight="700">
-                                {activePlace.placeName}
+                        <YStack
+                            rounded={designSystem.radii.sm}
+                            px="$2"
+                            py="$1"
+                            bg={designSystem.colors.surfaceMuted}
+                        >
+                            <Text
+                                color={designSystem.colors.warning}
+                                fontFamily={designSystem.fonts.bodyBold}
+                                fontSize={10}
+                                textTransform="uppercase"
+                                letterSpacing={1.2}
+                            >
+                                Draft
                             </Text>
-                            <Paragraph color="$color10">{activePlace.locality}</Paragraph>
                         </YStack>
-                        <YStack rounded={999} px="$3" py="$1" bg="$blue4">
-                            <Paragraph color="$blue10" fontWeight="700">
-                                Assigned to you
-                            </Paragraph>
+                        <YStack
+                            rounded={designSystem.radii.full}
+                            px="$3"
+                            py="$1"
+                            style={{ backgroundColor: preAuditTone.surface }}
+                        >
+                            <Text
+                                style={{ color: preAuditTone.text }}
+                                fontFamily={designSystem.fonts.bodyBold}
+                                fontSize={10}
+                                textTransform="uppercase"
+                                letterSpacing={1.2}
+                            >
+                                {PRE_AUDIT_BADGE_LABELS[activePlace.preAuditStatus]}
+                            </Text>
                         </YStack>
                     </XStack>
 
+                    <YStack gap="$1">
+                        <Text
+                            color={designSystem.colors.mutedForeground}
+                            fontFamily={designSystem.fonts.monoBold}
+                            fontSize={12}
+                            textTransform="uppercase"
+                            letterSpacing={1.1}
+                        >
+                            {activePlace.id.toUpperCase()} | {activePlace.projectName}
+                        </Text>
+                        <Text
+                            color={designSystem.colors.foreground}
+                            fontFamily={designSystem.fonts.headingBold}
+                            fontSize={28}
+                            lineHeight={32}
+                        >
+                            {activePlace.placeName}
+                        </Text>
+                        <Paragraph
+                            color={designSystem.colors.mutedForeground}
+                            fontFamily={designSystem.fonts.bodyMedium}
+                        >
+                            {activePlace.locality}
+                        </Paragraph>
+                    </YStack>
+
                     <XStack items="center" gap="$2">
-                        <Link2 size={14} color="$purple10" />
-                        <Paragraph color="$purple10" fontWeight="700">
+                        <Link2 size={14} color={preAuditTone.text} />
+                        <Paragraph
+                            fontFamily={designSystem.fonts.bodyBold}
+                            style={{ color: preAuditTone.text }}
+                        >
                             {PRE_AUDIT_STATUS_LABELS[activePlace.preAuditStatus]}
                         </Paragraph>
                     </XStack>
 
-                    <YStack gap="$2">
-                        <XStack justify="space-between">
-                            <Paragraph color="$color10">Overall completion</Paragraph>
-                            <Paragraph color="$blue10" fontWeight="700">
-                                {overallCompletion}%
-                            </Paragraph>
-                        </XStack>
-                        <YStack height={10} rounded={999} bg="$background">
+                    {activeSection === undefined ? null : (
+                        <YStack gap="$2">
+                            <XStack justify="space-between">
+                                <Text
+                                    color={designSystem.colors.mutedForeground}
+                                    fontFamily={designSystem.fonts.bodyMedium}
+                                    fontSize={12}
+                                >
+                                    Section {activeSectionIndex + 1}: {activeSection.sectionName}
+                                </Text>
+                                <Text
+                                    color={designSystem.colors.primary}
+                                    fontFamily={designSystem.fonts.bodyBold}
+                                    fontSize={12}
+                                >
+                                    {activeSection.answeredItems}/{activeSection.totalItems}{" "}
+                                    completed
+                                </Text>
+                            </XStack>
                             <YStack
-                                height={10}
-                                rounded={999}
-                                bg="$blue9"
-                                width={`${overallCompletion}%`}
-                            />
+                                height={6}
+                                rounded={designSystem.radii.full}
+                                bg={designSystem.colors.mutedSurface}
+                                overflow="hidden"
+                            >
+                                <YStack
+                                    height={6}
+                                    rounded={designSystem.radii.full}
+                                    bg={designSystem.colors.primary}
+                                    width={`${toCompletionPercent(
+                                        activeSection.answeredItems,
+                                        activeSection.totalItems,
+                                    )}%`}
+                                />
+                            </YStack>
                         </YStack>
-                    </YStack>
+                    )}
+                </YStack>
 
-                    <YStack gap="$2">
-                        <XStack justify="space-between">
-                            <Paragraph color="$color10">Mandatory completion</Paragraph>
-                            <Paragraph color="$green10" fontWeight="700">
-                                {mandatoryCompletion}%
-                            </Paragraph>
-                        </XStack>
-                        <YStack height={10} rounded={999} bg="$background">
-                            <YStack
-                                height={10}
-                                rounded={999}
-                                bg="$green9"
-                                width={`${mandatoryCompletion}%`}
-                            />
-                        </YStack>
-                    </YStack>
+                <YStack gap="$3">
+                    <HeaderMetric
+                        label="Overall completion"
+                        value={`${overallCompletion}%`}
+                        accentColor={designSystem.colors.primary}
+                    />
+                    <HeaderMetric
+                        label="Mandatory completion"
+                        value={`${mandatoryCompletion}%`}
+                        accentColor={designSystem.colors.success}
+                    />
+                </YStack>
 
+                <YStack gap="$2.5">
                     <XStack items="center" gap="$2">
-                        <Clock3 size={14} color="$color10" />
-                        <Paragraph color="$color10">
-                            Autosave every 30 seconds and on section transition
+                        <Clock3 size={14} color={designSystem.colors.mutedForeground} />
+                        <Paragraph
+                            color={designSystem.colors.mutedForeground}
+                            fontFamily={designSystem.fonts.bodyMedium}
+                        >
+                            Autosave every 30 seconds and on section transition.
                         </Paragraph>
                     </XStack>
 
                     <XStack items="center" gap="$2">
-                        <TriangleAlert size={14} color="$orange10" />
-                        <Paragraph color="$orange10">
-                            This mobile release uses base scoring. Pre-audit weighted scoring is
-                            planned next.
+                        <TriangleAlert size={14} color={designSystem.colors.warning} />
+                        <Paragraph
+                            color={designSystem.colors.warning}
+                            fontFamily={designSystem.fonts.bodyMedium}
+                        >
+                            Mobile capture is using base scoring while weighted scoring waits for
+                            the pre-audit setup flow to be completed and synced.
                         </Paragraph>
                     </XStack>
                 </YStack>
 
                 <YStack gap="$3">
-                    {AUDIT_SECTION_PREVIEW.map((section) => {
+                    {AUDIT_SECTION_PREVIEW.map((section, index) => {
                         const completion = toCompletionPercent(
                             section.answeredItems,
                             section.totalItems,
                         );
+                        const isActiveSection = index === activeSectionIndex;
+                        const accentColor = isActiveSection
+                            ? designSystem.colors.primary
+                            : completion >= 100
+                              ? designSystem.colors.success
+                              : section.mandatory
+                                ? designSystem.colors.warning
+                                : designSystem.colors.mutedForeground;
 
                         return (
                             <YStack
                                 key={section.id}
+                                rounded={designSystem.radii.lg}
                                 borderWidth={1}
-                                borderColor="$borderColor"
-                                rounded={16}
-                                p="$4"
-                                bg="$background"
-                                gap="$2.5"
+                                borderColor={
+                                    isActiveSection
+                                        ? "rgba(197, 138, 92, 0.5)"
+                                        : designSystem.colors.border
+                                }
+                                bg={designSystem.colors.surface}
+                                overflow="hidden"
+                                style={{
+                                    boxShadow: designSystem.shadows.card,
+                                }}
                             >
-                                <XStack justify="space-between" items="center">
-                                    <Text fontSize={17} fontWeight="700">
-                                        {section.sectionName}
-                                    </Text>
-                                    <XStack
-                                        rounded={999}
-                                        px="$3"
-                                        py="$1"
-                                        bg={section.mandatory ? "$orange4" : "$blue4"}
-                                    >
-                                        <Paragraph
-                                            color={section.mandatory ? "$orange10" : "$blue10"}
-                                            fontWeight="700"
-                                        >
-                                            {section.mandatory ? "Mandatory" : "Optional"}
-                                        </Paragraph>
-                                    </XStack>
-                                </XStack>
+                                <XStack>
+                                    <YStack width={4} bg={accentColor} />
 
-                                <XStack justify="space-between">
-                                    <Paragraph color="$color10">
-                                        {section.answeredItems} / {section.totalItems} answered
-                                    </Paragraph>
-                                    <Paragraph color="$blue10" fontWeight="700">
-                                        {completion}%
-                                    </Paragraph>
+                                    <YStack flex={1} p="$4" gap="$3">
+                                        <XStack items="flex-start" gap="$3">
+                                            <Text
+                                                color={accentColor}
+                                                fontFamily={designSystem.fonts.headingBold}
+                                                fontSize={15}
+                                            >
+                                                {`${index + 1}`.padStart(2, "0")}
+                                            </Text>
+                                            <YStack flex={1} gap="$1">
+                                                <Text
+                                                    color={designSystem.colors.foreground}
+                                                    fontFamily={designSystem.fonts.bodyBold}
+                                                    fontSize={17}
+                                                >
+                                                    {section.sectionName}
+                                                </Text>
+                                                <Paragraph
+                                                    color={designSystem.colors.mutedForeground}
+                                                    fontFamily={designSystem.fonts.bodyMedium}
+                                                >
+                                                    {section.answeredItems} / {section.totalItems}{" "}
+                                                    answered
+                                                </Paragraph>
+                                            </YStack>
+                                            <YStack
+                                                rounded={designSystem.radii.full}
+                                                px="$3"
+                                                py="$1"
+                                                bg={
+                                                    isActiveSection
+                                                        ? designSystem.colors.primarySoft
+                                                        : designSystem.colors.surfaceMuted
+                                                }
+                                            >
+                                                <Text
+                                                    color={
+                                                        isActiveSection
+                                                            ? designSystem.colors.primary
+                                                            : designSystem.colors
+                                                                  .secondaryForeground
+                                                    }
+                                                    fontFamily={designSystem.fonts.bodyBold}
+                                                    fontSize={10}
+                                                    textTransform="uppercase"
+                                                    letterSpacing={1.1}
+                                                >
+                                                    {isActiveSection ? "Active" : `${completion}%`}
+                                                </Text>
+                                            </YStack>
+                                        </XStack>
+
+                                        <YStack
+                                            height={6}
+                                            rounded={designSystem.radii.full}
+                                            bg={designSystem.colors.mutedSurface}
+                                            overflow="hidden"
+                                        >
+                                            <YStack
+                                                height={6}
+                                                rounded={designSystem.radii.full}
+                                                bg={accentColor}
+                                                width={`${completion}%`}
+                                            />
+                                        </YStack>
+
+                                        <XStack
+                                            justify="space-between"
+                                            items="center"
+                                            gap="$3"
+                                            flexWrap="wrap"
+                                        >
+                                            <YStack
+                                                rounded={designSystem.radii.sm}
+                                                px="$2.5"
+                                                py="$1"
+                                                bg={
+                                                    section.mandatory
+                                                        ? designSystem.colors.warningSoft
+                                                        : designSystem.colors.surfaceMuted
+                                                }
+                                            >
+                                                <Text
+                                                    color={
+                                                        section.mandatory
+                                                            ? designSystem.colors.warning
+                                                            : designSystem.colors
+                                                                  .secondaryForeground
+                                                    }
+                                                    fontFamily={designSystem.fonts.bodyBold}
+                                                    fontSize={10}
+                                                    textTransform="uppercase"
+                                                    letterSpacing={1.2}
+                                                >
+                                                    {section.mandatory ? "Mandatory" : "Optional"}
+                                                </Text>
+                                            </YStack>
+
+                                            {section.mandatory ? (
+                                                <Text
+                                                    color={designSystem.colors.success}
+                                                    fontFamily={designSystem.fonts.bodyBold}
+                                                    fontSize={12}
+                                                >
+                                                    Section score {section.sectionScorePercent}%
+                                                </Text>
+                                            ) : (
+                                                <Paragraph
+                                                    color={designSystem.colors.mutedForeground}
+                                                    fontFamily={designSystem.fonts.bodyMedium}
+                                                    fontSize={12}
+                                                >
+                                                    Informational section, not scored.
+                                                </Paragraph>
+                                            )}
+                                        </XStack>
+                                    </YStack>
                                 </XStack>
-                                <YStack height={8} rounded={999} bg="$background">
-                                    <YStack
-                                        height={8}
-                                        rounded={999}
-                                        bg="$blue9"
-                                        width={`${completion}%`}
-                                    />
-                                </YStack>
-                                {section.mandatory ? (
-                                    <Paragraph color="$green10" fontWeight="700">
-                                        Section score: {section.sectionScorePercent}%
-                                    </Paragraph>
-                                ) : (
-                                    <Paragraph color="$color10">
-                                        Participant info supports context and is not scored.
-                                    </Paragraph>
-                                )}
                             </YStack>
                         );
                     })}
                 </YStack>
 
                 <YStack
+                    rounded={designSystem.radii.lg}
                     borderWidth={1}
-                    borderColor="$borderColor"
-                    rounded={16}
+                    borderColor={designSystem.colors.border}
+                    bg={designSystem.colors.surface}
                     p="$4"
-                    bg="$background"
                     gap="$3"
-                    shadowColor="$shadowColor"
-                    shadowOpacity={0.08}
-                    shadowRadius={8}
-                    shadowOffset={{ width: 0, height: 3 }}
-                    elevation={2}
+                    style={{
+                        boxShadow: designSystem.shadows.card,
+                    }}
                 >
-                    <Text fontSize={18} fontWeight="700">
-                        Quick Prompt Preview
+                    <Text
+                        color={designSystem.colors.foreground}
+                        fontFamily={designSystem.fonts.headingBold}
+                        fontSize={20}
+                    >
+                        Quick scoring preview
                     </Text>
-                    <Paragraph color="$color10">
+                    <Paragraph
+                        color={designSystem.colors.mutedForeground}
+                        fontFamily={designSystem.fonts.bodyMedium}
+                    >
                         To what extent does this place enable youth participation and shared
                         decision-making?
                     </Paragraph>
                     <XStack gap="$2">
                         {[1, 2, 3, 4, 5].map((value) => {
                             const isSelected = value === ratingValue;
+
                             return (
                                 <Button
                                     key={value}
                                     flex={1}
-                                    size="$3"
-                                    theme={isSelected ? "blue" : null}
-                                    pressStyle={{ scale: 0.97 }}
+                                    height={46}
+                                    rounded={designSystem.radii.md}
+                                    borderWidth={1}
+                                    borderColor={
+                                        isSelected
+                                            ? designSystem.colors.primary
+                                            : designSystem.colors.border
+                                    }
+                                    bg={
+                                        isSelected
+                                            ? designSystem.colors.primary
+                                            : designSystem.colors.input
+                                    }
+                                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
                                     onPress={() => {
                                         setRatingValue(value);
                                     }}
                                 >
-                                    <Text color="$color10">{value}</Text>
+                                    <Text
+                                        color={
+                                            isSelected
+                                                ? designSystem.colors.primaryForeground
+                                                : designSystem.colors.foreground
+                                        }
+                                        fontFamily={designSystem.fonts.bodyBold}
+                                        fontSize={15}
+                                    >
+                                        {value}
+                                    </Text>
                                 </Button>
                             );
                         })}
                     </XStack>
-                    <XStack gap="$3">
-                        <YStack
-                            flex={1}
-                            borderWidth={1}
-                            borderColor="$borderColor"
-                            rounded={12}
-                            p="$3"
+
+                    <YStack
+                        rounded={designSystem.radii.md}
+                        borderWidth={1}
+                        borderColor={designSystem.colors.border}
+                        bg={designSystem.colors.input}
+                        p="$3"
+                        gap="$1"
+                    >
+                        <Paragraph
+                            color={designSystem.colors.mutedForeground}
+                            fontFamily={designSystem.fonts.bodyBold}
+                            fontSize={10}
+                            textTransform="uppercase"
+                            letterSpacing={1.2}
                         >
-                            <Paragraph color="$color10">Preview Base</Paragraph>
-                            <Text color="$blue10" fontSize={22} fontWeight="700">
-                                {scorePreviewBase}%
-                            </Text>
-                        </YStack>
-                    </XStack>
-                    <Separator borderColor="$borderColor" />
-                    <XStack items="center" gap="$2">
-                        <CircleCheckBig size={14} color="$green10" />
-                        <Paragraph color="$green10">
+                            Preview base score
+                        </Paragraph>
+                        <Text
+                            color={designSystem.colors.primary}
+                            fontFamily={designSystem.fonts.headingBold}
+                            fontSize={22}
+                        >
+                            {scorePreviewBase}%
+                        </Text>
+                    </YStack>
+
+                    <XStack justify="center" items="center" gap="$2" width="100%" px="$2">
+                        <CircleCheckBig size={14} color={designSystem.colors.success} />
+                        <Paragraph
+                            color={designSystem.colors.success}
+                            fontFamily={designSystem.fonts.bodyMedium}
+                            lineHeight={20}
+                            style={{ flexShrink: 1, textAlign: "start" }}
+                        >
                             Draft ready. Mandatory sections are{" "}
                             {mandatoryCompletion >= 80
                                 ? "ready for submission"
@@ -302,17 +521,12 @@ export default function ExecuteScreen() {
 
             <YStack
                 borderTopWidth={1}
-                borderTopColor="$borderColor"
-                bg="$background"
+                borderTopColor={designSystem.colors.border}
+                bg={designSystem.colors.overlay}
                 px="$4"
                 pt="$3"
                 pb={Math.max(insets.bottom, 12)}
                 gap="$2"
-                shadowColor="$shadowColor"
-                shadowOpacity={0.12}
-                shadowRadius={12}
-                shadowOffset={{ width: 0, height: -4 }}
-                elevation={6}
                 style={{
                     position: "absolute",
                     left: 0,
@@ -321,26 +535,95 @@ export default function ExecuteScreen() {
                 }}
             >
                 <XStack gap="$2">
-                    <Button flex={1} size="$4">
+                    <Button
+                        flex={1}
+                        height={52}
+                        rounded={designSystem.radii.md}
+                        borderWidth={1}
+                        borderColor={designSystem.colors.border}
+                        bg={designSystem.colors.surface}
+                        pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                    >
                         <XStack items="center" gap="$2">
-                            <Save size={16} />
-                            <Text>Save local draft</Text>
+                            <Save size={16} color={designSystem.colors.foreground} />
+                            <Text
+                                color={designSystem.colors.foreground}
+                                fontFamily={designSystem.fonts.bodyBold}
+                                fontSize={12}
+                                textTransform="uppercase"
+                                letterSpacing={1.2}
+                            >
+                                Save local draft
+                            </Text>
                         </XStack>
                     </Button>
                     <Button
                         flex={1}
-                        size="$4"
-                        theme="green"
+                        height={52}
+                        rounded={designSystem.radii.md}
+                        borderWidth={0}
+                        bg={designSystem.colors.primary}
                         disabled={mandatoryCompletion < 80}
                         opacity={mandatoryCompletion < 80 ? 0.6 : 1}
+                        pressStyle={{ opacity: 0.92, scale: 0.985 }}
                     >
                         <XStack items="center" gap="$2">
-                            <Send size={16} />
-                            <Text>Submit YEE audit</Text>
+                            <Send size={16} color={designSystem.colors.primaryForeground} />
+                            <Text
+                                color={designSystem.colors.primaryForeground}
+                                fontFamily={designSystem.fonts.bodyBold}
+                                fontSize={12}
+                                textTransform="uppercase"
+                                letterSpacing={1.2}
+                            >
+                                Submit YEE audit
+                            </Text>
                         </XStack>
                     </Button>
                 </XStack>
             </YStack>
+        </YStack>
+    );
+}
+
+interface HeaderMetricProps {
+    readonly label: string;
+    readonly value: string;
+    readonly accentColor: string;
+}
+
+/**
+ * Compact execution header metric.
+ *
+ * @param props Metric content and accent color.
+ * @returns A small bordered metric surface.
+ */
+function HeaderMetric({ label, value, accentColor }: HeaderMetricProps) {
+    return (
+        <YStack
+            rounded={designSystem.radii.md}
+            borderWidth={1}
+            borderColor={designSystem.colors.border}
+            bg={designSystem.colors.surfaceMuted}
+            p="$3"
+            gap="$1"
+        >
+            <Paragraph
+                color={designSystem.colors.mutedForeground}
+                fontFamily={designSystem.fonts.bodyBold}
+                fontSize={10}
+                textTransform="uppercase"
+                letterSpacing={1.2}
+            >
+                {label}
+            </Paragraph>
+            <Text
+                fontFamily={designSystem.fonts.headingBold}
+                fontSize={24}
+                style={{ color: accentColor }}
+            >
+                {value}
+            </Text>
         </YStack>
     );
 }

@@ -1,0 +1,37 @@
+---
+description: Strict UI, responsive, and adaptive design guidelines for React Native screens and components. Use this when generating Tamagui layouts, handling device dimensions, or implementing screen-level architecture.
+globs: ["app/**/*.tsx", "components/**/*.tsx", "ui/**/*.tsx", "**/*.styles.ts"]
+alwaysApply: false
+---
+
+# UI & Adaptive Design Guidelines
+
+You are an expert in mobile UI engineering and adaptive design. When building interfaces using React Native, Expo, and Tamagui, you must strictly adhere to the following adaptive and responsive principles.
+
+## Responsive vs. Adaptive Mental Model
+* **Responsive:** The UI must fluidly adjust to different screen sizes and orientations (phone portrait, tablet landscape).
+* **Adaptive:** The UI must respond to the specific device context, input modality (touch vs. keyboard), and platform conventions (iOS vs. Android).
+
+## Fluid & Responsive Layouts (Tamagui & Flexbox)
+* Never use hardcoded pixel values for structural widths or heights. Rely entirely on React Native Flexbox (`flex: 1`, `flexWrap: 'wrap'`).
+* Leverage Tamagui's responsive prop syntax for varying screen sizes (e.g., `width={{ "$xs": '100%', "$gtSm": '50%' }}`).
+* Implement `ScrollView` or Tamagui's `YStack` with scrolling enabled for any content that might overflow on smaller devices.
+* Use `useWindowDimensions()` to conditionally render entirely different layout structures (e.g., a bottom tab bar on mobile vs. a side drawer on tablet) when simple Flexbox wrapping is insufficient.
+
+## Safe Areas & Viewport Constraints
+* Always respect device notches, dynamic islands, and home indicators. Use `useSafeAreaInsets()` from `react-native-safe-area-context` to apply dynamic padding to the top and bottom of your outermost `YStack` or `View`.
+* Prevent the virtual keyboard from breaking the layout. Wrap form screens in `KeyboardAvoidingView` with the appropriate `behavior` prop (`padding` for iOS, `height` for Android) or use `react-native-keyboard-aware-scroll-view`.
+
+## Ergonomics & Visual Density
+* **Touch Targets:** All interactive elements (buttons, links, toggles) must have a minimum touch area of 44x44 points. Use the `hitSlop` prop if the visual design of a button needs to be smaller than the touch target.
+* **Thumb Zones:** Place primary floating actions (like "Submit Audit" or "New Place") in the bottom third of the screen for easy one-handed reachability.
+* **Density Adaptation:** On larger screens (tablets), increase the padding (`$space` tokens) between elements to prevent the UI from looking stretched or sparse. 
+
+## Cognitive Clarity & Inclusive Architecture
+* Design interfaces that minimize sensory overload. Group related data logically using Tamagui `Card` components to create distinct visual boundaries.
+* Avoid nesting too many scrollable areas within each other. A single, predictable scrolling direction reduces cognitive friction.
+* Use clear, predictable state indicators. If a user triggers an action, immediately show a Tamagui `Spinner` or skeleton loader rather than leaving the UI static while Zustand processes the background task.
+
+## Adaptive Typography & Theming
+* Rely on Tamagui's `$font` sizing tokens to ensure text scales gracefully if the user has increased their device's default accessibility font size.
+* Ensure the contrast ratio between `$color` and `$background` tokens meets strict accessibility standards across both the dark and light earthy themes defined in your `themes.ts`.
