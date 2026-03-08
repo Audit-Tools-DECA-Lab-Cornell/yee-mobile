@@ -5,6 +5,13 @@ Mobile app for the Youth Enabling Environments (YEE) audit workflow.
 The app is built with Expo + Expo Router, uses Tamagui for UI, and includes TypeScript, ESLint, and
 Prettier for consistent code quality.
 
+## Product Scope
+
+- This mobile app is built for auditors completing field audits.
+- Manager planning and oversight workflows are handled in web tools.
+- Auditors see assigned places and complete audits in-field (phone/tablet, often offline).
+- Current front-end prioritizes clean execution flow and base scoring UX; advanced sync and async data workflows are phased next.
+
 ## Prerequisites
 
 - Bun `1.3.x` (project uses `bun` as the package manager)

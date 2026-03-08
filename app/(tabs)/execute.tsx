@@ -6,17 +6,15 @@ import { Button, Paragraph, Separator, Text, XStack, YStack } from "tamagui";
 import {
     AUDIT_SECTION_PREVIEW,
     YEE_PLACES,
-    ROLE_LABELS,
     type PreAuditStatus,
     toCompletionPercent,
 } from "lib/yee-demo-data";
-import { RoleToggle } from "components/RoleToggle";
 import { useDemoUiStore } from "stores/demo-ui-store";
 
 const PRE_AUDIT_STATUS_LABELS: Record<PreAuditStatus, string> = {
-    pending: "Pre-audit weights pending",
-    in_progress: "Pre-audit weights in progress",
-    completed: "Pre-audit weights completed",
+    pending: "Base scoring active",
+    in_progress: "Scoring profile setup in progress",
+    completed: "Scoring profile ready",
 };
 
 /**
@@ -24,7 +22,6 @@ const PRE_AUDIT_STATUS_LABELS: Record<PreAuditStatus, string> = {
  */
 export default function ExecuteScreen() {
     const insets = useSafeAreaInsets();
-    const activeRole = useDemoUiStore((state) => state.activeRole);
     const selectedPlaceId = useDemoUiStore((state) => state.selectedPlaceId);
     const [ratingValue, setRatingValue] = useState<number>(4);
     const defaultPlace = YEE_PLACES[0];
@@ -71,7 +68,6 @@ export default function ExecuteScreen() {
     const overallCompletion = toCompletionPercent(totalAnswered, totalQuestions);
     const mandatoryCompletion = toCompletionPercent(mandatoryAnswered, mandatoryQuestions);
     const scorePreviewBase = Math.round((ratingValue / 5) * 100);
-    const scorePreviewWeighted = Math.min(100, Math.round(scorePreviewBase * 1.12));
 
     return (
         <YStack flex={1}>
@@ -83,10 +79,8 @@ export default function ExecuteScreen() {
                         Execute YEE Audit
                     </Text>
                     <Paragraph color="$color10">
-                        In-field audit preview with mandatory coverage and weighted section
-                        awareness.
+                        Complete your assigned field audit offline and sync updates when connected.
                     </Paragraph>
-                    <RoleToggle />
                 </YStack>
 
                 <YStack
@@ -111,7 +105,7 @@ export default function ExecuteScreen() {
                         </YStack>
                         <YStack rounded={999} px="$3" py="$1" bg="$blue4">
                             <Paragraph color="$blue10" fontWeight="700">
-                                {ROLE_LABELS[activeRole]}
+                                Assigned to you
                             </Paragraph>
                         </YStack>
                     </XStack>
@@ -163,6 +157,14 @@ export default function ExecuteScreen() {
                             Autosave every 30 seconds and on section transition
                         </Paragraph>
                     </XStack>
+
+                    <XStack items="center" gap="$2">
+                        <TriangleAlert size={14} color="$orange10" />
+                        <Paragraph color="$orange10">
+                            This mobile release uses base scoring. Pre-audit weighted scoring is
+                            planned next.
+                        </Paragraph>
+                    </XStack>
                 </YStack>
 
                 <YStack gap="$3">
@@ -196,8 +198,7 @@ export default function ExecuteScreen() {
                                             color={section.mandatory ? "$orange10" : "$blue10"}
                                             fontWeight="700"
                                         >
-                                            {section.mandatory ? "Mandatory" : "Optional"} ·{" "}
-                                            {section.weightLabel}
+                                            {section.mandatory ? "Mandatory" : "Optional"}
                                         </Paragraph>
                                     </XStack>
                                 </XStack>
@@ -218,6 +219,15 @@ export default function ExecuteScreen() {
                                         width={`${completion}%`}
                                     />
                                 </YStack>
+                                {section.mandatory ? (
+                                    <Paragraph color="$green10" fontWeight="700">
+                                        Section score: {section.sectionScorePercent}%
+                                    </Paragraph>
+                                ) : (
+                                    <Paragraph color="$color10">
+                                        Participant info supports context and is not scored.
+                                    </Paragraph>
+                                )}
                             </YStack>
                         );
                     })}
@@ -275,18 +285,6 @@ export default function ExecuteScreen() {
                                 {scorePreviewBase}%
                             </Text>
                         </YStack>
-                        <YStack
-                            flex={1}
-                            borderWidth={1}
-                            borderColor="$borderColor"
-                            rounded={12}
-                            p="$3"
-                        >
-                            <Paragraph color="$color10">Preview Weighted</Paragraph>
-                            <Text color="$purple10" fontSize={22} fontWeight="700">
-                                {scorePreviewWeighted}%
-                            </Text>
-                        </YStack>
                     </XStack>
                     <Separator borderColor="$borderColor" />
                     <XStack items="center" gap="$2">
@@ -322,23 +320,6 @@ export default function ExecuteScreen() {
                     bottom: 0,
                 }}
             >
-                {activeRole === "manager" ? (
-                    <XStack
-                        items="center"
-                        gap="$2"
-                        rounded={12}
-                        borderWidth={1}
-                        borderColor="$orange7"
-                        bg="$orange3"
-                        p="$3"
-                    >
-                        <TriangleAlert size={14} color="$orange10" />
-                        <Paragraph color="$orange10">
-                            Manager mode is read-only. Auditor mode enables full in-field response
-                            capture.
-                        </Paragraph>
-                    </XStack>
-                ) : null}
                 <XStack gap="$2">
                     <Button flex={1} size="$4">
                         <XStack items="center" gap="$2">

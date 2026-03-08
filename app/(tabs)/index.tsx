@@ -3,19 +3,18 @@ import { ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import {
     ArrowUpRight,
-    BarChart3,
     ClipboardCheck,
     Clock3,
     LogOut,
     MapPinned,
-    Users,
+    Signal,
+    WifiOff,
+    BarChart3,
 } from "@tamagui/lucide-icons";
 import { Button, Paragraph, Separator, Text, XStack, YStack } from "tamagui";
-import { RoleToggle } from "components/RoleToggle";
 import {
-    DASHBOARD_METRICS_BY_ROLE,
+    AUDITOR_DASHBOARD_METRICS,
     FIELD_PRIORITY_ITEMS,
-    ROLE_LABELS,
     YEE_PLACES,
     type MetricTone,
     type PlaceStatus,
@@ -62,12 +61,11 @@ const PLACE_STATUS_LABELS: Record<PlaceStatus, string> = {
  */
 export default function DashboardScreen() {
     const router = useRouter();
-    const activeRole = useDemoUiStore((state) => state.activeRole);
     const setSelectedPlaceId = useDemoUiStore((state) => state.setSelectedPlaceId);
     const session = useAuthStore((state) => state.session);
     const logout = useAuthStore((state) => state.logout);
 
-    const metrics = DASHBOARD_METRICS_BY_ROLE[activeRole];
+    const metrics = AUDITOR_DASHBOARD_METRICS;
     const highlightedPlaces = useMemo(() => {
         return YEE_PLACES.filter((place) => place.status !== "submitted").slice(0, 3);
     }, []);
@@ -96,20 +94,18 @@ export default function DashboardScreen() {
                 >
                     <XStack justify="space-between" items="center">
                         <Text fontSize={24} fontWeight="700">
-                            YEE Field App
+                            Auditor Field App
                         </Text>
                         <XStack gap="$2">
                             <YStack rounded={999} px="$3" py="$1" bg="$blue4">
-                                <Paragraph color="$blue10" fontWeight="700">
-                                    Offline Ready
-                                </Paragraph>
+                                <XStack items="center" gap="$1.5">
+                                    <WifiOff size={12} color="$blue10" />
+                                    <Paragraph color="$blue10" fontWeight="700">
+                                        Offline First
+                                    </Paragraph>
+                                </XStack>
                             </YStack>
-                            <Button
-                                size="$2"
-                                onPress={() => {
-                                    void logout();
-                                }}
-                            >
+                            <Button size="$2" onPress={logout}>
                                 <XStack items="center" gap="$1.5">
                                     <LogOut size={12} />
                                     <Text>Sign out</Text>
@@ -121,12 +117,22 @@ export default function DashboardScreen() {
                         Daily Brief
                     </Text>
                     <Paragraph color="$color10">
-                        Standalone YEE mobile UI with place-level progress, weighted scoring, and
-                        in-field execution.
+                        A mobile workspace for auditors to complete assigned YEE field audits
+                        without internet.
                     </Paragraph>
-                    {session !== null ? (
-                        <Paragraph color="$color10">Signed in as {session.user.email}</Paragraph>
-                    ) : null}
+                    {session === null ? null : (
+                        <YStack gap="$1">
+                            <Paragraph color="$color10">
+                                Signed in as {session.user.email}
+                            </Paragraph>
+                            <XStack items="center" gap="$2">
+                                <Signal size={12} color="$green10" />
+                                <Paragraph color="$green10" fontWeight="700">
+                                    This home shows places assigned to your auditor account.
+                                </Paragraph>
+                            </XStack>
+                        </YStack>
+                    )}
 
                     <XStack gap="$2">
                         {FIELD_PRIORITY_ITEMS.map((item) => {
@@ -151,23 +157,6 @@ export default function DashboardScreen() {
                         })}
                     </XStack>
                 </YStack>
-
-                <RoleToggle />
-
-                <XStack
-                    items="center"
-                    gap="$2"
-                    borderWidth={1}
-                    borderColor="$borderColor"
-                    bg="$background"
-                    rounded={16}
-                    p="$3"
-                >
-                    <Users size={16} color="$blue10" />
-                    <Paragraph fontWeight="600" color="$color11">
-                        Showing {ROLE_LABELS[activeRole]} indicators
-                    </Paragraph>
-                </XStack>
 
                 <YStack
                     borderWidth={1}
@@ -240,7 +229,7 @@ export default function DashboardScreen() {
                 </XStack>
             </YStack>
 
-            <YStack key={activeRole} gap="$3">
+            <YStack gap="$3">
                 {metrics.map((metric) => {
                     const metricToneView = METRIC_TONE_VIEW[metric.tone];
 
@@ -292,7 +281,7 @@ export default function DashboardScreen() {
             >
                 <XStack justify="space-between" items="center">
                     <Text fontSize={19} fontWeight="700">
-                        Recent Place Activity
+                        Assigned Place Activity
                     </Text>
                     <Button
                         size="$2"
@@ -323,8 +312,8 @@ export default function DashboardScreen() {
                                     <Paragraph color="$blue10" fontWeight="600">
                                         Base {place.baseScore}%
                                     </Paragraph>
-                                    <Paragraph color="$purple10" fontWeight="600">
-                                        Weighted {place.weightedScore}%
+                                    <Paragraph color="$color10">
+                                        Weighted scoring arrives with pre-audit setup.
                                     </Paragraph>
                                 </YStack>
                             </XStack>

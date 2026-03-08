@@ -40,7 +40,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
         try {
             const persistedSession = await readAuthSession();
-            if (persistedSession === null || isSessionExpired(persistedSession)) {
+            if (
+                persistedSession === null ||
+                isSessionExpired(persistedSession) ||
+                persistedSession.user.accountType !== "AUDITOR"
+            ) {
                 if (persistedSession !== null) {
                     await clearAuthSession();
                 }
@@ -71,7 +75,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         }));
 
         try {
-            const session = await loginWithPassword(payload);
+            const session = ensureAuditorSession(await loginWithPassword(payload));
             await saveAuthSession(session);
 
             set(() => ({
@@ -101,7 +105,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         }));
 
         try {
-            const session = await signupWithPassword(payload);
+            const session = ensureAuditorSession(await signupWithPassword(payload));
             await saveAuthSession(session);
 
             set(() => ({
@@ -172,6 +176,10 @@ function toAuthErrorMessage(error: unknown): string {
             return "Unable to reach the authentication service.";
         }
 
+        if (error.statusCode === 403) {
+            return "This mobile app is built for field auditors. Sign in with your auditor account.";
+        }
+
         return "Authentication failed. Please check your details and try again.";
     }
 
@@ -180,4 +188,21 @@ function toAuthErrorMessage(error: unknown): string {
     }
 
     return "An unexpected authentication error occurred.";
+}
+
+/**
+ * Ensure session role matches the mobile auditor workflow.
+ *
+ * @param session Auth session from backend.
+ * @returns Same session when role is AUDITOR.
+ */
+function ensureAuditorSession(session: AuthSession): AuthSession {
+    if (session.user.accountType !== "AUDITOR") {
+        throw new AuthApiError(
+            "This mobile app supports auditor field workflows. Use an assigned auditor account.",
+            403,
+        );
+    }
+
+    return session;
 }

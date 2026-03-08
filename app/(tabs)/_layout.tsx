@@ -68,16 +68,16 @@ export default function TabLayout() {
             <Tabs.Screen
                 name="index"
                 options={{
-                    title: "Dashboard",
-                    headerTitle: "YEE Field Overview",
+                    title: "Home",
+                    headerTitle: "Auditor Home",
                     tabBarIcon: DashboardTabIcon,
                 }}
             />
             <Tabs.Screen
                 name="places"
                 options={{
-                    title: "Places",
-                    headerTitle: "Assigned YEE Places",
+                    title: "Assigned",
+                    headerTitle: "Assigned Places",
                     tabBarIcon: PlacesTabIcon,
                 }}
             />
@@ -85,15 +85,15 @@ export default function TabLayout() {
                 name="execute"
                 options={{
                     title: "Execute",
-                    headerTitle: "YEE Audit Execution",
+                    headerTitle: "Audit Execution",
                     tabBarIcon: ExecuteTabIcon,
                 }}
             />
             <Tabs.Screen
                 name="reports"
                 options={{
-                    title: "Reports",
-                    headerTitle: "Base vs Weighted Reports",
+                    title: "Scoring",
+                    headerTitle: "Scoring",
                     tabBarIcon: ReportsTabIcon,
                 }}
             />

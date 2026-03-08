@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
-import { Link, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { Eye, EyeOff, LogIn } from "@tamagui/lucide-icons";
 import { Button, Input, Paragraph, Text, XStack, YStack } from "tamagui";
 import { useAuthStore } from "stores/auth-store";
@@ -70,11 +70,9 @@ export default function LoginScreen() {
                 <YStack gap="$4">
                     <YStack gap="$2">
                         <Text fontSize={32} fontWeight="700">
-                            YEE Sign In
+                            Auditor Sign In
                         </Text>
-                        <Paragraph color="$color10">
-                            Sign in with your YEE account to access field audits.
-                        </Paragraph>
+                        <Paragraph color="$color10">Offline access for field auditors.</Paragraph>
                     </YStack>
 
                     <YStack
@@ -148,15 +146,6 @@ export default function LoginScreen() {
                             </XStack>
                         </Button>
                     </YStack>
-
-                    <XStack items="center" justify="center" gap="$1.5">
-                        <Paragraph color="$color10">Need an account?</Paragraph>
-                        <Link href="/(auth)/signup">
-                            <Text color="$blue10" fontWeight="700">
-                                Create one
-                            </Text>
-                        </Link>
-                    </XStack>
                 </YStack>
             </ScrollView>
         </KeyboardAvoidingView>

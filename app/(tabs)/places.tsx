@@ -1,10 +1,9 @@
 import { useMemo } from "react";
 import { ScrollView } from "react-native";
 import { useRouter } from "expo-router";
-import { Clock3, Link2, LocateFixed, MapPin, Users } from "@tamagui/lucide-icons";
+import { Clock3, LocateFixed, MapPin } from "@tamagui/lucide-icons";
 import { Button, Paragraph, Separator, Text, XStack, YStack } from "tamagui";
 import { YEE_PLACES, type PlaceStatus, type PreAuditStatus } from "lib/yee-demo-data";
-import { RoleToggle } from "components/RoleToggle";
 import { useDemoUiStore } from "stores/demo-ui-store";
 
 type StatusTextColor = "$orange10" | "$blue10" | "$purple10" | "$green10";
@@ -49,28 +48,27 @@ const PRE_AUDIT_STATUS_VIEW: Record<
     }
 > = {
     pending: {
-        label: "Weights Pending",
+        label: "Base Mode",
         textColor: "$orange10",
         backgroundColor: "$orange4",
     },
     in_progress: {
-        label: "Weights In Progress",
+        label: "Profile Setup",
         textColor: "$blue10",
         backgroundColor: "$blue4",
     },
     completed: {
-        label: "Weights Completed",
+        label: "Profile Ready",
         textColor: "$green10",
         backgroundColor: "$green4",
     },
 };
 
 /**
- * Places tab with polished cards for YEE status and weighting visibility.
+ * Assigned places tab for auditor field execution.
  */
 export default function PlacesScreen() {
     const router = useRouter();
-    const activeRole = useDemoUiStore((state) => state.activeRole);
     const setSelectedPlaceId = useDemoUiStore((state) => state.setSelectedPlaceId);
     const placeStatusCounts = useMemo(() => {
         return YEE_PLACES.reduce(
@@ -91,13 +89,11 @@ export default function PlacesScreen() {
         <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
             <YStack gap="$4">
                 <Text fontSize={28} fontWeight="700">
-                    YEE Places
+                    Assigned Places
                 </Text>
                 <Paragraph color="$color10">
-                    Browse assigned places with base vs weighted score tracking and mandatory
-                    completion.
+                    View and complete audits for the places assigned to your account.
                 </Paragraph>
-                <RoleToggle />
                 <XStack gap="$2">
                     <YStack
                         flex={1}
@@ -123,7 +119,7 @@ export default function PlacesScreen() {
                         bg="$purple2"
                     >
                         <Paragraph color="$color10" fontSize={12}>
-                            Ready Review
+                            Ready for Review
                         </Paragraph>
                         <Text fontSize={20} fontWeight="700" color="$purple10">
                             {placeStatusCounts.ready_for_review}
@@ -213,9 +209,9 @@ export default function PlacesScreen() {
                                     p="$3"
                                 >
                                     <Paragraph color="$color10">Weighted Score</Paragraph>
-                                    <Text fontSize={23} fontWeight="700" color="$purple10">
-                                        {place.weightedScore}%
-                                    </Text>
+                                    <Paragraph color="$purple10" fontWeight="700">
+                                        Planned in a future release
+                                    </Paragraph>
                                 </YStack>
                             </XStack>
 
@@ -245,12 +241,6 @@ export default function PlacesScreen() {
                             >
                                 <YStack gap="$1.5">
                                     <XStack items="center" gap="$2">
-                                        <Users size={14} color="$color10" />
-                                        <Paragraph color="$color10">
-                                            {place.assignedAuditorCount} auditors assigned
-                                        </Paragraph>
-                                    </XStack>
-                                    <XStack items="center" gap="$2">
                                         <Clock3 size={14} color="$color10" />
                                         <Paragraph color="$color10">
                                             {place.updatedAtLabel}
@@ -274,14 +264,6 @@ export default function PlacesScreen() {
                             <XStack justify="space-between" items="center">
                                 <Paragraph color="$color10">{place.projectName}</Paragraph>
                                 <XStack gap="$2">
-                                    {activeRole === "manager" ? (
-                                        <Button size="$2" theme="purple">
-                                            <XStack items="center" gap="$1">
-                                                <Link2 size={14} />
-                                                <Text>Review weights</Text>
-                                            </XStack>
-                                        </Button>
-                                    ) : null}
                                     <Button
                                         size="$2"
                                         theme="blue"
@@ -292,7 +274,7 @@ export default function PlacesScreen() {
                                     >
                                         <XStack items="center" gap="$1">
                                             <LocateFixed size={14} />
-                                            <Text>Open YEE audit</Text>
+                                            <Text>Open Audit</Text>
                                         </XStack>
                                     </Button>
                                 </XStack>

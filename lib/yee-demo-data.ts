@@ -1,15 +1,10 @@
 /**
- * Role options for the auth-free UI demo.
- */
-export type DemoRole = "manager" | "auditor";
-
-/**
  * Audit progress states shown in place cards.
  */
 export type PlaceStatus = "not_started" | "in_progress" | "ready_for_review" | "submitted";
 
 /**
- * Pre-audit weighting progress for the YEE tool.
+ * Progress for pre-audit setup steps.
  */
 export type PreAuditStatus = "pending" | "in_progress" | "completed";
 
@@ -43,7 +38,6 @@ export interface PlaceSummary {
     readonly preAuditStatus: PreAuditStatus;
     readonly mandatoryCompletionPercent: number;
     readonly updatedAtLabel: string;
-    readonly assignedAuditorCount: number;
 }
 
 /**
@@ -55,7 +49,7 @@ export interface AuditSectionPreview {
     readonly answeredItems: number;
     readonly totalItems: number;
     readonly mandatory: boolean;
-    readonly weightLabel: string;
+    readonly sectionScorePercent: number;
 }
 
 /**
@@ -78,78 +72,38 @@ export interface FieldPriorityItem {
 }
 
 /**
- * Demo-friendly labels for role chips and headings.
+ * Auditor-only KPI cards for the mobile field workflow.
  */
-export const ROLE_LABELS: Record<DemoRole, string> = {
-    manager: "Manager Mode",
-    auditor: "Auditor Mode",
-};
-
-/**
- * KPI cards vary slightly by role to mirror role-based workflows.
- */
-export const DASHBOARD_METRICS_BY_ROLE: Record<DemoRole, readonly DashboardMetric[]> = {
-    manager: [
-        {
-            id: "completed",
-            title: "Submitted Audits",
-            value: "37",
-            helperText: "+4 in the last 7 days",
-            tone: "green",
-        },
-        {
-            id: "review",
-            title: "Ready for Review",
-            value: "9",
-            helperText: "Across 6 active places",
-            tone: "blue",
-        },
-        {
-            id: "weighted",
-            title: "Avg Weighted Score",
-            value: "79.6%",
-            helperText: "Pre-audit weighted",
-            tone: "purple",
-        },
-        {
-            id: "base",
-            title: "Avg Base Score",
-            value: "74.8%",
-            helperText: "Without weighting",
-            tone: "orange",
-        },
-    ],
-    auditor: [
-        {
-            id: "assigned",
-            title: "Assigned Places",
-            value: "6",
-            helperText: "2 due this week",
-            tone: "blue",
-        },
-        {
-            id: "drafts",
-            title: "Saved Drafts",
-            value: "3",
-            helperText: "Stored offline",
-            tone: "purple",
-        },
-        {
-            id: "submitted",
-            title: "Submitted This Month",
-            value: "11",
-            helperText: "1 pending sync",
-            tone: "green",
-        },
-        {
-            id: "mandatory",
-            title: "Mandatory Completion",
-            value: "84%",
-            helperText: "Across active audits",
-            tone: "orange",
-        },
-    ],
-};
+export const AUDITOR_DASHBOARD_METRICS: readonly DashboardMetric[] = [
+    {
+        id: "assigned",
+        title: "Assigned Places",
+        value: "4",
+        helperText: "Only your assigned places are shown",
+        tone: "blue",
+    },
+    {
+        id: "drafts",
+        title: "Saved Drafts",
+        value: "2",
+        helperText: "Captured offline on this device",
+        tone: "purple",
+    },
+    {
+        id: "submitted",
+        title: "Submitted This Week",
+        value: "1",
+        helperText: "Synced when connection was available",
+        tone: "green",
+    },
+    {
+        id: "mandatory",
+        title: "Mandatory Completion",
+        value: "82%",
+        helperText: "Across active assigned audits",
+        tone: "orange",
+    },
+];
 
 /**
  * Place data used across dashboard, places, execute, and report tabs.
@@ -157,33 +111,31 @@ export const DASHBOARD_METRICS_BY_ROLE: Record<DemoRole, readonly DashboardMetri
 export const YEE_PLACES: readonly PlaceSummary[] = [
     {
         id: "place-001",
-        projectName: "Urban Youth Activity Initiative",
+        projectName: "YEE Urban Inclusion 2026",
         placeName: "Riverside Youth Hub",
         locality: "Auckland, New Zealand",
         status: "in_progress",
         baseScore: 73,
-        weightedScore: 81,
-        preAuditStatus: "completed",
+        weightedScore: 73,
+        preAuditStatus: "pending",
         mandatoryCompletionPercent: 86,
         updatedAtLabel: "Updated 9m ago",
-        assignedAuditorCount: 4,
     },
     {
         id: "place-002",
-        projectName: "Urban Youth Activity Initiative",
+        projectName: "YEE Urban Inclusion 2026",
         placeName: "Kepler Community Grounds",
         locality: "Auckland, New Zealand",
         status: "ready_for_review",
         baseScore: 78,
-        weightedScore: 84,
-        preAuditStatus: "completed",
+        weightedScore: 78,
+        preAuditStatus: "pending",
         mandatoryCompletionPercent: 100,
         updatedAtLabel: "Updated 58m ago",
-        assignedAuditorCount: 3,
     },
     {
         id: "place-003",
-        projectName: "South Region Youth Program",
+        projectName: "YEE South Region Pilot",
         placeName: "Hillcrest Shared Park",
         locality: "Christchurch, New Zealand",
         status: "not_started",
@@ -192,71 +144,80 @@ export const YEE_PLACES: readonly PlaceSummary[] = [
         preAuditStatus: "pending",
         mandatoryCompletionPercent: 0,
         updatedAtLabel: "Not started",
-        assignedAuditorCount: 2,
     },
     {
         id: "place-004",
-        projectName: "South Region Youth Program",
+        projectName: "YEE South Region Pilot",
         placeName: "Matai Recreation Strip",
         locality: "Christchurch, New Zealand",
         status: "submitted",
         baseScore: 87,
-        weightedScore: 90,
-        preAuditStatus: "completed",
+        weightedScore: 87,
+        preAuditStatus: "pending",
         mandatoryCompletionPercent: 100,
         updatedAtLabel: "Submitted yesterday",
-        assignedAuditorCount: 5,
-    },
-    {
-        id: "place-005",
-        projectName: "Coastal Access Pilot",
-        placeName: "Harborline Community Space",
-        locality: "Wellington, New Zealand",
-        status: "in_progress",
-        baseScore: 68,
-        weightedScore: 76,
-        preAuditStatus: "in_progress",
-        mandatoryCompletionPercent: 61,
-        updatedAtLabel: "Updated 2h ago",
-        assignedAuditorCount: 3,
     },
 ];
 
 /**
- * Pre-filled section completion overview for an in-progress audit.
+ * Section overview aligned with the current YEE tool form blocks.
  */
 export const AUDIT_SECTION_PREVIEW: readonly AuditSectionPreview[] = [
     {
-        id: "section-participation",
-        sectionName: "Participation and Inclusion",
-        answeredItems: 8,
-        totalItems: 10,
+        id: "section-access",
+        sectionName: "Access",
+        answeredItems: 12,
+        totalItems: 14,
         mandatory: true,
-        weightLabel: "x1.4",
+        sectionScorePercent: 76,
     },
     {
-        id: "section-voice",
-        sectionName: "Youth Voice and Agency",
+        id: "section-activity-spaces",
+        sectionName: "Activity Spaces",
+        answeredItems: 10,
+        totalItems: 13,
+        mandatory: true,
+        sectionScorePercent: 74,
+    },
+    {
+        id: "section-amenities",
+        sectionName: "Amenities",
+        answeredItems: 9,
+        totalItems: 12,
+        mandatory: true,
+        sectionScorePercent: 71,
+    },
+    {
+        id: "section-experience",
+        sectionName: "Experience of Space",
         answeredItems: 6,
         totalItems: 8,
         mandatory: true,
-        weightLabel: "x1.2",
+        sectionScorePercent: 79,
     },
     {
-        id: "section-safety",
-        sectionName: "Safety and Wellbeing",
+        id: "section-aesthetics",
+        sectionName: "Aesthetics and Care",
         answeredItems: 7,
         totalItems: 9,
         mandatory: true,
-        weightLabel: "x1.5",
+        sectionScorePercent: 82,
     },
     {
-        id: "section-support",
-        sectionName: "Environmental Support",
-        answeredItems: 4,
-        totalItems: 7,
+        id: "section-usability",
+        sectionName: "Use and Usability",
+        answeredItems: 14,
+        totalItems: 18,
+        mandatory: true,
+        sectionScorePercent: 77,
+    },
+    {
+        id: "section-participant-info",
+        sectionName: "Youth Participant Info",
+        answeredItems: 5,
+        totalItems: 6,
         mandatory: false,
-        weightLabel: "x1.0",
+        sectionScorePercent: 0,
     },
 ];
 
@@ -268,25 +229,19 @@ export const REPORT_COMPARISON_ROWS: readonly ReportComparisonRow[] = [
         id: "report-1",
         placeName: "Riverside Youth Hub",
         baseScore: 73,
-        weightedScore: 81,
+        weightedScore: 73,
     },
     {
         id: "report-2",
         placeName: "Kepler Community Grounds",
         baseScore: 78,
-        weightedScore: 84,
+        weightedScore: 78,
     },
     {
         id: "report-3",
         placeName: "Matai Recreation Strip",
         baseScore: 87,
-        weightedScore: 90,
-    },
-    {
-        id: "report-4",
-        placeName: "Harborline Community Space",
-        baseScore: 68,
-        weightedScore: 76,
+        weightedScore: 87,
     },
 ];
 
@@ -302,12 +257,12 @@ export const FIELD_PRIORITY_ITEMS: readonly FieldPriorityItem[] = [
     {
         id: "priority-2",
         title: "Drafts pending sync",
-        value: "1",
+        value: "2",
     },
     {
         id: "priority-3",
-        title: "Offline media uploads",
-        value: "4",
+        title: "Unsynced responses",
+        value: "11",
     },
 ];
 

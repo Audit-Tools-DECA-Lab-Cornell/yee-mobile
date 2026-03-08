@@ -58,14 +58,15 @@
         "extra": {
             "router": {},
             "eas": {
-                "projectId": "a381633e-212a-4901-b924-22bf28f6b54a"
+                "projectId": "bde8f0a0-4679-445a-a872-acd1b7107c89"
             }
         },
         "runtimeVersion": {
             "policy": "appVersion"
         },
         "updates": {
-            "url": "https://u.expo.dev/a381633e-212a-4901-b924-22bf28f6b54a"
-        }
+            "url": "https://u.expo.dev/bde8f0a0-4679-445a-a872-acd1b7107c89"
+        },
+        "owner": "pratyush.sudhakar"
     }
 }
