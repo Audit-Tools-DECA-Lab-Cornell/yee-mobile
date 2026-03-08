@@ -12,15 +12,20 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pratyush.sudhakar.expo-router-example",
+      "appleTeamId": "ZD947U862S"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.pratyush.sudhakar.exporouterexample"
     },
     "web": {
       "bundler": "metro",
@@ -34,17 +39,35 @@
         "expo-build-properties",
         {
           "ios": {
-            "newArchEnabled": true
+            "newArchEnabled": true,
+            "deploymentTarget": "15.1",
+            "buildReactNativeFromSource": true
           },
           "android": {
-            "newArchEnabled": true
+            "newArchEnabled": true,
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
           }
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a381633e-212a-4901-b924-22bf28f6b54a"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a381633e-212a-4901-b924-22bf28f6b54a"
     }
   }
 }
