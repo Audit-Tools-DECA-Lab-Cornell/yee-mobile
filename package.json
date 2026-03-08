@@ -71,7 +71,7 @@
         "@playwright/test": "^1.49.1",
         "@tamagui/babel-plugin": "^2.0.0-rc.22",
         "@types/react": "~19.2.10",
-        "eslint": "^9.39.4",
+        "eslint": "^10.0.3",
         "eslint-config-expo": "^55.0.0",
         "eslint-config-prettier": "^10.1.8",
         "husky": "^9.1.7",
