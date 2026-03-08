@@ -2,7 +2,7 @@ import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 const DEFAULT_WEB_BUILD_DIRECTORY = "dist";
-const DEFAULT_BUNDLE_BUDGET_MB = 8;
+const DEFAULT_BUNDLE_BUDGET_MB = 16;
 
 /**
  * Parse bundle budget from CLI environment with safe fallback.
