@@ -6,6 +6,7 @@ import {
   BarChart3,
   ClipboardCheck,
   Clock3,
+  LogOut,
   MapPinned,
   Users,
 } from "@tamagui/lucide-icons";
@@ -20,6 +21,7 @@ import {
   type PlaceStatus,
 } from "lib/yee-demo-data";
 import { useDemoUiStore } from "stores/demo-ui-store";
+import { useAuthStore } from "stores/auth-store";
 
 type ToneTextColor = "$blue10" | "$green10" | "$purple10" | "$orange10";
 type ToneBackgroundColor = "$blue3" | "$green3" | "$purple3" | "$orange3";
@@ -62,6 +64,8 @@ export default function DashboardScreen() {
   const router = useRouter();
   const activeRole = useDemoUiStore((state) => state.activeRole);
   const setSelectedPlaceId = useDemoUiStore((state) => state.setSelectedPlaceId);
+  const session = useAuthStore((state) => state.session);
+  const logout = useAuthStore((state) => state.logout);
 
   const metrics = DASHBOARD_METRICS_BY_ROLE[activeRole];
   const highlightedPlaces = useMemo(() => {
@@ -94,11 +98,24 @@ export default function DashboardScreen() {
             <Text fontSize={24} fontWeight="700">
               YEE Field App
             </Text>
-            <YStack rounded={999} px="$3" py="$1" bg="$blue4">
-              <Paragraph color="$blue10" fontWeight="700">
-                Offline Ready
-              </Paragraph>
-            </YStack>
+            <XStack gap="$2">
+              <YStack rounded={999} px="$3" py="$1" bg="$blue4">
+                <Paragraph color="$blue10" fontWeight="700">
+                  Offline Ready
+                </Paragraph>
+              </YStack>
+              <Button
+                size="$2"
+                onPress={() => {
+                  void logout();
+                }}
+              >
+                <XStack items="center" gap="$1.5">
+                  <LogOut size={12} />
+                  <Text>Sign out</Text>
+                </XStack>
+              </Button>
+            </XStack>
           </XStack>
           <Text fontSize={28} fontWeight="700">
             Daily Brief
@@ -107,6 +124,9 @@ export default function DashboardScreen() {
             Standalone YEE mobile UI with place-level progress, weighted scoring, and in-field
             execution.
           </Paragraph>
+          {session !== null ? (
+            <Paragraph color="$color10">Signed in as {session.user.email}</Paragraph>
+          ) : null}
 
           <XStack gap="$2">
             {FIELD_PRIORITY_ITEMS.map((item) => {

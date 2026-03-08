@@ -1,18 +1,18 @@
 import "../tamagui.generated.css";
-import * as React from 'react';
 
 import { useEffect } from "react";
 import { useColorScheme } from "react-native";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
-import { SplashScreen, Stack } from "expo-router";
+import { SplashScreen, Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Provider } from "components/Provider";
+import { useAuthStore } from "stores/auth-store";
 
 export { ErrorBoundary } from "expo-router";
 
 export const unstable_settings = {
-  initialRouteName: "(tabs)",
+  initialRouteName: "(auth)",
 };
 
 /**
@@ -58,15 +58,50 @@ function Providers({ children }: ProvidersProps) {
 }
 
 /**
- * Root navigator with only the tab stack for now.
+ * Root navigator with auth and app route groups.
  */
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const router = useRouter();
+  const segments = useSegments();
+  const authStatus = useAuthStore((state) => state.status);
+  const initializeAuth = useAuthStore((state) => state.initialize);
+
+  useEffect(() => {
+    void initializeAuth();
+  }, [initializeAuth]);
+
+  useEffect(() => {
+    if (authStatus === "loading") {
+      return;
+    }
+
+    const inAuthGroup = segments[0] === "(auth)";
+
+    if (authStatus === "authenticated" && inAuthGroup) {
+      router.replace("/(tabs)");
+      return;
+    }
+
+    if (authStatus === "unauthenticated" && !inAuthGroup) {
+      router.replace("/(auth)/login");
+    }
+  }, [authStatus, router, segments]);
+
+  if (authStatus === "loading") {
+    return null;
+  }
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
       <Stack>
+        <Stack.Screen
+          name="(auth)"
+          options={{
+            headerShown: false,
+          }}
+        />
         <Stack.Screen
           name="(tabs)"
           options={{
