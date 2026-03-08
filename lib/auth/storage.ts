@@ -268,7 +268,7 @@ function toSecureStoreApi(value: unknown): SecureStoreApi | null {
         deleteItemAsync: async (key: string) => {
             await deleteValueWithKeyAsync(key);
         },
-        isAvailableAsync: isAvailableAsync ?? undefined,
+        ...(isAvailableAsync !== null ? { isAvailableAsync } : {}),
     };
 }
 

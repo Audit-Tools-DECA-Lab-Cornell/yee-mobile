@@ -22,26 +22,16 @@ export default function ReportsScreen() {
     }, []);
 
     const topWeightedPlace = useMemo(() => {
-        return REPORT_COMPARISON_ROWS.reduce((highest, current) => {
-            if (current.weightedScore > highest.weightedScore) {
-                return current;
-            }
-
-            return highest;
-        }, REPORT_COMPARISON_ROWS[0]);
+        return getTopWeightedPlace(REPORT_COMPARISON_ROWS);
     }, []);
     const highestLiftPlace = useMemo(() => {
-        return REPORT_COMPARISON_ROWS.reduce((highest, current) => {
-            const highestLift = highest.weightedScore - highest.baseScore;
-            const currentLift = current.weightedScore - current.baseScore;
-
-            if (currentLift > highestLift) {
-                return current;
-            }
-
-            return highest;
-        }, REPORT_COMPARISON_ROWS[0]);
+        return getHighestLiftPlace(REPORT_COMPARISON_ROWS);
     }, []);
+    const topWeightedPlaceLabel = topWeightedPlace?.placeName ?? "No data";
+    const topWeightedPlaceScore = topWeightedPlace?.weightedScore ?? 0;
+    const highestLiftPlaceLabel = highestLiftPlace?.placeName ?? "No data";
+    const highestLiftPoints =
+        highestLiftPlace === null ? 0 : highestLiftPlace.weightedScore - highestLiftPlace.baseScore;
     const weightedLift = averageWeightedScore - averageBaseScore;
 
     return (
@@ -122,9 +112,9 @@ export default function ReportsScreen() {
                     elevation={2}
                 >
                     <Paragraph color="$color10">Top Weighted Place</Paragraph>
-                    <Text fontWeight="700">{topWeightedPlace.placeName}</Text>
+                    <Text fontWeight="700">{topWeightedPlaceLabel}</Text>
                     <Paragraph color="$purple10" fontWeight="700">
-                        {topWeightedPlace.weightedScore}%
+                        {topWeightedPlaceScore}%
                     </Paragraph>
                 </YStack>
                 <YStack
@@ -142,9 +132,9 @@ export default function ReportsScreen() {
                     elevation={2}
                 >
                     <Paragraph color="$color10">Largest Weighted Lift</Paragraph>
-                    <Text fontWeight="700">{highestLiftPlace.placeName}</Text>
+                    <Text fontWeight="700">{highestLiftPlaceLabel}</Text>
                     <Paragraph color="$green10" fontWeight="700">
-                        +{highestLiftPlace.weightedScore - highestLiftPlace.baseScore} points
+                        +{highestLiftPoints} points
                     </Paragraph>
                 </YStack>
             </XStack>
@@ -290,4 +280,49 @@ function calculateAverageScore(rows: readonly ReportComparisonRow[], scoreView: 
     }, 0);
 
     return Math.round(sum / rows.length);
+}
+
+/**
+ * Resolve the row with the highest weighted score.
+ *
+ * @param rows Report comparison rows.
+ * @returns Best weighted row or null for empty data.
+ */
+function getTopWeightedPlace(rows: readonly ReportComparisonRow[]): ReportComparisonRow | null {
+    const [firstRow, ...remainingRows] = rows;
+    if (firstRow === undefined) {
+        return null;
+    }
+
+    return remainingRows.reduce((highest, current) => {
+        if (current.weightedScore > highest.weightedScore) {
+            return current;
+        }
+
+        return highest;
+    }, firstRow);
+}
+
+/**
+ * Resolve the row with the largest weighted-minus-base lift.
+ *
+ * @param rows Report comparison rows.
+ * @returns Greatest lift row or null for empty data.
+ */
+function getHighestLiftPlace(rows: readonly ReportComparisonRow[]): ReportComparisonRow | null {
+    const [firstRow, ...remainingRows] = rows;
+    if (firstRow === undefined) {
+        return null;
+    }
+
+    return remainingRows.reduce((highest, current) => {
+        const highestLift = highest.weightedScore - highest.baseScore;
+        const currentLift = current.weightedScore - current.baseScore;
+
+        if (currentLift > highestLift) {
+            return current;
+        }
+
+        return highest;
+    }, firstRow);
 }

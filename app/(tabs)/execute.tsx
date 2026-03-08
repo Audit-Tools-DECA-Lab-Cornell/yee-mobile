@@ -27,10 +27,15 @@ export default function ExecuteScreen() {
     const activeRole = useDemoUiStore((state) => state.activeRole);
     const selectedPlaceId = useDemoUiStore((state) => state.selectedPlaceId);
     const [ratingValue, setRatingValue] = useState<number>(4);
+    const defaultPlace = YEE_PLACES[0];
+
+    if (defaultPlace === undefined) {
+        throw new Error("YEE_PLACES must define at least one place.");
+    }
 
     const activePlace = useMemo(() => {
-        return YEE_PLACES.find((place) => place.id === selectedPlaceId) ?? YEE_PLACES[0];
-    }, [selectedPlaceId]);
+        return YEE_PLACES.find((place) => place.id === selectedPlaceId) ?? defaultPlace;
+    }, [defaultPlace, selectedPlaceId]);
 
     const totalAnswered = useMemo(() => {
         return AUDIT_SECTION_PREVIEW.reduce((sum, section) => {

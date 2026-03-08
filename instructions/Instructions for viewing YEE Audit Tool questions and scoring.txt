@@ -1,0 +1,15 @@
+Youth Enabling Environments Audit Tool
+• The pdf shows the wording and user-facing structure of the tool, including the sub-
+sections.
+• The qsf file is a Qualtrics file that shows the underlying scoring for all questions. Open
+this file in qualtrics, then choose Survey Options from the menu on the left, then Scoring
+--> that will reveal the underlying scores for each response. Note that some questions
+are reverse coded.
+• The audit should produce a score for each sub-section as well as the total of all
+questions
+• When a question includes both a presence question (yes/no) and a condition response
+option (poor/acceptable/great) - the value of the presence question should be
+multiplied by the score for the chosen condition response in order to generate the score
+for that question. If the answer is no, the score will be zero. If the answer is yes, the
+score will be between 1 and 3
+• This survey version does not yet have the pre-audit Weighting questions.

@@ -1,12 +1,18 @@
-import type {
-    AccountType,
-    AuthSession,
-    AuthUser,
-    LoginPayload,
-    SignupPayload,
-} from "lib/auth/types";
+import { z } from "zod";
+import type { AuthSession, LoginPayload, SignupPayload } from "lib/auth/types";
 
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
+const authResponseSchema = z.object({
+    access_token: z.string().min(1),
+    token_type: z.literal("bearer"),
+    expires_at: z.string().min(1),
+    user: z.object({
+        id: z.string().min(1),
+        email: z.string().min(1),
+        name: z.string().nullable(),
+        account_type: z.enum(["MANAGER", "AUDITOR"]),
+    }),
+});
 
 /**
  * Error returned for failed authentication API requests.
@@ -149,52 +155,27 @@ async function readErrorDetails(response: Response): Promise<string | null> {
  * @returns Validated auth session.
  */
 function parseAuthResponse(payload: unknown): AuthSession {
-    if (!isRecord(payload)) {
-        throw new AuthApiError("Authentication response shape is invalid.", 500);
+    const parsedPayload = authResponseSchema.safeParse(payload);
+    if (!parsedPayload.success) {
+        throw new AuthApiError(
+            "Authentication response shape is invalid.",
+            500,
+            formatZodIssues(parsedPayload.error),
+        );
     }
 
-    const accessToken = readString(payload.access_token);
-    const tokenType = readString(payload.token_type);
-    const expiresAt = readString(payload.expires_at);
-    const user = parseAuthUser(payload.user);
-
-    if (accessToken === null || tokenType !== "bearer" || expiresAt === null || user === null) {
-        throw new AuthApiError("Authentication response fields are missing.", 500);
-    }
+    const sessionPayload = parsedPayload.data;
 
     return {
-        accessToken,
-        tokenType: "bearer",
-        expiresAt,
-        user,
-    };
-}
-
-/**
- * Parse backend user response into app user model.
- *
- * @param payload Unknown backend user payload.
- * @returns Validated auth user or null.
- */
-function parseAuthUser(payload: unknown): AuthUser | null {
-    if (!isRecord(payload)) {
-        return null;
-    }
-
-    const id = readString(payload.id);
-    const email = readString(payload.email);
-    const name = readNullableString(payload.name);
-    const accountType = readAccountType(payload.account_type);
-
-    if (id === null || email === null || name === undefined || accountType === null) {
-        return null;
-    }
-
-    return {
-        id,
-        email,
-        name,
-        accountType,
+        accessToken: sessionPayload.access_token,
+        tokenType: sessionPayload.token_type,
+        expiresAt: sessionPayload.expires_at,
+        user: {
+            id: sessionPayload.user.id,
+            email: sessionPayload.user.email,
+            name: sessionPayload.user.name,
+            accountType: sessionPayload.user.account_type,
+        },
     };
 }
 
@@ -209,42 +190,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Read a required string from unknown input.
+ * Convert schema validation issues into a compact readable string.
  *
- * @param value Value to validate.
- * @returns String when valid, otherwise null.
+ * @param error Zod validation error.
+ * @returns Semicolon-delimited issue summary.
  */
-function readString(value: unknown): string | null {
-    return typeof value === "string" ? value : null;
-}
-
-/**
- * Read a nullable string from unknown input.
- *
- * @param value Value to validate.
- * @returns String, null, or undefined if invalid type.
- */
-function readNullableString(value: unknown): string | null | undefined {
-    if (typeof value === "string") {
-        return value;
-    }
-    if (value === null) {
-        return null;
-    }
-
-    return undefined;
-}
-
-/**
- * Read account type enum from unknown input.
- *
- * @param value Value to validate.
- * @returns Valid account type or null.
- */
-function readAccountType(value: unknown): AccountType | null {
-    if (value === "MANAGER" || value === "AUDITOR") {
-        return value;
-    }
-
-    return null;
+function formatZodIssues(error: z.ZodError): string {
+    return error.issues
+        .map((issue) => {
+            const issuePath = issue.path.length > 0 ? issue.path.join(".") : "root";
+            return `${issuePath}: ${issue.message}`;
+        })
+        .join("; ");
 }

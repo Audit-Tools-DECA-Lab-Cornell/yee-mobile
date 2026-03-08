@@ -6,11 +6,21 @@ export function CurrentToast() {
 
     if (!currentToast || currentToast.isHandledNatively) return null;
 
+    const toastOptionalProps: {
+        duration?: number;
+        viewportName?: string;
+    } = {};
+    if (typeof currentToast.duration === "number") {
+        toastOptionalProps.duration = currentToast.duration;
+    }
+    if (typeof currentToast.viewportName === "string") {
+        toastOptionalProps.viewportName = currentToast.viewportName;
+    }
+
     return (
         <Toast
             key={currentToast.id}
-            duration={currentToast.duration}
-            viewportName={currentToast.viewportName}
+            {...toastOptionalProps}
             enterStyle={{ opacity: 0, scale: 0.5, y: -25 }}
             exitStyle={{ opacity: 0, scale: 1, y: -20 }}
             y={isWeb ? "$12" : 0}

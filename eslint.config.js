@@ -29,4 +29,37 @@ module.exports = defineConfig([
             "@typescript-eslint/no-explicit-any": "error",
         },
     },
+    {
+        files: ["lib/**/*.{ts,tsx}"],
+        rules: {
+            "no-restricted-imports": [
+                "error",
+                {
+                    patterns: ["app/*", "components/*", "stores/*"],
+                },
+            ],
+        },
+    },
+    {
+        files: ["stores/**/*.{ts,tsx}"],
+        rules: {
+            "no-restricted-imports": [
+                "error",
+                {
+                    patterns: ["app/*", "components/*"],
+                },
+            ],
+        },
+    },
+    {
+        files: ["components/**/*.{ts,tsx}"],
+        rules: {
+            "no-restricted-imports": [
+                "error",
+                {
+                    patterns: ["app/*"],
+                },
+            ],
+        },
+    },
 ]);
