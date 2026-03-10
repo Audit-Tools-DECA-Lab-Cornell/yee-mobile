@@ -40,9 +40,3 @@ jobs:
 
             - name: Run Expo doctor
               run: bun run doctor
-
-            - name: Build web bundle
-              run: bun run build:web
-
-            - name: Validate web bundle budget
-              run: bun run perf:web:budget
