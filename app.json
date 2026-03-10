@@ -1,6 +1,6 @@
 {
     "expo": {
-        "name": "Audit Tools YEE Mobile",
+        "name": "Youth Enabling Environments Audit Tool",
         "slug": "audit-tools-yee-mobile",
         "version": "1.0.0",
         "orientation": "portrait",
@@ -10,18 +10,22 @@
         "splash": {
             "image": "./assets/images/splash.png",
             "resizeMode": "contain",
-            "backgroundColor": "#ffffff"
+            "backgroundColor": "#F7F1EB"
         },
         "assetBundlePatterns": ["**/*"],
         "ios": {
             "supportsTablet": true,
             "bundleIdentifier": "com.pratyush.sudhakar.audit-tools-yee-mobile",
-            "appleTeamId": "ZD947U862S"
+            "appleTeamId": "ZD947U862S",
+            "infoPlist": {
+                "ITSAppUsesNonExemptEncryption": false
+            }
         },
         "android": {
             "adaptiveIcon": {
                 "foregroundImage": "./assets/images/adaptive-icon.png",
-                "backgroundColor": "#ffffff"
+                "backgroundColor": "#F7F1EB",
+                "monochromeImage": "./assets/images/adaptive-monochrome.png"
             },
             "package": "com.pratyush.sudhakar.audittoolsyeemobile"
         },
@@ -64,9 +68,9 @@
         "runtimeVersion": {
             "policy": "appVersion"
         },
+        "owner": "pratyush.sudhakar",
         "updates": {
             "url": "https://u.expo.dev/bde8f0a0-4679-445a-a872-acd1b7107c89"
-        },
-        "owner": "pratyush.sudhakar"
+        }
     }
 }

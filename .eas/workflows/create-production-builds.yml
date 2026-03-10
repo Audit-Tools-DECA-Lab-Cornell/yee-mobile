@@ -1,0 +1,11 @@
+name: Create Production Builds
+
+jobs:
+    build_android:
+        type: build # This job type creates a production build for Android
+        params:
+            platform: android
+    # build_ios: # can't right now because we don't have an Apple developer account
+    #   type: build # This job type creates a production build for iOS
+    #   params:
+    #     platform: ios
