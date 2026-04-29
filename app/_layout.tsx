@@ -26,6 +26,7 @@ import { StatusBar } from "expo-status-bar";
 import { Provider } from "components/Provider";
 import { designSystem } from "lib/design-system";
 import { useAuthStore } from "stores/auth-store";
+import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 export { ErrorBoundary } from "expo-router";
 
@@ -105,11 +106,23 @@ function RootLayoutNav() {
     const router = useRouter();
     const segments = useSegments();
     const authStatus = useAuthStore((state) => state.status);
+    const session = useAuthStore((state) => state.session);
     const initializeAuth = useAuthStore((state) => state.initialize);
+    const hydrateOfflineState = useYeeMobileStore((state) => state.hydrateOfflineState);
+    const refreshRemoteState = useYeeMobileStore((state) => state.refreshRemoteState);
 
     useEffect(() => {
         void initializeAuth();
-    }, [initializeAuth]);
+        void hydrateOfflineState();
+    }, [hydrateOfflineState, initializeAuth]);
+
+    useEffect(() => {
+        if (authStatus !== "authenticated" || session === null) {
+            return;
+        }
+
+        void refreshRemoteState(session);
+    }, [authStatus, refreshRemoteState, session]);
 
     useEffect(() => {
         if (authStatus === "loading") {
