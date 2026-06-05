@@ -1,0 +1,156 @@
+import type { YeeAssignedPlace, YeeLocalDraft, YeeMyAuditItem } from "./yee-types";
+
+export type MobilePlaceWorkflowStatus = "not_started" | "draft" | "submitted";
+
+export interface MobilePlaceView {
+    readonly place: YeeAssignedPlace;
+    readonly status: MobilePlaceWorkflowStatus;
+    readonly draft: YeeLocalDraft | null;
+    readonly submission: YeeMyAuditItem | null;
+    readonly latestActivityLabel: string;
+    readonly syncLabel: string;
+}
+
+export interface MobileAuditSummary {
+    readonly assignedCount: number;
+    readonly draftCount: number;
+    readonly submittedCount: number;
+    readonly pendingSyncCount: number;
+}
+
+export function buildPlaceViews(
+    places: readonly YeeAssignedPlace[],
+    draftsByPlace: Record<string, YeeLocalDraft>,
+    submittedAudits: readonly YeeMyAuditItem[],
+): readonly MobilePlaceView[] {
+    return places.map((place) => {
+        const draft = draftsByPlace[place.id] ?? null;
+        const submission = submittedAudits.find((audit) => audit.place_id === place.id) ?? null;
+
+        if (submission !== null) {
+            return {
+                place,
+                status: "submitted",
+                draft,
+                submission,
+                latestActivityLabel: formatTimestamp(submission.submitted_at, "Submitted"),
+                syncLabel: "Synced to backend",
+            } satisfies MobilePlaceView;
+        }
+
+        if (draft !== null) {
+            return {
+                place,
+                status: "draft",
+                draft,
+                submission: null,
+                latestActivityLabel: formatTimestamp(draft.updatedAt, "Draft saved"),
+                syncLabel: getDraftSyncLabel(draft.syncState),
+            } satisfies MobilePlaceView;
+        }
+
+        return {
+            place,
+            status: "not_started",
+            draft: null,
+            submission: null,
+            latestActivityLabel: "Not started yet",
+            syncLabel: "Ready for offline capture",
+        } satisfies MobilePlaceView;
+    });
+}
+
+export function summarizeMobileAudits(placeViews: readonly MobilePlaceView[]): MobileAuditSummary {
+    return placeViews.reduce<MobileAuditSummary>(
+        (summary, view) => {
+            return {
+                assignedCount: summary.assignedCount + 1,
+                draftCount: summary.draftCount + (view.status === "draft" ? 1 : 0),
+                submittedCount: summary.submittedCount + (view.status === "submitted" ? 1 : 0),
+                pendingSyncCount:
+                    summary.pendingSyncCount +
+                    (view.draft?.syncState === "pending_upload" ||
+                    view.draft?.syncState === "sync_failed"
+                        ? 1
+                        : 0),
+            };
+        },
+        {
+            assignedCount: 0,
+            draftCount: 0,
+            submittedCount: 0,
+            pendingSyncCount: 0,
+        },
+    );
+}
+
+export function averageSubmittedScore(audits: readonly YeeMyAuditItem[]): number {
+    if (audits.length === 0) {
+        return 0;
+    }
+
+    const total = audits.reduce((sum, audit) => {
+        return sum + audit.total_score;
+    }, 0);
+
+    return Math.round(total / audits.length);
+}
+
+export function getTopSubmission(audits: readonly YeeMyAuditItem[]): YeeMyAuditItem | null {
+    const [firstAudit, ...remaining] = audits;
+    if (firstAudit === undefined) {
+        return null;
+    }
+
+    return remaining.reduce((highest, current) => {
+        if (current.total_score > highest.total_score) {
+            return current;
+        }
+
+        return highest;
+    }, firstAudit);
+}
+
+export function getStatusLabel(status: MobilePlaceWorkflowStatus): string {
+    if (status === "submitted") {
+        return "Submitted";
+    }
+
+    if (status === "draft") {
+        return "Draft in progress";
+    }
+
+    return "Not started";
+}
+
+function getDraftSyncLabel(syncState: YeeLocalDraft["syncState"]): string {
+    if (syncState === "pending_upload") {
+        return "Waiting to sync";
+    }
+
+    if (syncState === "sync_failed") {
+        return "Sync needs retry";
+    }
+
+    if (syncState === "local_only") {
+        return "Saved on device";
+    }
+
+    return "Synced to backend";
+}
+
+function formatTimestamp(value: string, prefix: string): string {
+    const parsed = Date.parse(value);
+    if (Number.isNaN(parsed)) {
+        return prefix;
+    }
+
+    const formatter = new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    });
+
+    return `${prefix} ${formatter.format(new Date(parsed))}`;
+}

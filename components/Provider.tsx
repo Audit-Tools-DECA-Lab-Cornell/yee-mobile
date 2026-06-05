@@ -1,7 +1,7 @@
 import { TamaguiProvider, type TamaguiProviderProps } from "tamagui";
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
 import { CurrentToast } from "./CurrentToast";
-import { config } from "../tamagui.config";
+import config from "../tamagui.config";
 
 export function Provider({
     children,

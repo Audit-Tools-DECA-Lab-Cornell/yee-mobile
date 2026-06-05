@@ -1,6 +1,7 @@
 import "../tamagui.generated.css";
 
 import { useEffect } from "react";
+import NetInfo from "@react-native-community/netinfo";
 import { DarkTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import {
@@ -110,6 +111,9 @@ function RootLayoutNav() {
     const initializeAuth = useAuthStore((state) => state.initialize);
     const hydrateOfflineState = useYeeMobileStore((state) => state.hydrateOfflineState);
     const refreshRemoteState = useYeeMobileStore((state) => state.refreshRemoteState);
+    const syncPendingQueue = useYeeMobileStore((state) => state.syncPendingQueue);
+    const setConnectivityState = useYeeMobileStore((state) => state.setConnectivityState);
+    const isOnline = useYeeMobileStore((state) => state.isOnline);
 
     useEffect(() => {
         void initializeAuth();
@@ -117,12 +121,22 @@ function RootLayoutNav() {
     }, [hydrateOfflineState, initializeAuth]);
 
     useEffect(() => {
-        if (authStatus !== "authenticated" || session === null) {
+        const unsubscribe = NetInfo.addEventListener((state) => {
+            setConnectivityState(Boolean(state.isConnected && state.isInternetReachable !== false));
+        });
+
+        return () => {
+            unsubscribe();
+        };
+    }, [setConnectivityState]);
+
+    useEffect(() => {
+        if (authStatus !== "authenticated" || session === null || !isOnline) {
             return;
         }
 
-        void refreshRemoteState(session);
-    }, [authStatus, refreshRemoteState, session]);
+        void syncPendingQueue(session).then(() => refreshRemoteState(session));
+    }, [authStatus, isOnline, refreshRemoteState, session, syncPendingQueue]);
 
     useEffect(() => {
         if (authStatus === "loading") {

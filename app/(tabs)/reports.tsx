@@ -1,22 +1,27 @@
 import { useMemo } from "react";
 import { ScrollView } from "react-native";
-import { Download, FileBarChart, TriangleAlert } from "@tamagui/lucide-icons";
+import { useRouter } from "expo-router";
+import { FileBarChart, TriangleAlert } from "@tamagui/lucide-icons";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
-import { REPORT_COMPARISON_ROWS, type ReportComparisonRow } from "lib/yee-demo-data";
 import { designSystem } from "lib/design-system";
+import { averageSubmittedScore, getTopSubmission } from "lib/yee-mobile-selectors";
+import { formatAuditTimestamp } from "lib/yee-mobile-reporting";
+import { useDemoUiStore } from "stores/demo-ui-store";
+import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 /**
- * Scoring tab with base-score focused visuals for auditor workflows.
+ * Reports tab backed by synced YEE submissions.
  */
 export default function ReportsScreen() {
-    const averageBaseScore = useMemo(() => {
-        return calculateAverageBaseScore(REPORT_COMPARISON_ROWS);
-    }, []);
-    const topBasePlace = useMemo(() => {
-        return getTopBasePlace(REPORT_COMPARISON_ROWS);
-    }, []);
-    const topBasePlaceLabel = topBasePlace?.placeName ?? "No data";
-    const topBasePlaceScore = topBasePlace?.baseScore ?? 0;
+    const router = useRouter();
+    const selectedPlaceId = useDemoUiStore((state) => state.selectedPlaceId);
+    const submittedAudits = useYeeMobileStore((state) => state.submittedAudits);
+
+    const averageScore = useMemo(() => averageSubmittedScore(submittedAudits), [submittedAudits]);
+    const topSubmission = useMemo(() => getTopSubmission(submittedAudits), [submittedAudits]);
+    const focusedSubmission = useMemo(() => {
+        return submittedAudits.find((audit) => audit.place_id === selectedPlaceId) ?? topSubmission;
+    }, [selectedPlaceId, submittedAudits, topSubmission]);
 
     return (
         <ScrollView
@@ -38,117 +43,240 @@ export default function ReportsScreen() {
                         lineHeight={36}
                         letterSpacing={-0.7}
                     >
-                        YEE Scoring
+                        Reports
                     </Text>
                     <Paragraph
                         color={designSystem.colors.mutedForeground}
                         fontFamily={designSystem.fonts.bodyMedium}
                     >
-                        Review base-score performance, see which places are export-ready, and track
-                        where weighted scoring will be introduced next.
+                        Submitted mobile audits appear here after sync. Open any locked report to
+                        review domain scores, comments, and result context from the field.
                     </Paragraph>
                 </YStack>
 
                 <XStack gap="$3">
                     <MetricCard
-                        label="Average base score"
-                        value={`${averageBaseScore}%`}
+                        label="Average raw score"
+                        value={`${averageScore}%`}
                         accentColor={designSystem.colors.primary}
-                        helperText="Across assigned audits"
+                        helperText="Across synced submissions"
                     />
                     <MetricCard
-                        label="Top place score"
-                        value={`${topBasePlaceScore}%`}
+                        label="Top synced score"
+                        value={topSubmission === null ? "--" : `${topSubmission.total_score}%`}
                         accentColor={designSystem.colors.success}
-                        helperText={topBasePlaceLabel}
+                        helperText={topSubmission?.place_name ?? "No submission yet"}
                     />
                 </XStack>
             </YStack>
 
-            <YStack
-                rounded={designSystem.radii.lg}
-                borderWidth={1}
-                borderColor={designSystem.colors.border}
-                bg={designSystem.colors.surface}
-                p="$4"
-                gap="$3"
-                style={{
-                    boxShadow: designSystem.shadows.card,
-                }}
-            >
-                <Text
-                    color={designSystem.colors.mutedForeground}
-                    fontFamily={designSystem.fonts.bodyBold}
-                    fontSize={11}
-                    textTransform="uppercase"
-                    letterSpacing={1.5}
+            {focusedSubmission === null ? (
+                <YStack
+                    rounded={designSystem.radii.lg}
+                    borderWidth={1}
+                    borderColor={designSystem.colors.border}
+                    bg={designSystem.colors.surface}
+                    p="$4"
+                    gap="$2.5"
                 >
-                    Base score by place
-                </Text>
-
+                    <Text
+                        color={designSystem.colors.foreground}
+                        fontFamily={designSystem.fonts.bodyBold}
+                        fontSize={16}
+                    >
+                        No submitted audits yet
+                    </Text>
+                    <Paragraph
+                        color={designSystem.colors.mutedForeground}
+                        fontFamily={designSystem.fonts.bodyMedium}
+                    >
+                        Once an audit is submitted and synced, this screen will show each locked
+                        report and allow it to be opened again on the device.
+                    </Paragraph>
+                </YStack>
+            ) : (
                 <YStack gap="$3">
-                    {REPORT_COMPARISON_ROWS.map((row) => {
-                        return (
-                            <YStack
-                                key={row.id}
-                                rounded={designSystem.radii.md}
-                                borderWidth={1}
-                                borderColor={designSystem.colors.border}
-                                bg={designSystem.colors.input}
-                                p="$3"
-                                gap="$2.5"
+                    <YStack
+                        rounded={designSystem.radii.lg}
+                        borderWidth={1}
+                        borderColor={designSystem.colors.border}
+                        bg={designSystem.colors.surface}
+                        p="$4"
+                        gap="$3"
+                        style={{ boxShadow: designSystem.shadows.card }}
+                    >
+                        <XStack items="center" gap="$2">
+                            <FileBarChart size={16} color={designSystem.colors.primary} />
+                            <Text
+                                color={designSystem.colors.foreground}
+                                fontFamily={designSystem.fonts.headingBold}
+                                fontSize={20}
                             >
-                                <XStack justify="space-between" items="flex-start" gap="$3">
-                                    <YStack flex={1}>
-                                        <Text
-                                            color={designSystem.colors.foreground}
-                                            fontFamily={designSystem.fonts.bodyBold}
-                                            fontSize={15}
-                                        >
-                                            {row.placeName}
-                                        </Text>
-                                        <Paragraph
-                                            color={designSystem.colors.mutedForeground}
-                                            fontFamily={designSystem.fonts.bodyMedium}
-                                            fontSize={12}
-                                        >
-                                            Ready for export
-                                        </Paragraph>
-                                    </YStack>
-                                    <YStack items="flex-end" gap="$0.5">
-                                        <Paragraph
-                                            color={designSystem.colors.primary}
-                                            fontFamily={designSystem.fonts.bodyBold}
-                                        >
-                                            Base {row.baseScore}%
-                                        </Paragraph>
-                                        <Paragraph
-                                            color={designSystem.colors.warning}
-                                            fontFamily={designSystem.fonts.bodyBold}
-                                        >
-                                            Weighting planned
-                                        </Paragraph>
-                                    </YStack>
-                                </XStack>
-
-                                <YStack
-                                    height={6}
-                                    rounded={designSystem.radii.full}
-                                    bg={designSystem.colors.mutedSurface}
-                                    overflow="hidden"
+                                Selected report
+                            </Text>
+                        </XStack>
+                        <YStack gap="$1">
+                            <Text
+                                color={designSystem.colors.foreground}
+                                fontFamily={designSystem.fonts.bodyBold}
+                                fontSize={17}
+                            >
+                                {focusedSubmission.place_name}
+                            </Text>
+                            <Paragraph
+                                color={designSystem.colors.mutedForeground}
+                                fontFamily={designSystem.fonts.bodyMedium}
+                            >
+                                Submitted {formatAuditTimestamp(focusedSubmission.submitted_at)}
+                            </Paragraph>
+                        </YStack>
+                        <YStack gap="$2">
+                            <XStack justify="space-between" items="center">
+                                <Paragraph
+                                    color={designSystem.colors.mutedForeground}
+                                    fontFamily={designSystem.fonts.bodyMedium}
                                 >
+                                    Total raw score
+                                </Paragraph>
+                                <Text
+                                    color={designSystem.colors.primary}
+                                    fontFamily={designSystem.fonts.headingBold}
+                                    fontSize={26}
+                                >
+                                    {focusedSubmission.total_score}%
+                                </Text>
+                            </XStack>
+                            <YStack
+                                height={10}
+                                rounded={designSystem.radii.full}
+                                bg={designSystem.colors.mutedSurface}
+                                overflow="hidden"
+                            >
+                                <YStack
+                                    height={10}
+                                    rounded={designSystem.radii.full}
+                                    bg={designSystem.colors.primary}
+                                    width={`${Math.max(0, Math.min(focusedSubmission.total_score, 100))}%`}
+                                />
+                            </YStack>
+                        </YStack>
+                        <Button
+                            rounded={designSystem.radii.full}
+                            bg={designSystem.colors.primary}
+                            borderWidth={1}
+                            borderColor={designSystem.colors.primary}
+                            pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                            onPress={() => router.push(`/reports/${focusedSubmission.id}`)}
+                        >
+                            <Button.Text
+                                color={designSystem.colors.primaryForeground}
+                                fontFamily={designSystem.fonts.bodyBold}
+                            >
+                                Open selected report
+                            </Button.Text>
+                        </Button>
+                    </YStack>
+
+                    <YStack
+                        rounded={designSystem.radii.lg}
+                        borderWidth={1}
+                        borderColor={designSystem.colors.border}
+                        bg={designSystem.colors.surface}
+                        p="$4"
+                        gap="$3"
+                        style={{ boxShadow: designSystem.shadows.card }}
+                    >
+                        <Text
+                            color={designSystem.colors.mutedForeground}
+                            fontFamily={designSystem.fonts.bodyBold}
+                            fontSize={11}
+                            textTransform="uppercase"
+                            letterSpacing={1.5}
+                        >
+                            Synced submissions
+                        </Text>
+                        <YStack gap="$3">
+                            {submittedAudits.map((audit) => (
+                                <YStack
+                                    key={audit.id}
+                                    rounded={designSystem.radii.md}
+                                    borderWidth={1}
+                                    borderColor={designSystem.colors.border}
+                                    bg={designSystem.colors.input}
+                                    p="$3"
+                                    gap="$2.5"
+                                >
+                                    <XStack justify="space-between" items="flex-start" gap="$3">
+                                        <YStack flex={1}>
+                                            <Text
+                                                color={designSystem.colors.foreground}
+                                                fontFamily={designSystem.fonts.bodyBold}
+                                                fontSize={15}
+                                            >
+                                                {audit.place_name}
+                                            </Text>
+                                            <Paragraph
+                                                color={designSystem.colors.mutedForeground}
+                                                fontFamily={designSystem.fonts.bodyMedium}
+                                                fontSize={12}
+                                            >
+                                                Submitted {formatAuditTimestamp(audit.submitted_at)}
+                                            </Paragraph>
+                                        </YStack>
+                                        <YStack items="flex-end" gap="$0.5">
+                                            <Paragraph
+                                                color={designSystem.colors.success}
+                                                fontFamily={designSystem.fonts.bodyBold}
+                                            >
+                                                {audit.total_score}%
+                                            </Paragraph>
+                                            <Paragraph
+                                                color={designSystem.colors.mutedForeground}
+                                                fontFamily={designSystem.fonts.bodyMedium}
+                                                fontSize={12}
+                                            >
+                                                Locked result
+                                            </Paragraph>
+                                        </YStack>
+                                    </XStack>
                                     <YStack
                                         height={6}
                                         rounded={designSystem.radii.full}
-                                        bg={designSystem.colors.primary}
-                                        width={`${row.baseScore}%`}
-                                    />
+                                        bg={designSystem.colors.mutedSurface}
+                                        overflow="hidden"
+                                    >
+                                        <YStack
+                                            height={6}
+                                            rounded={designSystem.radii.full}
+                                            bg={
+                                                audit.place_id === selectedPlaceId
+                                                    ? designSystem.colors.success
+                                                    : designSystem.colors.primary
+                                            }
+                                            width={`${Math.max(0, Math.min(audit.total_score, 100))}%`}
+                                        />
+                                    </YStack>
+                                    <Button
+                                        rounded={designSystem.radii.full}
+                                        bg={designSystem.colors.surfaceMuted}
+                                        borderWidth={1}
+                                        borderColor={designSystem.colors.border}
+                                        pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                                        onPress={() => router.push(`/reports/${audit.id}`)}
+                                    >
+                                        <Button.Text
+                                            color={designSystem.colors.foreground}
+                                            fontFamily={designSystem.fonts.bodyBold}
+                                        >
+                                            Open report
+                                        </Button.Text>
+                                    </Button>
                                 </YStack>
-                            </YStack>
-                        );
-                    })}
+                            ))}
+                        </YStack>
+                    </YStack>
                 </YStack>
-            </YStack>
+            )}
 
             <YStack
                 rounded={designSystem.radii.lg}
@@ -169,7 +297,8 @@ export default function ReportsScreen() {
                         letterSpacing={1.1}
                         style={{ flexShrink: 1, lineHeight: 18 }}
                     >
-                        Weighted scoring arrives after the pre-audit setup flow is available
+                        Full comparison reports and export packages remain available in the web
+                        dashboard
                     </Text>
                 </XStack>
                 <Paragraph
@@ -177,102 +306,26 @@ export default function ReportsScreen() {
                     fontFamily={designSystem.fonts.bodyMedium}
                     lineHeight={20}
                 >
-                    The current mobile workflow exports base score immediately, while weighted
-                    scoring will be added once pre-audit weighting questions are supported across
-                    the YEE setup flow.
+                    Mobile now supports read-only submitted audit reports for field confirmation.
+                    Broader comparison views and exports still live on the browser dashboard for
+                    stakeholder review.
                 </Paragraph>
-            </YStack>
-
-            <YStack
-                rounded={designSystem.radii.lg}
-                borderWidth={1}
-                borderColor={designSystem.colors.border}
-                bg={designSystem.colors.surface}
-                p="$4"
-                gap="$3"
-                style={{
-                    boxShadow: designSystem.shadows.card,
-                }}
-            >
-                <XStack items="center" gap="$2">
-                    <FileBarChart size={16} color={designSystem.colors.primary} />
-                    <Text
-                        color={designSystem.colors.foreground}
-                        fontFamily={designSystem.fonts.headingBold}
-                        fontSize={20}
-                    >
-                        Export preview
-                    </Text>
-                </XStack>
-                <Paragraph
-                    color={designSystem.colors.mutedForeground}
-                    fontFamily={designSystem.fonts.bodyMedium}
-                >
-                    Export packages can include base score, section-level results, and place
-                    metadata for reporting and QA review.
-                </Paragraph>
-                <XStack gap="$2">
-                    <ActionButton label="Export PDF" />
-                    <ActionButton label="Export CSV" variant="primary" />
-                </XStack>
             </YStack>
         </ScrollView>
     );
 }
 
-/**
- * Calculate average base score for the visible rows.
- *
- * @param rows Report comparison rows.
- * @returns Rounded average score.
- */
-function calculateAverageBaseScore(rows: readonly ReportComparisonRow[]): number {
-    if (rows.length === 0) {
-        return 0;
-    }
-
-    const sum = rows.reduce((currentSum, row) => {
-        return currentSum + row.baseScore;
-    }, 0);
-
-    return Math.round(sum / rows.length);
-}
-
-/**
- * Resolve the row with the highest base score.
- *
- * @param rows Report comparison rows.
- * @returns Best base score row or null for empty data.
- */
-function getTopBasePlace(rows: readonly ReportComparisonRow[]): ReportComparisonRow | null {
-    const [firstRow, ...remainingRows] = rows;
-    if (firstRow === undefined) {
-        return null;
-    }
-
-    return remainingRows.reduce((highest, current) => {
-        if (current.baseScore > highest.baseScore) {
-            return current;
-        }
-
-        return highest;
-    }, firstRow);
-}
-
-interface MetricCardProps {
-    readonly label: string;
-    readonly value: string;
-    readonly accentColor: string;
-    readonly helperText: string;
-}
-
-/**
- * Summary metric card used in the reports header.
- *
- * @param props Metric content and styling.
- * @returns Highlight card.
- */
-function MetricCard({ label, value, accentColor, helperText }: MetricCardProps) {
+function MetricCard({
+    label,
+    value,
+    accentColor,
+    helperText,
+}: {
+    label: string;
+    value: string;
+    accentColor: string;
+    helperText: string;
+}) {
     return (
         <YStack
             flex={1}
@@ -282,25 +335,22 @@ function MetricCard({ label, value, accentColor, helperText }: MetricCardProps) 
             bg={designSystem.colors.surface}
             p="$4"
             gap="$2"
-            style={{
-                boxShadow: designSystem.shadows.card,
-            }}
+            style={{ boxShadow: designSystem.shadows.card }}
         >
-            <Paragraph
-                color={designSystem.colors.mutedForeground}
-                fontFamily={designSystem.fonts.bodyBold}
-                fontSize={10}
-                textTransform="uppercase"
-                letterSpacing={1.2}
-            >
-                {label}
-            </Paragraph>
             <Text
-                fontFamily={designSystem.fonts.headingBold}
-                fontSize={28}
                 style={{ color: accentColor }}
+                fontFamily={designSystem.fonts.headingBold}
+                fontSize={30}
+                lineHeight={32}
             >
                 {value}
+            </Text>
+            <Text
+                color={designSystem.colors.foreground}
+                fontFamily={designSystem.fonts.bodyBold}
+                fontSize={14}
+            >
+                {label}
             </Text>
             <Paragraph
                 color={designSystem.colors.mutedForeground}
@@ -310,56 +360,5 @@ function MetricCard({ label, value, accentColor, helperText }: MetricCardProps) 
                 {helperText}
             </Paragraph>
         </YStack>
-    );
-}
-
-interface ActionButtonProps {
-    readonly label: string;
-    readonly variant?: "default" | "primary";
-}
-
-/**
- * Export action button styled to match the shared design system.
- *
- * @param props Button label and visual variant.
- * @returns Styled export action.
- */
-function ActionButton({ label, variant = "default" }: ActionButtonProps) {
-    const isPrimary = variant === "primary";
-
-    return (
-        <Button
-            flex={1}
-            height={46}
-            rounded={designSystem.radii.md}
-            borderWidth={isPrimary ? 0 : 1}
-            borderColor={designSystem.colors.border}
-            bg={isPrimary ? designSystem.colors.primary : designSystem.colors.input}
-            pressStyle={{ opacity: 0.92, scale: 0.985 }}
-        >
-            <XStack items="center" gap="$2">
-                <Download
-                    size={14}
-                    color={
-                        isPrimary
-                            ? designSystem.colors.primaryForeground
-                            : designSystem.colors.foreground
-                    }
-                />
-                <Text
-                    color={
-                        isPrimary
-                            ? designSystem.colors.primaryForeground
-                            : designSystem.colors.foreground
-                    }
-                    fontFamily={designSystem.fonts.bodyBold}
-                    fontSize={11}
-                    textTransform="uppercase"
-                    letterSpacing={1.2}
-                >
-                    {label}
-                </Text>
-            </XStack>
-        </Button>
     );
 }

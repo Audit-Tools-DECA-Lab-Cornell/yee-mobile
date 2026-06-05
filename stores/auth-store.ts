@@ -75,8 +75,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         }));
 
         try {
-            const session = await loginWithPassword(payload);
-            // const session = ensureAuditorSession(await loginWithPassword(payload));
+            const session = ensureAuditorSession(await loginWithPassword(payload));
             await saveAuthSession(session);
 
             set(() => ({
@@ -106,8 +105,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         }));
 
         try {
-            const session = await signupWithPassword(payload);
-            // const session = ensureAuditorSession(await signupWithPassword(payload));
+            const session = ensureAuditorSession(await signupWithPassword(payload));
             await saveAuthSession(session);
 
             set(() => ({
@@ -198,7 +196,6 @@ function toAuthErrorMessage(error: unknown): string {
  * @param session Auth session from backend.
  * @returns Same session when role is AUDITOR.
  */
-// @ts-expect-error: this is a temporary function to ensure the session is an auditor session
 function ensureAuditorSession(session: AuthSession): AuthSession {
     if (session.user.accountType !== "AUDITOR") {
         throw new AuthApiError(

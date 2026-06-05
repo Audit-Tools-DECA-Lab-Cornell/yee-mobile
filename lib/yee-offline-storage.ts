@@ -1,12 +1,20 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import type { YeeAssignedPlace, YeeLocalDraft, YeeMyAuditItem, YeeSyncQueueItem } from "lib/yee-types";
+import type {
+    YeeAssignedPlace,
+    YeeLocalDraft,
+    YeeMyAuditItem,
+    YeeSubmissionResponse,
+    YeeSyncQueueItem,
+} from "lib/yee-types";
 
 const STORAGE_KEYS = {
     places: "yee.mobile.assigned-places.v1",
     audits: "yee.mobile.submitted-audits.v1",
+    submissionDetails: "yee.mobile.submission-details.v1",
     drafts: "yee.mobile.local-drafts.v1",
     syncQueue: "yee.mobile.sync-queue.v1",
     metadata: "yee.mobile.offline-metadata.v1",
+    instrument: "yee.mobile.instrument.v1",
 } as const;
 
 const inMemoryFallback = new Map<string, string>();
@@ -37,6 +45,31 @@ export async function readSubmittedAuditsCache(): Promise<readonly YeeMyAuditIte
 
 export async function writeSubmittedAuditsCache(audits: readonly YeeMyAuditItem[]): Promise<void> {
     await writeJson(STORAGE_KEYS.audits, audits);
+}
+
+export async function readSubmissionDetailsCache(): Promise<Record<string, YeeSubmissionResponse>> {
+    return readJson(STORAGE_KEYS.submissionDetails, {} as Record<string, YeeSubmissionResponse>);
+}
+
+export async function writeSubmissionDetailsCache(
+    submissions: Record<string, YeeSubmissionResponse>,
+): Promise<void> {
+    await writeJson(STORAGE_KEYS.submissionDetails, submissions);
+}
+
+export async function readSubmissionDetail(
+    submissionId: string,
+): Promise<YeeSubmissionResponse | null> {
+    const submissions = await readSubmissionDetailsCache();
+    return submissions[submissionId] ?? null;
+}
+
+export async function writeSubmissionDetail(submission: YeeSubmissionResponse): Promise<void> {
+    const submissions = await readSubmissionDetailsCache();
+    await writeSubmissionDetailsCache({
+        ...submissions,
+        [submission.id]: submission,
+    });
 }
 
 export async function readDraftMap(): Promise<Record<string, YeeLocalDraft>> {
@@ -104,6 +137,14 @@ export async function readOfflineMetadata(): Promise<YeeOfflineMetadata> {
 
 export async function writeOfflineMetadata(metadata: YeeOfflineMetadata): Promise<void> {
     await writeJson(STORAGE_KEYS.metadata, metadata);
+}
+
+export async function readInstrumentCache(): Promise<Record<string, unknown> | null> {
+    return readJson<Record<string, unknown> | null>(STORAGE_KEYS.instrument, null);
+}
+
+export async function writeInstrumentCache(instrument: Record<string, unknown>): Promise<void> {
+    await writeJson(STORAGE_KEYS.instrument, instrument);
 }
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {
