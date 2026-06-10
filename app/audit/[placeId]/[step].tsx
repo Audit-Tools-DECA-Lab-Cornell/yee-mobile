@@ -2,7 +2,8 @@ import type { Dispatch, PropsWithChildren, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, ScrollView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, ArrowRight, Save } from "@tamagui/lucide-icons";
+import { useShallow } from "zustand/react/shallow";
+import { ArrowLeft, ArrowRight, Save } from "components/icons";
 import { Button, Input, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
 import {
@@ -39,12 +40,11 @@ import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 const STEP_VALUES = new Set(["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
-const SURVEY_CARD = "rgba(111, 154, 127, 0.09)";
-const SURVEY_CARD_BORDER = "rgba(111, 154, 127, 0.30)";
-const OPTION_SURFACE = "rgba(111, 154, 127, 0.06)";
-const OPTION_SELECTED = "rgba(184, 210, 192, 0.22)";
-const INTRO_SURFACE = "rgba(197, 138, 92, 0.09)";
-const EMPHASIS_SURFACE = "rgba(197, 138, 92, 0.12)";
+const SURVEY_CARD = "rgba(226, 239, 229, 0.55)";
+const SURVEY_CARD_BORDER = "rgba(110, 156, 124, 0.22)";
+const OPTION_SURFACE = "rgba(243, 247, 238, 0.95)";
+const OPTION_SELECTED = "rgba(169, 236, 217, 0.46)";
+const INTRO_SURFACE = "rgba(242, 247, 239, 0.92)";
 
 export default function AuditStepScreen() {
     const router = useRouter();
@@ -57,14 +57,16 @@ export default function AuditStepScreen() {
         loadPlaceAuditState,
         saveDraftLocally,
         queueDraftSync,
-    } = useYeeMobileStore((state) => ({
-        assignedPlaces: state.assignedPlaces,
-        draftsByPlace: state.draftsByPlace,
-        isOnline: state.isOnline,
-        loadPlaceAuditState: state.loadPlaceAuditState,
-        saveDraftLocally: state.saveDraftLocally,
-        queueDraftSync: state.queueDraftSync,
-    }));
+    } = useYeeMobileStore(
+        useShallow((state) => ({
+            assignedPlaces: state.assignedPlaces,
+            draftsByPlace: state.draftsByPlace,
+            isOnline: state.isOnline,
+            loadPlaceAuditState: state.loadPlaceAuditState,
+            saveDraftLocally: state.saveDraftLocally,
+            queueDraftSync: state.queueDraftSync,
+        })),
+    );
 
     const placeId = typeof params.placeId === "string" ? params.placeId : "";
     const step = STEP_VALUES.has(String(params.step))
@@ -72,6 +74,7 @@ export default function AuditStepScreen() {
         : 1;
     const place = assignedPlaces.find((entry) => entry.id === placeId) ?? null;
     const existingDraft = draftsByPlace[placeId] ?? null;
+    const existingDraftRef = useRef(existingDraft);
 
     const [instrument, setInstrument] = useState<NormalizedInstrument | null>(null);
     const [draft, setDraft] = useState<MobileAuditFormState | null>(null);
@@ -79,6 +82,10 @@ export default function AuditStepScreen() {
     const [isSaving, setIsSaving] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const lastPersistedFingerprintRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        existingDraftRef.current = existingDraft;
+    }, [existingDraft]);
 
     useEffect(() => {
         let cancelled = false;
@@ -92,6 +99,7 @@ export default function AuditStepScreen() {
 
             setIsLoading(true);
             setErrorMessage(null);
+            const storedDraft = existingDraftRef.current;
 
             try {
                 const cachedInstrument = await readInstrumentCache();
@@ -120,13 +128,13 @@ export default function AuditStepScreen() {
                     placeId,
                     placeName:
                         place?.name ??
-                        existingDraft?.participantInfo.place_name?.toString() ??
+                        storedDraft?.participantInfo.place_name?.toString() ??
                         "Assigned place",
                     auditorId:
                         remoteState?.auditor_generated_id ??
-                        existingDraft?.participantInfo.auditor_id?.toString() ??
+                        storedDraft?.participantInfo.auditor_id?.toString() ??
                         "AUDITOR",
-                    storedDraft: existingDraft,
+                    storedDraft,
                     auditState: remoteState,
                 });
 
@@ -143,7 +151,7 @@ export default function AuditStepScreen() {
                     const fallbackDraft = createEmptyFormState(
                         placeId,
                         place?.name ?? "Assigned place",
-                        existingDraft?.participantInfo.auditor_id?.toString() ?? "AUDITOR",
+                        storedDraft?.participantInfo.auditor_id?.toString() ?? "AUDITOR",
                     );
                     setDraft(fallbackDraft);
                     lastPersistedFingerprintRef.current = buildDraftFingerprint(fallbackDraft);
@@ -159,7 +167,7 @@ export default function AuditStepScreen() {
         return () => {
             cancelled = true;
         };
-    }, [existingDraft, isOnline, loadPlaceAuditState, place?.name, placeId, session]);
+    }, [isOnline, loadPlaceAuditState, place?.name, placeId, session]);
 
     const domain = getDomainForStep(step);
     const section = useMemo(() => {
@@ -171,15 +179,17 @@ export default function AuditStepScreen() {
             draftState: MobileAuditFormState,
             syncIntent: "autosave" | "manual",
         ): Promise<void> => {
+            const previousDraft = existingDraftRef.current;
             const draftToPersist = buildStoredDraft(
                 draftState,
-                existingDraft,
-                existingDraft?.scorePreview ?? null,
-                isOnline ? "synced" : "pending_upload",
+                previousDraft,
+                previousDraft?.scorePreview ?? null,
+                syncIntent === "autosave" ? "local_only" : isOnline ? "synced" : "pending_upload",
             );
             await saveDraftLocally({
                 ...draftToPersist,
-                syncState: isOnline ? "synced" : "local_only",
+                syncState:
+                    syncIntent === "autosave" ? "local_only" : isOnline ? "synced" : "local_only",
             });
 
             const payload = {
@@ -188,6 +198,11 @@ export default function AuditStepScreen() {
             };
 
             if (session === null) {
+                lastPersistedFingerprintRef.current = buildDraftFingerprint(draftState);
+                return;
+            }
+
+            if (syncIntent === "autosave") {
                 lastPersistedFingerprintRef.current = buildDraftFingerprint(draftState);
                 return;
             }
@@ -220,7 +235,7 @@ export default function AuditStepScreen() {
                 }
             }
         },
-        [existingDraft, isOnline, placeId, queueDraftSync, saveDraftLocally, session],
+        [isOnline, placeId, queueDraftSync, saveDraftLocally, session],
     );
 
     useEffect(() => {
@@ -235,7 +250,7 @@ export default function AuditStepScreen() {
 
         const timeoutId = setTimeout(() => {
             void persistDraft(draft, "autosave");
-        }, 1200);
+        }, 500);
 
         return () => {
             clearTimeout(timeoutId);
@@ -307,6 +322,7 @@ export default function AuditStepScreen() {
                 <StepHeader
                     step={step}
                     placeName={draft.placeName || place?.name || "Assigned place"}
+                    auditorId={draft.auditorId}
                 />
 
                 {errorMessage === null ? null : (
@@ -374,9 +390,18 @@ function LoadingScreen() {
     );
 }
 
-function StepHeader({ step, placeName }: { step: MobileYeeStepNumber; placeName: string }) {
+function StepHeader({
+    step,
+    placeName,
+    auditorId,
+}: {
+    step: MobileYeeStepNumber;
+    placeName: string;
+    auditorId: string;
+}) {
     const progressLabel =
         step <= 2 ? "Setup and weighting" : step === 9 ? "Final comments" : "Domain section";
+    const chipTone = getStepTone(step);
     return (
         <YStack gap="$3.5">
             <YStack gap="$1">
@@ -389,6 +414,38 @@ function StepHeader({ step, placeName }: { step: MobileYeeStepNumber; placeName:
                 >
                     {placeName}
                 </Paragraph>
+                <XStack gap="$2" flexWrap="wrap" mb="$1">
+                    <YStack
+                        rounded={designSystem.radii.full}
+                        px="$3"
+                        py="$1.5"
+                        bg={designSystem.colors.mintSoft}
+                    >
+                        <Text
+                            color={designSystem.colors.success}
+                            fontFamily={designSystem.fonts.bodyBold}
+                            fontSize={11}
+                        >
+                            {auditorId}
+                        </Text>
+                    </YStack>
+                    <YStack
+                        rounded={designSystem.radii.full}
+                        px="$3"
+                        py="$1.5"
+                        bg={designSystem.colors.surface}
+                        borderWidth={1}
+                        borderColor={designSystem.colors.border}
+                    >
+                        <Text
+                            color={designSystem.colors.foreground}
+                            fontFamily={designSystem.fonts.bodyMedium}
+                            fontSize={11}
+                        >
+                            Step {step} of 9
+                        </Text>
+                    </YStack>
+                </XStack>
                 <Text
                     color={designSystem.colors.foreground}
                     fontFamily={designSystem.fonts.headingBold}
@@ -407,14 +464,13 @@ function StepHeader({ step, placeName }: { step: MobileYeeStepNumber; placeName:
             <XStack
                 rounded={designSystem.radii.lg}
                 borderWidth={1}
-                borderColor={SURVEY_CARD_BORDER}
                 bg={designSystem.colors.surface}
                 px="$3.5"
                 py="$3"
                 justify="space-between"
                 items="center"
                 gap="$3"
-                style={{ boxShadow: designSystem.shadows.card }}
+                style={{ borderColor: chipTone.border, boxShadow: designSystem.shadows.card }}
             >
                 <YStack gap="$0.5" flex={1}>
                     <Paragraph
@@ -438,10 +494,10 @@ function StepHeader({ step, placeName }: { step: MobileYeeStepNumber; placeName:
                     rounded={designSystem.radii.full}
                     px="$3"
                     py="$1.5"
-                    style={{ backgroundColor: EMPHASIS_SURFACE }}
+                    style={{ backgroundColor: chipTone.surface }}
                 >
                     <Text
-                        color={designSystem.colors.primary}
+                        color={chipTone.text}
                         fontFamily={designSystem.fonts.bodyBold}
                         fontSize={11}
                     >
@@ -452,29 +508,22 @@ function StepHeader({ step, placeName }: { step: MobileYeeStepNumber; placeName:
             <XStack gap="$2" flexWrap="wrap">
                 {mobileYeeSteps.map((entry) => {
                     const active = entry.step === step;
+                    const tone = getStepTone(entry.step);
                     return (
                         <YStack
                             key={entry.step}
                             rounded={designSystem.radii.full}
                             borderWidth={1}
-                            borderColor={
-                                active ? designSystem.colors.primary : designSystem.colors.border
-                            }
-                            bg={
-                                active
-                                    ? designSystem.colors.primarySoft
-                                    : designSystem.colors.surfaceMuted
-                            }
                             px="$3"
                             py="$2"
-                            style={{ minWidth: 92 }}
+                            style={{
+                                minWidth: 92,
+                                borderColor: active ? tone.border : tone.softBorder,
+                                backgroundColor: active ? tone.surface : tone.softSurface,
+                            }}
                         >
                             <Text
-                                color={
-                                    active
-                                        ? designSystem.colors.primary
-                                        : designSystem.colors.mutedForeground
-                                }
+                                color={active ? tone.text : designSystem.colors.mutedForeground}
                                 fontFamily={designSystem.fonts.bodyBold}
                                 fontSize={11}
                             >
@@ -828,9 +877,9 @@ function Card({
 function SectionIntroCard({ title, description }: { title: string; description: string }) {
     return (
         <YStack
-            rounded={designSystem.radii.xl}
+            rounded={28}
             borderWidth={1}
-            borderColor={designSystem.colors.primary}
+            borderColor={SURVEY_CARD_BORDER}
             p="$4"
             gap="$2.5"
             style={{ backgroundColor: INTRO_SURFACE, boxShadow: designSystem.shadows.card }}
@@ -856,7 +905,7 @@ function SectionIntroCard({ title, description }: { title: string; description: 
 function QuestionCard({ label, children }: PropsWithChildren<{ label: string }>) {
     return (
         <YStack
-            rounded={designSystem.radii.xl}
+            rounded={28}
             borderWidth={1}
             borderColor={SURVEY_CARD_BORDER}
             p="$4"
@@ -1026,7 +1075,7 @@ function CommentField({
                 multiline
                 numberOfLines={4}
                 color={designSystem.colors.foreground}
-                style={{ minHeight: 110 }}
+                style={{ minHeight: 110, borderRadius: 20 }}
                 bg={designSystem.colors.input}
                 borderColor={SURVEY_CARD_BORDER}
                 placeholder="Optional notes"
@@ -1333,6 +1382,84 @@ function FooterNav({
             </Button>
         </XStack>
     );
+}
+
+function getStepTone(step: MobileYeeStepNumber) {
+    switch (step) {
+        case 1:
+            return {
+                surface: designSystem.colors.mintSoft,
+                border: "rgba(71, 203, 175, 0.40)",
+                softSurface: "rgba(157, 220, 207, 0.12)",
+                softBorder: "rgba(157, 220, 207, 0.28)",
+                text: designSystem.colors.primary,
+            };
+        case 2:
+            return {
+                surface: designSystem.colors.skySoft,
+                border: "rgba(74, 119, 200, 0.30)",
+                softSurface: "rgba(223, 233, 251, 0.55)",
+                softBorder: "rgba(123, 158, 217, 0.24)",
+                text: designSystem.colors.info,
+            };
+        case 3:
+            return {
+                surface: "rgba(222, 246, 238, 0.88)",
+                border: "rgba(62, 138, 103, 0.30)",
+                softSurface: "rgba(222, 246, 238, 0.45)",
+                softBorder: "rgba(94, 156, 131, 0.24)",
+                text: designSystem.colors.success,
+            };
+        case 4:
+            return {
+                surface: designSystem.colors.skySoft,
+                border: "rgba(74, 119, 200, 0.24)",
+                softSurface: "rgba(223, 233, 251, 0.52)",
+                softBorder: "rgba(123, 158, 217, 0.22)",
+                text: designSystem.colors.info,
+            };
+        case 5:
+            return {
+                surface: designSystem.colors.amberSoft,
+                border: "rgba(200, 139, 45, 0.28)",
+                softSurface: "rgba(248, 230, 190, 0.56)",
+                softBorder: "rgba(200, 154, 87, 0.24)",
+                text: designSystem.colors.warning,
+            };
+        case 6:
+            return {
+                surface: "rgba(225, 248, 245, 0.9)",
+                border: "rgba(71, 203, 175, 0.28)",
+                softSurface: "rgba(225, 248, 245, 0.52)",
+                softBorder: "rgba(157, 220, 207, 0.24)",
+                text: designSystem.colors.success,
+            };
+        case 7:
+            return {
+                surface: designSystem.colors.roseSoft,
+                border: "rgba(181, 72, 61, 0.22)",
+                softSurface: "rgba(246, 218, 223, 0.52)",
+                softBorder: "rgba(181, 72, 61, 0.18)",
+                text: designSystem.colors.danger,
+            };
+        case 8:
+            return {
+                surface: designSystem.colors.violetSoft,
+                border: "rgba(140, 114, 221, 0.30)",
+                softSurface: "rgba(198, 182, 238, 0.34)",
+                softBorder: "rgba(140, 114, 221, 0.22)",
+                text: designSystem.colors.violet,
+            };
+        case 9:
+        default:
+            return {
+                surface: designSystem.colors.mintSoft,
+                border: "rgba(71, 203, 175, 0.30)",
+                softSurface: "rgba(157, 220, 207, 0.12)",
+                softBorder: "rgba(157, 220, 207, 0.22)",
+                text: designSystem.colors.primary,
+            };
+    }
 }
 
 function estimateMinutes(auditDate: string, startTime: string, now: Date): number {

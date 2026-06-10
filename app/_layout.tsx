@@ -2,7 +2,7 @@ import "../tamagui.generated.css";
 
 import { useEffect } from "react";
 import NetInfo from "@react-native-community/netinfo";
-import { DarkTheme, ThemeProvider } from "@react-navigation/native";
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import {
     Geist_400Regular,
@@ -41,11 +41,11 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync();
 
 const navigationTheme = {
-    ...DarkTheme,
+    ...DefaultTheme,
     colors: {
-        ...DarkTheme.colors,
+        ...DefaultTheme.colors,
         background: designSystem.colors.background,
-        card: designSystem.colors.background,
+        card: designSystem.colors.surface,
         primary: designSystem.colors.primary,
         text: designSystem.colors.foreground,
         border: designSystem.colors.border,
@@ -161,7 +161,7 @@ function RootLayoutNav() {
 
     return (
         <ThemeProvider value={navigationTheme}>
-            <StatusBar style="light" />
+            <StatusBar style="dark" />
             <Stack
                 screenOptions={{
                     contentStyle: {

@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { BarChart3, ClipboardCheck, LayoutDashboard, MapPinned } from "@tamagui/lucide-icons";
+import { BarChart3, ClipboardCheck, LayoutDashboard, MapPinned } from "components/icons";
 import { designSystem } from "lib/design-system";
 
 interface TabIconProps {
@@ -56,7 +56,7 @@ function ReportsTabIcon({ focused, size }: TabIconProps) {
 }
 
 /**
- * Main tab layout for the playspace mobile demo.
+ * Main tab layout for the YEE mobile app.
  */
 export default function TabLayout() {
     return (

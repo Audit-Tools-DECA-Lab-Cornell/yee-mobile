@@ -2,7 +2,8 @@ import { Alert, ScrollView } from "react-native";
 import type { PropsWithChildren } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Send } from "@tamagui/lucide-icons";
+import { useShallow } from "zustand/react/shallow";
+import { ArrowLeft, Send } from "components/icons";
 import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
 import {
@@ -39,15 +40,17 @@ export default function AuditReviewScreen() {
         queueSubmissionSync,
         syncPendingQueue,
         refreshRemoteState,
-    } = useYeeMobileStore((state) => ({
-        assignedPlaces: state.assignedPlaces,
-        draftsByPlace: state.draftsByPlace,
-        isOnline: state.isOnline,
-        saveDraftLocally: state.saveDraftLocally,
-        queueSubmissionSync: state.queueSubmissionSync,
-        syncPendingQueue: state.syncPendingQueue,
-        refreshRemoteState: state.refreshRemoteState,
-    }));
+    } = useYeeMobileStore(
+        useShallow((state) => ({
+            assignedPlaces: state.assignedPlaces,
+            draftsByPlace: state.draftsByPlace,
+            isOnline: state.isOnline,
+            saveDraftLocally: state.saveDraftLocally,
+            queueSubmissionSync: state.queueSubmissionSync,
+            syncPendingQueue: state.syncPendingQueue,
+            refreshRemoteState: state.refreshRemoteState,
+        })),
+    );
     const place = assignedPlaces.find((entry) => entry.id === placeId) ?? null;
     const storedDraft = draftsByPlace[placeId] ?? null;
 

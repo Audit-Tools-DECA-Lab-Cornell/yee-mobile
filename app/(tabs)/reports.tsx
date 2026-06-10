@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { ScrollView } from "react-native";
 import { useRouter } from "expo-router";
-import { FileBarChart, TriangleAlert } from "@tamagui/lucide-icons";
+import { FileBarChart, TriangleAlert } from "components/icons";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
 import { averageSubmittedScore, getTopSubmission } from "lib/yee-mobile-selectors";

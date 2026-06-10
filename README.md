@@ -41,6 +41,13 @@ The app is built with Expo + Expo Router, uses Tamagui for UI, and includes Type
     bun run start
     ```
 
+    If web ever shows a Tamagui configuration error during development, prefer the
+    Node-backed Expo launcher below instead of `bunx`-driven commands:
+
+    ```bash
+    npx expo start --web --clear
+    ```
+
 4. Run on a platform:
 
     ```bash
@@ -121,5 +128,5 @@ bun run ci:quality
 
 ## Notes
 
-- The repository contains `ios/` and `android/` native folders.
+- This repository currently runs as an Expo-managed app and does not require checked-in `ios/` or `android/` folders for local development.
 - Expo Router entry point is configured via `main: "expo-router/entry"` in `package.json`.

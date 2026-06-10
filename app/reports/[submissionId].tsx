@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { ScrollView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, BarChart3, CloudOff, FileText } from "@tamagui/lucide-icons";
+import { useShallow } from "zustand/react/shallow";
+import { ArrowLeft, BarChart3, CloudOff, FileText } from "components/icons";
 import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
 import { fetchSubmission } from "lib/yee-api";
@@ -40,10 +41,12 @@ export default function MobileReportDetailScreen() {
     const params = useLocalSearchParams<{ submissionId?: string }>();
     const submissionId = typeof params.submissionId === "string" ? params.submissionId : "";
     const session = useAuthStore((state) => state.session);
-    const { isOnline, submittedAudits } = useYeeMobileStore((state) => ({
-        isOnline: state.isOnline,
-        submittedAudits: state.submittedAudits,
-    }));
+    const { isOnline, submittedAudits } = useYeeMobileStore(
+        useShallow((state) => ({
+            isOnline: state.isOnline,
+            submittedAudits: state.submittedAudits,
+        })),
+    );
     const submissionSummary = submittedAudits.find((audit) => audit.id === submissionId) ?? null;
 
     const [submission, setSubmission] = useState<YeeSubmissionResponse | null>(null);

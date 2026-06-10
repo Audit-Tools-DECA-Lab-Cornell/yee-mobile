@@ -12,7 +12,7 @@ interface DemoUiStoreState {
  * Global UI state store used across tabs.
  */
 export const useDemoUiStore = create<DemoUiStoreState>((set) => ({
-    selectedPlaceId: "place-001",
+    selectedPlaceId: "",
     setSelectedPlaceId: (placeId: string) => {
         const trimmedPlaceId = placeId.trim();
         if (trimmedPlaceId.length === 0) {

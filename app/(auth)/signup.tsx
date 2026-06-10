@@ -1,6 +1,6 @@
 import { ScrollView } from "react-native";
 import { useRouter } from "expo-router";
-import { ArrowLeft, ShieldAlert } from "@tamagui/lucide-icons";
+import { ArrowLeft, ShieldAlert } from "components/icons";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
 

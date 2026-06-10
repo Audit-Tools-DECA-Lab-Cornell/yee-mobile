@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { CheckCircle2, LayoutList, RefreshCcw } from "@tamagui/lucide-icons";
+import { CheckCircle2, LayoutList, RefreshCcw } from "components/icons";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
 

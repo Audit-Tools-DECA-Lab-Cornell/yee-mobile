@@ -2,6 +2,7 @@ import type { ReactElement } from "react";
 import { useMemo } from "react";
 import { ScrollView } from "react-native";
 import { useRouter } from "expo-router";
+import { useShallow } from "zustand/react/shallow";
 import {
     ArrowUpRight,
     Bell,
@@ -11,7 +12,7 @@ import {
     RefreshCcw,
     UserRound,
     WifiOff,
-} from "@tamagui/lucide-icons";
+} from "components/icons";
 import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { designSystem, getMetricTone, getPlaceStatusTone } from "lib/design-system";
 import { buildPlaceViews, getStatusLabel, summarizeMobileAudits } from "lib/yee-mobile-selectors";
@@ -39,19 +40,21 @@ export default function DashboardScreen() {
         lastAuditsSyncAt,
         refreshRemoteState,
         syncPendingQueue,
-    } = useYeeMobileStore((state) => ({
-        status: state.status,
-        isOnline: state.isOnline,
-        assignedPlaces: state.assignedPlaces,
-        submittedAudits: state.submittedAudits,
-        draftsByPlace: state.draftsByPlace,
-        syncQueue: state.syncQueue,
-        errorMessage: state.errorMessage,
-        lastPlacesSyncAt: state.lastPlacesSyncAt,
-        lastAuditsSyncAt: state.lastAuditsSyncAt,
-        refreshRemoteState: state.refreshRemoteState,
-        syncPendingQueue: state.syncPendingQueue,
-    }));
+    } = useYeeMobileStore(
+        useShallow((state) => ({
+            status: state.status,
+            isOnline: state.isOnline,
+            assignedPlaces: state.assignedPlaces,
+            submittedAudits: state.submittedAudits,
+            draftsByPlace: state.draftsByPlace,
+            syncQueue: state.syncQueue,
+            errorMessage: state.errorMessage,
+            lastPlacesSyncAt: state.lastPlacesSyncAt,
+            lastAuditsSyncAt: state.lastAuditsSyncAt,
+            refreshRemoteState: state.refreshRemoteState,
+            syncPendingQueue: state.syncPendingQueue,
+        })),
+    );
 
     const placeViews = useMemo(() => {
         return buildPlaceViews(assignedPlaces, draftsByPlace, submittedAudits);
@@ -153,6 +156,23 @@ export default function DashboardScreen() {
                 </XStack>
 
                 <YStack gap="$1.5">
+                    <XStack
+                        rounded={designSystem.radii.full}
+                        px="$3"
+                        py="$1.5"
+                        bg={designSystem.colors.surface}
+                        borderWidth={1}
+                        borderColor={designSystem.colors.border}
+                        style={{ alignSelf: "flex-start" }}
+                    >
+                        <Paragraph
+                            color={designSystem.colors.secondaryForeground}
+                            fontFamily={designSystem.fonts.bodyMedium}
+                            fontSize={12}
+                        >
+                            Auditor view
+                        </Paragraph>
+                    </XStack>
                     <Text
                         color={designSystem.colors.foreground}
                         fontFamily={designSystem.fonts.headingBold}
@@ -242,17 +262,17 @@ export default function DashboardScreen() {
                 </XStack>
 
                 <YStack
-                    rounded={designSystem.radii.xl}
+                    rounded={28}
                     borderWidth={1}
-                    borderColor={designSystem.colors.border}
-                    bg={designSystem.colors.surface}
-                    p="$4"
+                    borderColor="rgba(71, 203, 175, 0.18)"
+                    bg={designSystem.colors.primary}
+                    p="$5"
                     gap="$3.5"
                     style={{ boxShadow: designSystem.shadows.card }}
                 >
                     <YStack gap="$1">
                         <Paragraph
-                            color={designSystem.colors.primary}
+                            color="rgba(255,255,255,0.78)"
                             fontFamily={designSystem.fonts.bodyBold}
                             fontSize={10}
                             textTransform="uppercase"
@@ -261,7 +281,7 @@ export default function DashboardScreen() {
                             Field workflow
                         </Paragraph>
                         <Text
-                            color={designSystem.colors.foreground}
+                            color={designSystem.colors.primaryForeground}
                             fontFamily={designSystem.fonts.headingBold}
                             fontSize={26}
                             lineHeight={30}
@@ -269,7 +289,7 @@ export default function DashboardScreen() {
                             Offline capture for your assigned YEE places.
                         </Text>
                         <Paragraph
-                            color={designSystem.colors.mutedForeground}
+                            color="rgba(255,255,255,0.76)"
                             fontFamily={designSystem.fonts.bodyMedium}
                         >
                             Start a new place audit, resume saved drafts, and sync submitted work
@@ -280,18 +300,18 @@ export default function DashboardScreen() {
                     <XStack gap="$2.5" flexWrap="wrap">
                         <ActionButton
                             label="View places"
-                            icon={
-                                <LayoutList
-                                    size={14}
-                                    color={designSystem.colors.primaryForeground}
-                                />
-                            }
+                            icon={<LayoutList size={14} color={designSystem.colors.primary} />}
                             onPress={() => router.push("/(tabs)/places")}
                         />
                         <ActionButton
                             label={primaryDraft === null ? "Open audit" : "Continue draft"}
                             variant="secondary"
-                            icon={<ArrowUpRight size={14} color={designSystem.colors.foreground} />}
+                            icon={
+                                <ArrowUpRight
+                                    size={14}
+                                    color={designSystem.colors.primaryForeground}
+                                />
+                            }
                             onPress={() => {
                                 const target = primaryDraft ?? placeViews[0] ?? null;
                                 if (target === null) {
@@ -305,7 +325,12 @@ export default function DashboardScreen() {
                         <ActionButton
                             label="View reports"
                             variant="secondary"
-                            icon={<FileBarChart size={14} color={designSystem.colors.foreground} />}
+                            icon={
+                                <FileBarChart
+                                    size={14}
+                                    color={designSystem.colors.primaryForeground}
+                                />
+                            }
                             onPress={() => router.push("/(tabs)/reports")}
                         />
                     </XStack>
@@ -337,7 +362,7 @@ export default function DashboardScreen() {
                         return (
                             <YStack
                                 key={view.place.id}
-                                rounded={designSystem.radii.lg}
+                                rounded={24}
                                 borderWidth={1}
                                 borderColor={designSystem.colors.border}
                                 bg={designSystem.colors.surface}
@@ -504,13 +529,32 @@ function MetricCard({ label, value, tone, helperText }: MetricCardProps) {
         <YStack
             width="48%"
             style={{ minWidth: 160, boxShadow: designSystem.shadows.card }}
-            rounded={designSystem.radii.lg}
+            rounded={24}
             borderWidth={1}
-            borderColor={designSystem.colors.border}
-            bg={designSystem.colors.surface}
+            borderColor={palette.accent}
+            bg={palette.surface}
             p="$4"
             gap="$2"
         >
+            <YStack
+                rounded={designSystem.radii.full}
+                px="$2.5"
+                py="$1"
+                style={{
+                    alignSelf: "flex-start",
+                    backgroundColor: designSystem.colors.surface,
+                }}
+            >
+                <Paragraph
+                    style={{ color: palette.text }}
+                    fontFamily={designSystem.fonts.bodyBold}
+                    fontSize={10}
+                    textTransform="uppercase"
+                    letterSpacing={1.2}
+                >
+                    {label}
+                </Paragraph>
+            </YStack>
             <Text
                 color={palette.text}
                 fontFamily={designSystem.fonts.headingBold}
@@ -519,15 +563,8 @@ function MetricCard({ label, value, tone, helperText }: MetricCardProps) {
             >
                 {value.toString().padStart(2, "0")}
             </Text>
-            <Text
-                color={designSystem.colors.foreground}
-                fontFamily={designSystem.fonts.bodyBold}
-                fontSize={14}
-            >
-                {label}
-            </Text>
             <Paragraph
-                color={designSystem.colors.mutedForeground}
+                color={designSystem.colors.secondaryForeground}
                 fontFamily={designSystem.fonts.bodyMedium}
                 fontSize={12}
             >
@@ -551,12 +588,14 @@ function ActionButton({ label, onPress, icon, variant = "primary" }: ActionButto
             rounded={designSystem.radii.full}
             bg={
                 variant === "primary"
-                    ? designSystem.colors.primary
-                    : designSystem.colors.surfaceMuted
+                    ? designSystem.colors.primaryForeground
+                    : "rgba(255,255,255,0.1)"
             }
             borderWidth={1}
             borderColor={
-                variant === "primary" ? designSystem.colors.primary : designSystem.colors.border
+                variant === "primary"
+                    ? designSystem.colors.primaryForeground
+                    : "rgba(255,255,255,0.16)"
             }
             pressStyle={{ opacity: 0.92, scale: 0.985 }}
         >
@@ -565,8 +604,8 @@ function ActionButton({ label, onPress, icon, variant = "primary" }: ActionButto
                 <Button.Text
                     color={
                         variant === "primary"
-                            ? designSystem.colors.primaryForeground
-                            : designSystem.colors.foreground
+                            ? designSystem.colors.primary
+                            : designSystem.colors.primaryForeground
                     }
                     fontFamily={designSystem.fonts.bodyBold}
                 >

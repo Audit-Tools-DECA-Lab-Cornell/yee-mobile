@@ -1,14 +1,14 @@
 import { TamaguiProvider, type TamaguiProviderProps } from "tamagui";
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
 import { CurrentToast } from "./CurrentToast";
-import config from "../tamagui.config";
+import { config as tamaguiConfig } from "../tamagui.config";
 
 export function Provider({
     children,
     ...rest
 }: Readonly<Omit<TamaguiProviderProps, "config" | "defaultTheme">>) {
     return (
-        <TamaguiProvider config={config} defaultTheme="dark" {...rest}>
+        <TamaguiProvider config={tamaguiConfig} defaultTheme="dark" {...rest}>
             <ToastProvider
                 swipeDirection="horizontal"
                 duration={6000}

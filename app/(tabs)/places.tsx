@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { ScrollView } from "react-native";
 import { useRouter } from "expo-router";
-import { Clock3, MapPin, UploadCloud } from "@tamagui/lucide-icons";
+import { useShallow } from "zustand/react/shallow";
+import { Clock3, MapPin, UploadCloud } from "components/icons";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem, getPlaceStatusTone } from "lib/design-system";
 import { buildPlaceViews, getStatusLabel, summarizeMobileAudits } from "lib/yee-mobile-selectors";
@@ -15,12 +16,12 @@ export default function PlacesScreen() {
     const router = useRouter();
     const setSelectedPlaceId = useDemoUiStore((state) => state.setSelectedPlaceId);
     const { assignedPlaces, submittedAudits, draftsByPlace, syncQueue } = useYeeMobileStore(
-        (state) => ({
+        useShallow((state) => ({
             assignedPlaces: state.assignedPlaces,
             submittedAudits: state.submittedAudits,
             draftsByPlace: state.draftsByPlace,
             syncQueue: state.syncQueue,
-        }),
+        })),
     );
 
     const placeViews = useMemo(
@@ -42,6 +43,23 @@ export default function PlacesScreen() {
         >
             <YStack gap="$4">
                 <YStack gap="$1.5">
+                    <XStack
+                        rounded={designSystem.radii.full}
+                        px="$3"
+                        py="$1.5"
+                        bg={designSystem.colors.surface}
+                        borderWidth={1}
+                        borderColor={designSystem.colors.border}
+                        style={{ alignSelf: "flex-start" }}
+                    >
+                        <Paragraph
+                            color={designSystem.colors.secondaryForeground}
+                            fontFamily={designSystem.fonts.bodyMedium}
+                            fontSize={12}
+                        >
+                            Auditor view
+                        </Paragraph>
+                    </XStack>
                     <Text
                         color={designSystem.colors.foreground}
                         fontFamily={designSystem.fonts.headingBold}
@@ -49,7 +67,7 @@ export default function PlacesScreen() {
                         lineHeight={36}
                         letterSpacing={-0.7}
                     >
-                        Assigned Places
+                        My Audits
                     </Text>
                     <Paragraph
                         color={designSystem.colors.mutedForeground}
@@ -83,7 +101,7 @@ export default function PlacesScreen() {
                         return (
                             <YStack
                                 key={view.place.id}
-                                rounded={designSystem.radii.lg}
+                                rounded={28}
                                 borderWidth={1}
                                 borderColor={designSystem.colors.border}
                                 bg={designSystem.colors.surface}
@@ -153,7 +171,7 @@ export default function PlacesScreen() {
                                             rounded={designSystem.radii.md}
                                             borderWidth={1}
                                             borderColor={designSystem.colors.border}
-                                            bg={designSystem.colors.input}
+                                            bg={designSystem.colors.surfaceMuted}
                                             p="$3"
                                             gap="$3"
                                         >
@@ -268,13 +286,32 @@ function SummaryTile({ label, value, tone }: SummaryTileProps) {
         <YStack
             flex={1}
             style={{ minWidth: 102, boxShadow: designSystem.shadows.card }}
-            rounded={designSystem.radii.lg}
+            rounded={24}
             borderWidth={1}
-            borderColor={designSystem.colors.border}
-            bg={designSystem.colors.surface}
+            borderColor={palette.accent}
+            bg={palette.surface}
             p="$3"
-            gap="$1"
+            gap="$1.5"
         >
+            <YStack
+                rounded={designSystem.radii.full}
+                px="$2.5"
+                py="$1"
+                style={{
+                    alignSelf: "flex-start",
+                    backgroundColor: designSystem.colors.surface,
+                }}
+            >
+                <Paragraph
+                    style={{ color: palette.text }}
+                    fontFamily={designSystem.fonts.bodyBold}
+                    fontSize={10}
+                    textTransform="uppercase"
+                    letterSpacing={1.1}
+                >
+                    {label}
+                </Paragraph>
+            </YStack>
             <Text
                 color={palette.text}
                 fontFamily={designSystem.fonts.headingBold}
@@ -283,15 +320,6 @@ function SummaryTile({ label, value, tone }: SummaryTileProps) {
             >
                 {value.toString().padStart(2, "0")}
             </Text>
-            <Paragraph
-                color={designSystem.colors.mutedForeground}
-                fontFamily={designSystem.fonts.bodyBold}
-                fontSize={11}
-                textTransform="uppercase"
-                letterSpacing={1.2}
-            >
-                {label}
-            </Paragraph>
         </YStack>
     );
 }
@@ -309,7 +337,7 @@ function InfoTile({ label, value }: InfoTileProps) {
             style={{ minWidth: 132 }}
             borderWidth={1}
             borderColor={designSystem.colors.border}
-            bg={designSystem.colors.input}
+            bg={designSystem.colors.surface}
             p="$3"
             gap="$1"
         >
@@ -344,11 +372,7 @@ function ActionButton({ label, onPress, variant = "primary" }: ActionButtonProps
         <Button
             onPress={onPress}
             rounded={designSystem.radii.full}
-            bg={
-                variant === "primary"
-                    ? designSystem.colors.primary
-                    : designSystem.colors.surfaceMuted
-            }
+            bg={variant === "primary" ? designSystem.colors.primary : designSystem.colors.surface}
             borderWidth={1}
             borderColor={
                 variant === "primary" ? designSystem.colors.primary : designSystem.colors.border
@@ -377,7 +401,7 @@ interface EmptyStateCardProps {
 function EmptyStateCard({ title, body }: EmptyStateCardProps) {
     return (
         <YStack
-            rounded={designSystem.radii.lg}
+            rounded={24}
             borderWidth={1}
             borderColor={designSystem.colors.border}
             bg={designSystem.colors.surface}

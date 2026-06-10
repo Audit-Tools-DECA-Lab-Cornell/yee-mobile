@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CircleCheckBig, CloudOff, Save, Send, TriangleAlert } from "@tamagui/lucide-icons";
+import { useShallow } from "zustand/react/shallow";
+import { CircleCheckBig, CloudOff, Save, Send, TriangleAlert } from "components/icons";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem, getPlaceStatusTone } from "lib/design-system";
 import { buildPlaceViews, getStatusLabel } from "lib/yee-mobile-selectors";
@@ -17,12 +18,12 @@ export default function ExecuteScreen() {
     const router = useRouter();
     const selectedPlaceId = useDemoUiStore((state) => state.selectedPlaceId);
     const { assignedPlaces, submittedAudits, draftsByPlace, syncQueue } = useYeeMobileStore(
-        (state) => ({
+        useShallow((state) => ({
             assignedPlaces: state.assignedPlaces,
             submittedAudits: state.submittedAudits,
             draftsByPlace: state.draftsByPlace,
             syncQueue: state.syncQueue,
-        }),
+        })),
     );
 
     const placeViews = useMemo(

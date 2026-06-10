@@ -1,15 +1,7 @@
 import { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
-import {
-    ArrowRight,
-    Check,
-    Eye,
-    EyeOff,
-    KeyRound,
-    ShieldCheck,
-    UserRound,
-} from "@tamagui/lucide-icons";
+import { ArrowRight, Check, Eye, EyeOff, KeyRound, UserRound } from "components/icons";
 import { Button, Checkbox, Input, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
 import { useAuthStore } from "stores/auth-store";
@@ -59,8 +51,6 @@ export default function LoginScreen() {
             email: normalizedEmail,
             password: trimmedPassword,
         });
-
-        router.replace("/(tabs)");
     };
 
     const visibleErrorMessage = validationMessage ?? errorMessage;
@@ -79,66 +69,98 @@ export default function LoginScreen() {
                     justifyContent: "center",
                 }}
             >
-                <YStack gap="$6" width="100%" style={{ maxWidth: 440, alignSelf: "center" }}>
-                    <YStack items="center" gap="$4">
-                        <YStack
-                            width={88}
-                            height={88}
-                            items="center"
-                            justify="center"
-                            rounded={designSystem.radii.xl}
-                            borderWidth={1}
-                            borderColor={designSystem.colors.border}
-                            bg={designSystem.colors.surfaceMuted}
-                            style={{
-                                boxShadow: designSystem.shadows.card,
-                            }}
+                <YStack gap="$5" width="100%" style={{ maxWidth: 460, alignSelf: "center" }}>
+                    <YStack gap="$2" px="$1">
+                        <Paragraph
+                            color={designSystem.colors.secondaryForeground}
+                            fontFamily={designSystem.fonts.bodyBold}
+                            fontSize={12}
+                            textTransform="uppercase"
+                            letterSpacing={2}
                         >
-                            <ShieldCheck size={34} color={designSystem.colors.primary} />
-                        </YStack>
-
-                        <YStack items="center" gap="$2">
-                            <Text
-                                color={designSystem.colors.foreground}
-                                fontFamily={designSystem.fonts.headingBold}
-                                fontSize="$5"
-                                lineHeight={36}
-                                textTransform="uppercase"
-                                fontStyle="italic"
-                                letterSpacing={-0.5}
-                            >
-                                Youth Enabling Environments
-                            </Text>
-                            <Paragraph
-                                color={designSystem.colors.mutedForeground}
-                                fontFamily={designSystem.fonts.bodySemiBold}
-                                fontSize={12}
-                                textTransform="uppercase"
-                                letterSpacing={1.6}
-                            >
-                                Field audit professional
-                            </Paragraph>
-                        </YStack>
+                            Audit Tools Platform
+                        </Paragraph>
+                        <Text
+                            color={designSystem.colors.foreground}
+                            fontFamily={designSystem.fonts.headingBold}
+                            fontSize={42}
+                            lineHeight={46}
+                            letterSpacing={-1.4}
+                        >
+                            Log in to the YEE workspace.
+                        </Text>
+                        <Paragraph
+                            color={designSystem.colors.mutedForeground}
+                            fontFamily={designSystem.fonts.bodyMedium}
+                            fontSize={17}
+                            lineHeight={28}
+                        >
+                            Continue your auditor fieldwork with a calmer, offline-friendly mobile
+                            flow.
+                        </Paragraph>
                     </YStack>
 
-                    <YStack gap="$4">
+                    <YStack
+                        gap="$4"
+                        rounded={30}
+                        borderWidth={1}
+                        borderColor={designSystem.colors.border}
+                        bg={designSystem.colors.surface}
+                        p="$5"
+                        style={{ boxShadow: designSystem.shadows.card }}
+                    >
+                        <YStack gap="$3">
+                            <XStack
+                                rounded={designSystem.radii.full}
+                                px="$3"
+                                py="$1.5"
+                                bg={designSystem.colors.mintSoft}
+                                style={{ alignSelf: "flex-start" }}
+                            >
+                                <Paragraph
+                                    color={designSystem.colors.success}
+                                    fontFamily={designSystem.fonts.bodyBold}
+                                    fontSize={11}
+                                >
+                                    Step 1 of product flow
+                                </Paragraph>
+                            </XStack>
+                            <YStack gap="$1.5">
+                                <Text
+                                    color={designSystem.colors.foreground}
+                                    fontFamily={designSystem.fonts.headingBold}
+                                    fontSize={34}
+                                    lineHeight={38}
+                                    letterSpacing={-0.8}
+                                >
+                                    Log in
+                                </Text>
+                                <Paragraph
+                                    color={designSystem.colors.secondaryForeground}
+                                    fontFamily={designSystem.fonts.bodyMedium}
+                                    fontSize={16}
+                                    lineHeight={25}
+                                >
+                                    Use your verified YEE account to continue into the correct
+                                    onboarding step or dashboard.
+                                </Paragraph>
+                            </YStack>
+                        </YStack>
+
                         <YStack gap="$2">
                             <Paragraph
-                                color={designSystem.colors.mutedForeground}
+                                color={designSystem.colors.foreground}
                                 fontFamily={designSystem.fonts.bodyBold}
-                                fontSize={12}
-                                textTransform="uppercase"
-                                letterSpacing={1.5}
-                                px="$1"
+                                fontSize={14}
                             >
-                                Auditor identity
+                                Email
                             </Paragraph>
                             <XStack
                                 items="center"
                                 gap="$3"
                                 px="$4"
                                 height={56}
-                                rounded={designSystem.radii.md}
+                                rounded={designSystem.radii.lg}
                                 borderWidth={1}
                                 borderColor={designSystem.colors.border}
                                 bg={designSystem.colors.input}
@@ -165,22 +187,18 @@ export default function LoginScreen() {
                         <YStack gap="$2">
                             <XStack justify="space-between" items="center" px="$1">
                                 <Paragraph
-                                    color={designSystem.colors.mutedForeground}
+                                    color={designSystem.colors.foreground}
                                     fontFamily={designSystem.fonts.bodyBold}
-                                    fontSize={12}
-                                    textTransform="uppercase"
-                                    letterSpacing={1.5}
+                                    fontSize={14}
                                 >
-                                    Access key
+                                    Password
                                 </Paragraph>
                                 <Paragraph
-                                    color={designSystem.colors.primary}
-                                    fontFamily={designSystem.fonts.bodyBold}
-                                    fontSize={11}
-                                    textTransform="uppercase"
-                                    letterSpacing={1.1}
+                                    color={designSystem.colors.success}
+                                    fontFamily={designSystem.fonts.bodySemiBold}
+                                    fontSize={13}
                                 >
-                                    Offline sign-in
+                                    Forgot password?
                                 </Paragraph>
                             </XStack>
                             <XStack
@@ -188,7 +206,7 @@ export default function LoginScreen() {
                                 gap="$3"
                                 px="$4"
                                 height={56}
-                                rounded={designSystem.radii.md}
+                                rounded={designSystem.radii.lg}
                                 borderWidth={1}
                                 borderColor={designSystem.colors.border}
                                 bg={designSystem.colors.input}
@@ -271,7 +289,7 @@ export default function LoginScreen() {
 
                         <Button
                             height={56}
-                            rounded={designSystem.radii.md}
+                            rounded={designSystem.radii.full}
                             borderWidth={0}
                             bg={designSystem.colors.primary}
                             disabled={!canSubmit}
@@ -288,11 +306,9 @@ export default function LoginScreen() {
                                 <Text
                                     color={designSystem.colors.primaryForeground}
                                     fontFamily={designSystem.fonts.bodyBold}
-                                    fontSize={13}
-                                    textTransform="uppercase"
-                                    letterSpacing={1.4}
+                                    fontSize={16}
                                 >
-                                    {isSubmitting ? "Initializing access..." : "Initialize access"}
+                                    {isSubmitting ? "Logging in..." : "Log in"}
                                 </Text>
                                 <ArrowRight
                                     size={16}
@@ -301,39 +317,25 @@ export default function LoginScreen() {
                             </XStack>
                         </Button>
 
-                        <YStack
-                            pt="$5"
-                            gap="$3"
-                            items="center"
-                            borderTopWidth={1}
-                            borderTopColor={designSystem.colors.border}
-                        >
+                        <YStack pt="$2" gap="$2.5" items="center">
                             <Paragraph
                                 color={designSystem.colors.mutedForeground}
                                 fontFamily={designSystem.fonts.bodyMedium}
                             >
-                                New auditor or need access?
+                                Need an account?
                             </Paragraph>
                             <Button
-                                height={44}
-                                px="$4"
-                                rounded={designSystem.radii.md}
-                                borderWidth={1}
-                                borderColor="rgba(255, 107, 0, 0.24)"
-                                bg="transparent"
-                                pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                                chromeless
                                 onPress={() => {
                                     router.push("/(auth)/signup");
                                 }}
                             >
                                 <Text
-                                    color={designSystem.colors.primary}
+                                    color={designSystem.colors.success}
                                     fontFamily={designSystem.fonts.bodyBold}
-                                    fontSize={12}
-                                    textTransform="uppercase"
-                                    letterSpacing={1.3}
+                                    fontSize={16}
                                 >
-                                    Access setup guide
+                                    Create one here
                                 </Text>
                             </Button>
                         </YStack>
