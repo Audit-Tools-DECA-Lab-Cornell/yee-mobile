@@ -72,6 +72,17 @@ export async function writeSubmissionDetail(submission: YeeSubmissionResponse): 
     });
 }
 
+export async function deleteSubmissionDetail(submissionId: string): Promise<void> {
+    const submissions = await readSubmissionDetailsCache();
+    if (!(submissionId in submissions)) {
+        return;
+    }
+
+    const nextSubmissions = { ...submissions };
+    delete nextSubmissions[submissionId];
+    await writeSubmissionDetailsCache(nextSubmissions);
+}
+
 export async function readDraftMap(): Promise<Record<string, YeeLocalDraft>> {
     return readJson(STORAGE_KEYS.drafts, {} as Record<string, YeeLocalDraft>);
 }

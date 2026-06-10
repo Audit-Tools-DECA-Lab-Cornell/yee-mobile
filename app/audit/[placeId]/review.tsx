@@ -22,8 +22,10 @@ import {
     normalizeInstrument,
     type NormalizedInstrument,
 } from "lib/yee-mobile-instrument";
+import { scoreYeeResponsesLocally } from "lib/yee-local-scoring";
 import { previewScore } from "lib/yee-api";
 import { readInstrumentCache } from "lib/yee-offline-storage";
+import type { YeeScoreResult, YeeSubmissionResponse } from "lib/yee-types";
 import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
@@ -56,6 +58,7 @@ export default function AuditReviewScreen() {
 
     const [draft, setDraft] = useState<MobileAuditFormState | null>(null);
     const [instrument, setInstrument] = useState<NormalizedInstrument | null>(null);
+    const [rawInstrument, setRawInstrument] = useState<Record<string, unknown> | null>(null);
     const [scorePreview, setScorePreview] = useState<number | null>(
         storedDraft?.scorePreview?.total_score ?? null,
     );
@@ -87,6 +90,7 @@ export default function AuditReviewScreen() {
             if (cachedInstrument === null || cancelled) {
                 return;
             }
+            setRawInstrument(cachedInstrument);
             setInstrument(normalizeInstrument(cachedInstrument as never));
         }
 
@@ -98,9 +102,27 @@ export default function AuditReviewScreen() {
 
     useEffect(() => {
         async function loadPreview() {
-            if (draft === null || session === null || !isOnline) {
+            if (draft === null) {
                 return;
             }
+
+            const localScore =
+                rawInstrument === null
+                    ? null
+                    : scoreYeeResponsesLocally(rawInstrument, draft.responses);
+
+            if (session === null || !isOnline) {
+                if (localScore !== null) {
+                    setScorePreview(localScore.total_score);
+                    if (storedDraft !== null) {
+                        await saveDraftLocally(
+                            buildStoredDraft(draft, storedDraft, localScore, storedDraft.syncState),
+                        );
+                    }
+                }
+                return;
+            }
+
             try {
                 const score = await previewScore(session, {
                     place_id: placeId,
@@ -114,11 +136,18 @@ export default function AuditReviewScreen() {
                     );
                 }
             } catch {
-                // keep offline/local-only experience quiet here
+                if (localScore !== null) {
+                    setScorePreview(localScore.total_score);
+                    if (storedDraft !== null) {
+                        await saveDraftLocally(
+                            buildStoredDraft(draft, storedDraft, localScore, storedDraft.syncState),
+                        );
+                    }
+                }
             }
         }
         void loadPreview();
-    }, [draft, isOnline, placeId, saveDraftLocally, session, storedDraft]);
+    }, [draft, isOnline, placeId, rawInstrument, saveDraftLocally, session, storedDraft]);
 
     const answeredCount = useMemo(() => {
         if (draft === null) return 0;
@@ -176,19 +205,48 @@ export default function AuditReviewScreen() {
         setDraft(finalizedDraft);
         setIsSubmitting(true);
         try {
+            const localScore =
+                rawInstrument === null
+                    ? (storedDraft?.scorePreview ?? emptyScoreResult())
+                    : scoreYeeResponsesLocally(rawInstrument, finalizedDraft.responses);
+            const provisionalSubmission = buildLocalQueuedSubmission(finalizedDraft, localScore);
             const draftForQueue = buildStoredDraft(
                 finalizedDraft,
                 storedDraft,
-                storedDraft?.scorePreview ?? null,
+                localScore,
                 "pending_upload",
             );
             await saveDraftLocally(draftForQueue);
-            await queueSubmissionSync(draftForQueue);
+            await queueSubmissionSync(draftForQueue, provisionalSubmission);
+            let nextMode: "queued" | "submitted" = "queued";
+            let nextSubmissionId = provisionalSubmission.id;
             if (session !== null && isOnline) {
                 await syncPendingQueue(session);
                 await refreshRemoteState(session);
+                const currentState = useYeeMobileStore.getState();
+                const latestSubmissionForPlace = currentState.submittedAudits
+                    .filter((audit) => audit.place_id === placeId)
+                    .sort(
+                        (left, right) =>
+                            Date.parse(right.submitted_at) - Date.parse(left.submitted_at),
+                    )[0];
+                const queuedSubmissionStillPresent = currentState.syncQueue.some(
+                    (item) => item.kind === "submission" && item.placeId === placeId,
+                );
+
+                if (
+                    latestSubmissionForPlace !== undefined &&
+                    latestSubmissionForPlace.syncState !== "pending_upload"
+                ) {
+                    nextMode = "submitted";
+                    nextSubmissionId = latestSubmissionForPlace.id;
+                } else if (!queuedSubmissionStillPresent) {
+                    nextMode = "submitted";
+                }
             }
-            router.replace(`/audit/${placeId}/submitted?mode=${isOnline ? "submitted" : "queued"}`);
+            router.replace(
+                `/audit/${placeId}/submitted?mode=${nextMode}&submissionId=${nextSubmissionId}`,
+            );
         } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : "Unable to queue submission.");
         } finally {
@@ -351,6 +409,33 @@ export default function AuditReviewScreen() {
             </XStack>
         </YStack>
     );
+}
+
+function buildLocalQueuedSubmission(
+    draft: MobileAuditFormState,
+    score: YeeScoreResult,
+): YeeSubmissionResponse {
+    return {
+        id: `local-submission-${draft.placeId}-${Date.now()}`,
+        place_id: draft.placeId,
+        place_name: draft.placeName,
+        auditor_id: draft.auditorId,
+        auditor_generated_id: draft.auditorId,
+        submitted_at: new Date().toISOString(),
+        participant_info: buildParticipantInfo(draft),
+        responses: draft.responses,
+        score,
+        syncState: "pending_upload",
+    };
+}
+
+function emptyScoreResult(): YeeScoreResult {
+    return {
+        total_score: 0,
+        section_scores: {},
+        category_scores: {},
+        matched_scored_answers: 0,
+    };
 }
 
 function SummaryCard({ title, children }: PropsWithChildren<{ title: string }>) {

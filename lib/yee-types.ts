@@ -38,6 +38,7 @@ export interface YeeSubmissionResponse {
     readonly participant_info: Record<string, unknown>;
     readonly responses: Record<string, unknown>;
     readonly score: YeeScoreResult;
+    readonly syncState?: YeeSyncState;
 }
 
 export interface YeeAssignedPlace {
@@ -54,6 +55,7 @@ export interface YeeMyAuditItem {
     readonly place_name: string;
     readonly submitted_at: string;
     readonly total_score: number;
+    readonly syncState?: YeeSyncState;
 }
 
 export interface YeeDraftParticipantInfo extends Record<string, unknown> {
@@ -97,6 +99,7 @@ export interface YeeSyncQueueItem {
         readonly participant_info: Record<string, unknown>;
         readonly responses: Record<string, unknown>;
         readonly place_id?: string;
+        readonly provisional_submission_id?: string;
     };
     readonly attempts: number;
     readonly lastError: string | null;

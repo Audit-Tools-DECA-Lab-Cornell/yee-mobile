@@ -287,11 +287,10 @@ export default function ExecuteScreen() {
                     pressStyle={{ opacity: 0.92, scale: 0.985 }}
                     icon={<Send size={16} color={designSystem.colors.primaryForeground} />}
                     onPress={() =>
-                        router.push(
-                            activePlaceView.status === "submitted"
-                                ? "/(tabs)/reports"
-                                : `/audit/${activePlaceView.place.id}/1`,
-                        )
+                        activePlaceView.status === "submitted" &&
+                        activePlaceView.submission !== null
+                            ? router.push(`/reports/${activePlaceView.submission.id}`)
+                            : router.push(`/audit/${activePlaceView.place.id}/1`)
                     }
                 >
                     <Button.Text

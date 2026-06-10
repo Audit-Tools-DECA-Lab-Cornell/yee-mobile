@@ -25,7 +25,7 @@ export function buildPlaceViews(
 ): readonly MobilePlaceView[] {
     return places.map((place) => {
         const draft = draftsByPlace[place.id] ?? null;
-        const submission = submittedAudits.find((audit) => audit.place_id === place.id) ?? null;
+        const submission = getLatestSubmissionForPlace(submittedAudits, place.id);
 
         if (submission !== null) {
             return {
@@ -34,7 +34,10 @@ export function buildPlaceViews(
                 draft,
                 submission,
                 latestActivityLabel: formatTimestamp(submission.submitted_at, "Submitted"),
-                syncLabel: "Synced to backend",
+                syncLabel:
+                    submission.syncState === "pending_upload"
+                        ? "Queued for sync"
+                        : "Synced to backend",
             } satisfies MobilePlaceView;
         }
 
@@ -69,7 +72,9 @@ export function summarizeMobileAudits(placeViews: readonly MobilePlaceView[]): M
                 submittedCount: summary.submittedCount + (view.status === "submitted" ? 1 : 0),
                 pendingSyncCount:
                     summary.pendingSyncCount +
-                    (view.draft?.syncState === "pending_upload" ||
+                    (view.submission?.syncState === "pending_upload" ||
+                    view.submission?.syncState === "sync_failed" ||
+                    view.draft?.syncState === "pending_upload" ||
                     view.draft?.syncState === "sync_failed"
                         ? 1
                         : 0),
@@ -108,6 +113,29 @@ export function getTopSubmission(audits: readonly YeeMyAuditItem[]): YeeMyAuditI
         }
 
         return highest;
+    }, firstAudit);
+}
+
+export function getLatestSubmissionForPlace(
+    audits: readonly YeeMyAuditItem[],
+    placeId: string,
+): YeeMyAuditItem | null {
+    const matchingAudits = audits.filter((audit) => audit.place_id === placeId);
+    const [firstAudit, ...remaining] = matchingAudits;
+    if (firstAudit === undefined) {
+        return null;
+    }
+
+    return remaining.reduce((latest, current) => {
+        const latestTime = Date.parse(latest.submitted_at);
+        const currentTime = Date.parse(current.submitted_at);
+        if (Number.isNaN(latestTime)) {
+            return current;
+        }
+        if (Number.isNaN(currentTime)) {
+            return latest;
+        }
+        return currentTime > latestTime ? current : latest;
     }, firstAudit);
 }
 

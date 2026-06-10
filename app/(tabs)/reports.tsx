@@ -49,8 +49,8 @@ export default function ReportsScreen() {
                         color={designSystem.colors.mutedForeground}
                         fontFamily={designSystem.fonts.bodyMedium}
                     >
-                        Submitted mobile audits appear here after sync. Open any locked report to
-                        review domain scores, comments, and result context from the field.
+                        Submitted and locally queued mobile audits appear here. Open any report to
+                        review field answers right away, even before upload finishes.
                     </Paragraph>
                 </YStack>
 
@@ -225,7 +225,11 @@ export default function ReportsScreen() {
                                         </YStack>
                                         <YStack items="flex-end" gap="$0.5">
                                             <Paragraph
-                                                color={designSystem.colors.success}
+                                                color={
+                                                    audit.syncState === "pending_upload"
+                                                        ? designSystem.colors.warning
+                                                        : designSystem.colors.success
+                                                }
                                                 fontFamily={designSystem.fonts.bodyBold}
                                             >
                                                 {audit.total_score}%
@@ -235,7 +239,9 @@ export default function ReportsScreen() {
                                                 fontFamily={designSystem.fonts.bodyMedium}
                                                 fontSize={12}
                                             >
-                                                Locked result
+                                                {audit.syncState === "pending_upload"
+                                                    ? "Queued offline"
+                                                    : "Locked result"}
                                             </Paragraph>
                                         </YStack>
                                     </XStack>

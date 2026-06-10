@@ -4,14 +4,17 @@ import type { AuthSession } from "lib/auth/types";
 import {
     fetchAssignedPlaces,
     fetchAuditState,
+    fetchYeeInstrument,
     fetchMyAudits,
     saveAuditDraft,
     submitAudit,
 } from "lib/yee-api";
 import {
     deleteDraft,
+    deleteSubmissionDetail,
     readAssignedPlacesCache,
     readDraftMap,
+    readInstrumentCache,
     readOfflineMetadata,
     readSubmittedAuditsCache,
     readSyncQueue,
@@ -20,6 +23,7 @@ import {
     upsertSyncQueueItem,
     writeAssignedPlacesCache,
     writeDraft,
+    writeInstrumentCache,
     writeOfflineMetadata,
     writeSubmittedAuditsCache,
 } from "lib/yee-offline-storage";
@@ -28,6 +32,7 @@ import type {
     YeeAuditStateResponse,
     YeeLocalDraft,
     YeeMyAuditItem,
+    YeeSubmissionResponse,
     YeeSyncQueueItem,
 } from "lib/yee-types";
 
@@ -44,12 +49,18 @@ interface YeeMobileStoreState {
     readonly lastPlacesSyncAt: string | null;
     readonly lastAuditsSyncAt: string | null;
     readonly lastDraftSyncAt: string | null;
+    readonly hasCachedInstrument: boolean;
+    readonly hasCachedAssignedPlaces: boolean;
+    readonly isOfflineReady: boolean;
     setConnectivityState: (isOnline: boolean) => void;
     hydrateOfflineState: () => Promise<void>;
     refreshRemoteState: (session: AuthSession) => Promise<void>;
     saveDraftLocally: (draft: YeeLocalDraft) => Promise<void>;
     queueDraftSync: (draft: YeeLocalDraft) => Promise<void>;
-    queueSubmissionSync: (draft: YeeLocalDraft) => Promise<void>;
+    queueSubmissionSync: (
+        draft: YeeLocalDraft,
+        provisionalSubmission?: YeeSubmissionResponse | null,
+    ) => Promise<void>;
     syncPendingQueue: (session: AuthSession) => Promise<void>;
     loadPlaceAuditState: (placeId: string, session: AuthSession) => Promise<YeeAuditStateResponse>;
     clearError: () => void;
@@ -66,6 +77,9 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
     lastPlacesSyncAt: null,
     lastAuditsSyncAt: null,
     lastDraftSyncAt: null,
+    hasCachedInstrument: false,
+    hasCachedAssignedPlaces: false,
+    isOfflineReady: false,
 
     setConnectivityState: (isOnline) => {
         set(() => ({ isOnline }));
@@ -75,15 +89,25 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
         set(() => ({ status: "loading", errorMessage: null }));
 
         try {
-            const [netInfo, assignedPlaces, submittedAudits, draftsByPlace, syncQueue, metadata] =
-                await Promise.all([
-                    NetInfo.fetch(),
-                    readAssignedPlacesCache(),
-                    readSubmittedAuditsCache(),
-                    readDraftMap(),
-                    readSyncQueue(),
-                    readOfflineMetadata(),
-                ]);
+            const [
+                netInfo,
+                assignedPlaces,
+                submittedAudits,
+                draftsByPlace,
+                syncQueue,
+                metadata,
+                cachedInstrument,
+            ] = await Promise.all([
+                NetInfo.fetch(),
+                readAssignedPlacesCache(),
+                readSubmittedAuditsCache(),
+                readDraftMap(),
+                readSyncQueue(),
+                readOfflineMetadata(),
+                readInstrumentCache(),
+            ]);
+            const hasCachedAssignedPlaces = assignedPlaces.length > 0;
+            const hasCachedInstrument = cachedInstrument !== null;
 
             set(() => ({
                 status: "ready",
@@ -95,6 +119,9 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                 lastPlacesSyncAt: metadata.lastPlacesSyncAt,
                 lastAuditsSyncAt: metadata.lastAuditsSyncAt,
                 lastDraftSyncAt: metadata.lastDraftSyncAt,
+                hasCachedAssignedPlaces,
+                hasCachedInstrument,
+                isOfflineReady: hasCachedAssignedPlaces && hasCachedInstrument,
             }));
         } catch (error) {
             set(() => ({
@@ -111,16 +138,28 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
         set(() => ({ status: "loading", errorMessage: null }));
 
         try {
-            const [netInfo, assignedPlaces, submittedAudits] = await Promise.all([
+            const [netInfo, assignedPlaces, submittedAudits, cachedInstrument] = await Promise.all([
                 NetInfo.fetch(),
                 fetchAssignedPlaces(session),
                 fetchMyAudits(session),
+                readInstrumentCache(),
             ]);
             const now = new Date().toISOString();
+            let hasCachedInstrument = cachedInstrument !== null;
+
+            if (!hasCachedInstrument) {
+                try {
+                    const instrument = await fetchYeeInstrument();
+                    await writeInstrumentCache(instrument as unknown as Record<string, unknown>);
+                    hasCachedInstrument = true;
+                } catch {
+                    // keep offline readiness false until instrument can be cached
+                }
+            }
+            const hasCachedAssignedPlaces = assignedPlaces.length > 0;
 
             await Promise.all([
                 writeAssignedPlacesCache(assignedPlaces),
-                writeSubmittedAuditsCache(submittedAudits),
                 writeOfflineMetadata({
                     lastPlacesSyncAt: now,
                     lastAuditsSyncAt: now,
@@ -128,15 +167,25 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                 }),
             ]);
 
+            const mergedSubmittedAudits = mergeSubmittedAuditSummaries(
+                submittedAudits,
+                get().submittedAudits,
+            );
+
+            await writeSubmittedAuditsCache(mergedSubmittedAudits);
+
             set((state) => ({
                 status: "ready",
                 isOnline: Boolean(netInfo.isConnected && netInfo.isInternetReachable !== false),
                 assignedPlaces,
-                submittedAudits,
+                submittedAudits: mergedSubmittedAudits,
                 lastPlacesSyncAt: now,
                 lastAuditsSyncAt: now,
                 draftsByPlace: state.draftsByPlace,
                 syncQueue: state.syncQueue,
+                hasCachedAssignedPlaces,
+                hasCachedInstrument,
+                isOfflineReady: hasCachedAssignedPlaces && hasCachedInstrument,
             }));
         } catch (error) {
             set(() => ({
@@ -198,7 +247,7 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
         }));
     },
 
-    queueSubmissionSync: async (draft: YeeLocalDraft) => {
+    queueSubmissionSync: async (draft: YeeLocalDraft, provisionalSubmission = null) => {
         const now = new Date().toISOString();
         const queueItem: YeeSyncQueueItem = {
             id: `submission-${draft.placeId}`,
@@ -210,6 +259,9 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                 place_id: draft.placeId,
                 participant_info: draft.participantInfo,
                 responses: draft.responses,
+                ...(provisionalSubmission?.id
+                    ? { provisional_submission_id: provisionalSubmission.id }
+                    : {}),
             },
             attempts: 0,
             lastError: null,
@@ -220,17 +272,51 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
             ...draft,
             syncState: "pending_upload",
         });
+        if (provisionalSubmission !== null) {
+            await writeSubmissionDetail(provisionalSubmission);
+        }
 
-        set((state) => ({
-            draftsByPlace: {
-                ...state.draftsByPlace,
-                [draft.placeId]: {
-                    ...draft,
-                    syncState: "pending_upload",
+        const nextLocalSummary =
+            provisionalSubmission === null
+                ? null
+                : {
+                      id: provisionalSubmission.id,
+                      place_id: provisionalSubmission.place_id,
+                      place_name:
+                          provisionalSubmission.place_name ?? provisionalSubmission.place_id,
+                      submitted_at: provisionalSubmission.submitted_at,
+                      total_score: provisionalSubmission.score.total_score,
+                      syncState: "pending_upload" as const,
+                  };
+
+        set((state) => {
+            const nextSubmittedAudits =
+                nextLocalSummary === null
+                    ? state.submittedAudits
+                    : [
+                          ...state.submittedAudits.filter(
+                              (audit) => audit.id !== nextLocalSummary.id,
+                          ),
+                          nextLocalSummary,
+                      ].sort(
+                          (left, right) =>
+                              Date.parse(right.submitted_at) - Date.parse(left.submitted_at),
+                      );
+
+            void writeSubmittedAuditsCache(nextSubmittedAudits);
+
+            return {
+                draftsByPlace: {
+                    ...state.draftsByPlace,
+                    [draft.placeId]: {
+                        ...draft,
+                        syncState: "pending_upload",
+                    },
                 },
-            },
-            syncQueue: upsertLocalQueue(state.syncQueue, queueItem),
-        }));
+                syncQueue: upsertLocalQueue(state.syncQueue, queueItem),
+                submittedAudits: nextSubmittedAudits,
+            };
+        });
     },
 
     syncPendingQueue: async (session: AuthSession) => {
@@ -268,6 +354,9 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                         responses: item.payload.responses,
                     });
                     await writeSubmissionDetail(submission);
+                    if (item.payload.provisional_submission_id) {
+                        await deleteSubmissionDetail(item.payload.provisional_submission_id);
+                    }
                     await deleteDraft(item.placeId);
                     auditListNeedsRefresh = true;
                     syncedSubmissionSummary = {
@@ -276,9 +365,14 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                         place_name: submission.place_name ?? item.placeId,
                         submitted_at: submission.submitted_at,
                         total_score: submission.score.total_score,
+                        syncState: "synced",
                     };
                     const nextSubmittedAudits = [
-                        ...get().submittedAudits.filter((audit) => audit.id !== submission.id),
+                        ...get().submittedAudits.filter(
+                            (audit) =>
+                                audit.id !== submission.id &&
+                                audit.id !== item.payload.provisional_submission_id,
+                        ),
                         syncedSubmissionSummary,
                     ].sort(
                         (left, right) =>
@@ -350,9 +444,13 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
         if (auditListNeedsRefresh) {
             try {
                 const submittedAudits = await fetchMyAudits(session);
-                await writeSubmittedAuditsCache(submittedAudits);
-                set(() => ({
+                const mergedSubmittedAudits = mergeSubmittedAuditSummaries(
                     submittedAudits,
+                    get().submittedAudits,
+                );
+                await writeSubmittedAuditsCache(mergedSubmittedAudits);
+                set(() => ({
+                    submittedAudits: mergedSubmittedAudits,
                     lastAuditsSyncAt: new Date().toISOString(),
                 }));
             } catch {
@@ -404,4 +502,25 @@ function upsertLocalQueue(
     const nextQueue = [...queue];
     nextQueue[index] = item;
     return nextQueue;
+}
+
+function mergeSubmittedAuditSummaries(
+    remoteAudits: readonly YeeMyAuditItem[],
+    existingAudits: readonly YeeMyAuditItem[],
+): readonly YeeMyAuditItem[] {
+    const normalizedRemoteAudits = remoteAudits.map((audit) => ({
+        ...audit,
+        syncState: "synced" as const,
+    }));
+    const pendingLocalAudits = existingAudits.filter(
+        (audit) => audit.syncState === "pending_upload" || audit.syncState === "sync_failed",
+    );
+
+    return [
+        ...normalizedRemoteAudits,
+        ...pendingLocalAudits.filter(
+            (localAudit) =>
+                !normalizedRemoteAudits.some((remoteAudit) => remoteAudit.id === localAudit.id),
+        ),
+    ].sort((left, right) => Date.parse(right.submitted_at) - Date.parse(left.submitted_at));
 }

@@ -180,6 +180,15 @@ export default function MobileReportDetailScreen() {
                     </Card>
                 ) : (
                     <>
+                        {submission.syncState === "pending_upload" ? (
+                            <Card title="Offline report preview">
+                                <Paragraph color={designSystem.colors.warning}>
+                                    This report was generated from the locally queued submission and
+                                    will be replaced by the backend version after sync.
+                                </Paragraph>
+                            </Card>
+                        ) : null}
+
                         <XStack gap="$3" flexWrap="wrap">
                             <MetricCard
                                 label="Total Raw Score"

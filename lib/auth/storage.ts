@@ -2,7 +2,14 @@ import * as SecureStore from "expo-secure-store";
 import type { AccountType, AuthSession, AuthUser } from "lib/auth/types";
 
 const AUTH_SESSION_STORAGE_KEY = "yee.auth.session.v1";
+const OFFLINE_LOGIN_STORAGE_KEY = "yee.auth.offline-login.v1";
 let inMemoryAuthSession: string | null = null;
+let inMemoryOfflineLogin: string | null = null;
+
+interface OfflineLoginPayload {
+    readonly email: string;
+    readonly password: string;
+}
 
 /**
  * Persist auth session in secure device storage.
@@ -22,6 +29,78 @@ export async function saveAuthSession(session: AuthSession): Promise<void> {
         await SecureStore.setItemAsync(AUTH_SESSION_STORAGE_KEY, serializedSession);
     } catch {
         inMemoryAuthSession = serializedSession;
+    }
+}
+
+export async function saveOfflineLoginCredentials(payload: OfflineLoginPayload): Promise<void> {
+    const serializedPayload = JSON.stringify({
+        email: payload.email.trim().toLowerCase(),
+        password: payload.password,
+    } satisfies OfflineLoginPayload);
+
+    try {
+        const isAvailable = await SecureStore.isAvailableAsync();
+        if (!isAvailable) {
+            inMemoryOfflineLogin = serializedPayload;
+            return;
+        }
+
+        await SecureStore.setItemAsync(OFFLINE_LOGIN_STORAGE_KEY, serializedPayload);
+    } catch {
+        inMemoryOfflineLogin = serializedPayload;
+    }
+}
+
+export async function readOfflineLoginCredentials(): Promise<OfflineLoginPayload | null> {
+    let rawPayload: string | null = null;
+
+    try {
+        const isAvailable = await SecureStore.isAvailableAsync();
+        rawPayload = isAvailable
+            ? await SecureStore.getItemAsync(OFFLINE_LOGIN_STORAGE_KEY)
+            : inMemoryOfflineLogin;
+    } catch {
+        rawPayload = inMemoryOfflineLogin;
+    }
+
+    if (rawPayload === null) {
+        return null;
+    }
+
+    try {
+        const parsedPayload: unknown = JSON.parse(rawPayload);
+        const recordPayload = parsedPayload as Record<string, unknown>;
+        if (
+            typeof parsedPayload === "object" &&
+            parsedPayload !== null &&
+            typeof recordPayload.email === "string" &&
+            typeof recordPayload.password === "string"
+        ) {
+            return {
+                email: recordPayload.email.trim().toLowerCase(),
+                password: recordPayload.password,
+            };
+        }
+    } catch {
+        // fall through
+    }
+
+    await clearOfflineLoginCredentials();
+    return null;
+}
+
+export async function clearOfflineLoginCredentials(): Promise<void> {
+    inMemoryOfflineLogin = null;
+
+    try {
+        const isAvailable = await SecureStore.isAvailableAsync();
+        if (!isAvailable) {
+            return;
+        }
+
+        await SecureStore.deleteItemAsync(OFFLINE_LOGIN_STORAGE_KEY);
+    } catch {
+        // Ignore fallback clear errors.
     }
 }
 

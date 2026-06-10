@@ -1,6 +1,13 @@
 import { create } from "zustand";
 import { AuthApiError, loginWithPassword, signupWithPassword } from "lib/auth/api";
-import { clearAuthSession, readAuthSession, saveAuthSession } from "lib/auth/storage";
+import {
+    clearAuthSession,
+    clearOfflineLoginCredentials,
+    readAuthSession,
+    readOfflineLoginCredentials,
+    saveAuthSession,
+    saveOfflineLoginCredentials,
+} from "lib/auth/storage";
 import type { AuthSession, LoginPayload, SignupPayload } from "lib/auth/types";
 
 /**
@@ -16,6 +23,7 @@ interface AuthStoreState {
     readonly session: AuthSession | null;
     readonly isSubmitting: boolean;
     readonly errorMessage: string | null;
+    readonly hasOfflineLoginCredentials: boolean;
     initialize: () => Promise<void>;
     login: (payload: LoginPayload) => Promise<void>;
     signup: (payload: SignupPayload) => Promise<void>;
@@ -31,6 +39,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     session: null,
     isSubmitting: false,
     errorMessage: null,
+    hasOfflineLoginCredentials: false,
 
     initialize: async () => {
         const currentStatus = get().status;
@@ -39,12 +48,9 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         }
 
         try {
+            const cachedOfflineLogin = await readOfflineLoginCredentials();
             const persistedSession = await readAuthSession();
-            if (
-                persistedSession === null ||
-                isSessionExpired(persistedSession) ||
-                persistedSession.user.accountType !== "AUDITOR"
-            ) {
+            if (persistedSession === null || persistedSession.user.accountType !== "AUDITOR") {
                 if (persistedSession !== null) {
                     await clearAuthSession();
                 }
@@ -52,18 +58,24 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
                 set(() => ({
                     session: null,
                     status: "unauthenticated",
+                    hasOfflineLoginCredentials: cachedOfflineLogin !== null,
                 }));
                 return;
             }
 
+            // Keep the last valid auditor identity available for offline field work,
+            // even if the backend token is stale. Online requests will still require
+            // a fresh backend-accepted session.
             set(() => ({
                 session: persistedSession,
                 status: "authenticated",
+                hasOfflineLoginCredentials: cachedOfflineLogin !== null,
             }));
         } catch {
             set(() => ({
                 session: null,
                 status: "unauthenticated",
+                hasOfflineLoginCredentials: false,
             }));
         }
     },
@@ -77,14 +89,39 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         try {
             const session = ensureAuditorSession(await loginWithPassword(payload));
             await saveAuthSession(session);
+            await saveOfflineLoginCredentials(payload);
 
             set(() => ({
                 session,
                 status: "authenticated",
                 isSubmitting: false,
                 errorMessage: null,
+                hasOfflineLoginCredentials: true,
             }));
         } catch (error) {
+            if (error instanceof AuthApiError && error.statusCode === 0) {
+                const cachedCredentials = await readOfflineLoginCredentials();
+                const cachedSession = await readAuthSession();
+                const normalizedEmail = payload.email.trim().toLowerCase();
+
+                if (
+                    cachedCredentials !== null &&
+                    cachedSession !== null &&
+                    cachedSession.user.accountType === "AUDITOR" &&
+                    cachedCredentials.email === normalizedEmail &&
+                    cachedCredentials.password === payload.password
+                ) {
+                    set(() => ({
+                        session: cachedSession,
+                        status: "authenticated",
+                        isSubmitting: false,
+                        errorMessage: null,
+                        hasOfflineLoginCredentials: true,
+                    }));
+                    return;
+                }
+            }
+
             const message = toAuthErrorMessage(error);
 
             set(() => ({
@@ -107,12 +144,17 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         try {
             const session = ensureAuditorSession(await signupWithPassword(payload));
             await saveAuthSession(session);
+            await saveOfflineLoginCredentials({
+                email: payload.email,
+                password: payload.password,
+            });
 
             set(() => ({
                 session,
                 status: "authenticated",
                 isSubmitting: false,
                 errorMessage: null,
+                hasOfflineLoginCredentials: true,
             }));
         } catch (error) {
             const message = toAuthErrorMessage(error);
@@ -130,11 +172,13 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
 
     logout: async () => {
         await clearAuthSession();
+        await clearOfflineLoginCredentials();
         set(() => ({
             session: null,
             status: "unauthenticated",
             isSubmitting: false,
             errorMessage: null,
+            hasOfflineLoginCredentials: false,
         }));
     },
 
@@ -144,21 +188,6 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         }));
     },
 }));
-
-/**
- * Determine whether a session should be treated as expired.
- *
- * @param session Auth session to inspect.
- * @returns True when expired or invalid timestamp.
- */
-function isSessionExpired(session: AuthSession): boolean {
-    const expiresAtTimestamp = Date.parse(session.expiresAt);
-    if (Number.isNaN(expiresAtTimestamp)) {
-        return true;
-    }
-
-    return expiresAtTimestamp <= Date.now();
-}
 
 /**
  * Convert unknown auth error values to a user-facing message.

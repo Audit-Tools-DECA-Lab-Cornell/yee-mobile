@@ -6,6 +6,7 @@ import { Clock3, MapPin, UploadCloud } from "components/icons";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem, getPlaceStatusTone } from "lib/design-system";
 import { buildPlaceViews, getStatusLabel, summarizeMobileAudits } from "lib/yee-mobile-selectors";
+import { useAuthStore } from "stores/auth-store";
 import { useDemoUiStore } from "stores/demo-ui-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
@@ -15,6 +16,7 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
 export default function PlacesScreen() {
     const router = useRouter();
     const setSelectedPlaceId = useDemoUiStore((state) => state.setSelectedPlaceId);
+    const hasOfflineLoginCredentials = useAuthStore((state) => state.hasOfflineLoginCredentials);
     const { assignedPlaces, submittedAudits, draftsByPlace, syncQueue } = useYeeMobileStore(
         useShallow((state) => ({
             assignedPlaces: state.assignedPlaces,
@@ -23,6 +25,9 @@ export default function PlacesScreen() {
             syncQueue: state.syncQueue,
         })),
     );
+    const hasCachedAssignedPlaces = useYeeMobileStore((state) => state.hasCachedAssignedPlaces);
+    const hasCachedInstrument = useYeeMobileStore((state) => state.hasCachedInstrument);
+    const isOfflineReady = useYeeMobileStore((state) => state.isOfflineReady);
 
     const placeViews = useMemo(
         () => buildPlaceViews(assignedPlaces, draftsByPlace, submittedAudits),
@@ -87,6 +92,43 @@ export default function PlacesScreen() {
                     />
                     <SummaryTile label="Queued Sync" value={syncQueue.length} tone="queued" />
                 </XStack>
+
+                <YStack
+                    rounded={designSystem.radii.lg}
+                    borderWidth={1}
+                    borderColor={
+                        isOfflineReady ? designSystem.colors.success : designSystem.colors.warning
+                    }
+                    bg={
+                        isOfflineReady
+                            ? designSystem.colors.successSoft
+                            : designSystem.colors.warningSoft
+                    }
+                    p="$3.5"
+                    gap="$2"
+                >
+                    <Paragraph
+                        color={
+                            isOfflineReady
+                                ? designSystem.colors.success
+                                : designSystem.colors.warning
+                        }
+                        fontFamily={designSystem.fonts.bodyBold}
+                        fontSize={12}
+                        textTransform="uppercase"
+                        letterSpacing={1.1}
+                    >
+                        {isOfflineReady ? "Offline ready" : "Offline setup incomplete"}
+                    </Paragraph>
+                    <Paragraph
+                        color={designSystem.colors.secondaryForeground}
+                        fontFamily={designSystem.fonts.bodyMedium}
+                    >
+                        {hasOfflineLoginCredentials ? "Done" : "Needed"}: sign-in saved on this
+                        device. {hasCachedAssignedPlaces ? "Done" : "Needed"}: assigned places
+                        cached. {hasCachedInstrument ? "Done" : "Needed"}: YEE survey cached.
+                    </Paragraph>
+                </YStack>
             </YStack>
 
             <YStack gap="$3">
@@ -227,6 +269,13 @@ export default function PlacesScreen() {
                                                         variant="secondary"
                                                         onPress={() => {
                                                             setSelectedPlaceId(view.place.id);
+                                                            if (view.submission !== null) {
+                                                                router.push(
+                                                                    `/reports/${view.submission.id}`,
+                                                                );
+                                                                return;
+                                                            }
+
                                                             router.push("/(tabs)/reports");
                                                         }}
                                                     />

@@ -5,8 +5,13 @@ import { designSystem } from "lib/design-system";
 
 export default function AuditSubmittedScreen() {
     const router = useRouter();
-    const params = useLocalSearchParams<{ placeId?: string; mode?: string }>();
+    const params = useLocalSearchParams<{
+        placeId?: string;
+        mode?: string;
+        submissionId?: string;
+    }>();
     const queued = params.mode === "queued";
+    const submissionId = typeof params.submissionId === "string" ? params.submissionId : "";
 
     return (
         <YStack flex={1} bg={designSystem.colors.background} px="$4" py="$6" justify="center">
@@ -41,6 +46,24 @@ export default function AuditSubmittedScreen() {
                         : "The audit was submitted through the same backend used by the website and is now locked for editing."}
                 </Paragraph>
                 <YStack gap="$2.5">
+                    {submissionId.length > 0 ? (
+                        <Button
+                            rounded={designSystem.radii.full}
+                            bg={designSystem.colors.successSoft}
+                            borderWidth={1}
+                            borderColor={designSystem.colors.success}
+                            pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                            onPress={() => router.replace(`/reports/${submissionId}`)}
+                            icon={<RefreshCcw size={16} color={designSystem.colors.success} />}
+                        >
+                            <Button.Text
+                                color={designSystem.colors.success}
+                                fontFamily={designSystem.fonts.bodyBold}
+                            >
+                                {queued ? "Open local report" : "Open submitted report"}
+                            </Button.Text>
+                        </Button>
+                    ) : null}
                     <Button
                         rounded={designSystem.radii.full}
                         bg={designSystem.colors.primary}

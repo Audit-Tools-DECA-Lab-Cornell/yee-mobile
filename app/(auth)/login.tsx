@@ -5,6 +5,7 @@ import { ArrowRight, Check, Eye, EyeOff, KeyRound, UserRound } from "components/
 import { Button, Checkbox, Input, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
 import { useAuthStore } from "stores/auth-store";
+import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -17,6 +18,9 @@ export default function LoginScreen() {
     const clearError = useAuthStore((state) => state.clearError);
     const isSubmitting = useAuthStore((state) => state.isSubmitting);
     const errorMessage = useAuthStore((state) => state.errorMessage);
+    const hasOfflineLoginCredentials = useAuthStore((state) => state.hasOfflineLoginCredentials);
+    const hasCachedAssignedPlaces = useYeeMobileStore((state) => state.hasCachedAssignedPlaces);
+    const hasCachedInstrument = useYeeMobileStore((state) => state.hasCachedInstrument);
 
     const [email, setEmail] = useState<string>("");
     const [password, setPassword] = useState<string>("");
@@ -145,6 +149,47 @@ export default function LoginScreen() {
                                     onboarding step or dashboard.
                                 </Paragraph>
                             </YStack>
+                        </YStack>
+
+                        <YStack
+                            gap="$2.5"
+                            rounded={designSystem.radii.lg}
+                            borderWidth={1}
+                            borderColor={designSystem.colors.border}
+                            bg={designSystem.colors.surfaceMuted}
+                            p="$3.5"
+                        >
+                            <Paragraph
+                                color={designSystem.colors.foreground}
+                                fontFamily={designSystem.fonts.bodyBold}
+                                fontSize={14}
+                            >
+                                Offline readiness on this device
+                            </Paragraph>
+                            <ChecklistRow
+                                done={hasOfflineLoginCredentials}
+                                label="Offline sign-in has been saved from a previous successful login"
+                            />
+                            <ChecklistRow
+                                done={hasCachedAssignedPlaces}
+                                label="Assigned places are cached for field access"
+                            />
+                            <ChecklistRow
+                                done={hasCachedInstrument}
+                                label="The YEE survey instrument is cached for offline scoring"
+                            />
+                            <Paragraph
+                                color={designSystem.colors.mutedForeground}
+                                fontFamily={designSystem.fonts.bodyMedium}
+                                fontSize={13}
+                                lineHeight={20}
+                            >
+                                {hasOfflineLoginCredentials &&
+                                hasCachedAssignedPlaces &&
+                                hasCachedInstrument
+                                    ? "This device is already prepared for offline field work."
+                                    : "Complete one successful online login and sync so this device is fully ready before going offline."}
+                            </Paragraph>
                         </YStack>
 
                         <YStack gap="$2">
@@ -343,5 +388,35 @@ export default function LoginScreen() {
                 </YStack>
             </ScrollView>
         </KeyboardAvoidingView>
+    );
+}
+
+function ChecklistRow({ done, label }: { done: boolean; label: string }) {
+    return (
+        <XStack items="flex-start" gap="$2.5">
+            <YStack
+                mt="$0.5"
+                width={20}
+                height={20}
+                items="center"
+                justify="center"
+                rounded={designSystem.radii.full}
+                bg={done ? designSystem.colors.successSoft : designSystem.colors.warningSoft}
+            >
+                <Check
+                    size={12}
+                    color={done ? designSystem.colors.success : designSystem.colors.warning}
+                />
+            </YStack>
+            <Paragraph
+                flex={1}
+                color={designSystem.colors.secondaryForeground}
+                fontFamily={designSystem.fonts.bodyMedium}
+                fontSize={13}
+                lineHeight={20}
+            >
+                {label}
+            </Paragraph>
+        </XStack>
     );
 }

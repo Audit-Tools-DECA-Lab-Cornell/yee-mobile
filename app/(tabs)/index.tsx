@@ -27,6 +27,7 @@ export default function DashboardScreen() {
     const router = useRouter();
     const session = useAuthStore((state) => state.session);
     const logout = useAuthStore((state) => state.logout);
+    const hasOfflineLoginCredentials = useAuthStore((state) => state.hasOfflineLoginCredentials);
     const setSelectedPlaceId = useDemoUiStore((state) => state.setSelectedPlaceId);
     const {
         status,
@@ -38,6 +39,9 @@ export default function DashboardScreen() {
         errorMessage,
         lastPlacesSyncAt,
         lastAuditsSyncAt,
+        hasCachedAssignedPlaces,
+        hasCachedInstrument,
+        isOfflineReady,
         refreshRemoteState,
         syncPendingQueue,
     } = useYeeMobileStore(
@@ -51,6 +55,9 @@ export default function DashboardScreen() {
             errorMessage: state.errorMessage,
             lastPlacesSyncAt: state.lastPlacesSyncAt,
             lastAuditsSyncAt: state.lastAuditsSyncAt,
+            hasCachedAssignedPlaces: state.hasCachedAssignedPlaces,
+            hasCachedInstrument: state.hasCachedInstrument,
+            isOfflineReady: state.isOfflineReady,
             refreshRemoteState: state.refreshRemoteState,
             syncPendingQueue: state.syncPendingQueue,
         })),
@@ -133,8 +140,8 @@ export default function DashboardScreen() {
                                     return;
                                 }
 
-                                await refreshRemoteState(session);
                                 await syncPendingQueue(session);
+                                await refreshRemoteState(session);
                             }}
                         >
                             <RefreshCcw size={16} color={designSystem.colors.foreground} />
@@ -234,6 +241,49 @@ export default function DashboardScreen() {
                     )}
                 </YStack>
 
+                <YStack
+                    rounded={designSystem.radii.lg}
+                    borderWidth={1}
+                    borderColor={
+                        isOfflineReady ? designSystem.colors.success : designSystem.colors.warning
+                    }
+                    bg={
+                        isOfflineReady
+                            ? designSystem.colors.successSoft
+                            : designSystem.colors.warningSoft
+                    }
+                    p="$4"
+                    gap="$2.5"
+                >
+                    <Text
+                        color={
+                            isOfflineReady
+                                ? designSystem.colors.success
+                                : designSystem.colors.warning
+                        }
+                        fontFamily={designSystem.fonts.bodyBold}
+                        fontSize={13}
+                        textTransform="uppercase"
+                        letterSpacing={1.2}
+                    >
+                        {isOfflineReady
+                            ? "Device ready for offline field work"
+                            : "Finish one online sync before going offline"}
+                    </Text>
+                    <ChecklistLine
+                        done={hasOfflineLoginCredentials}
+                        label="Offline sign-in is saved on this device"
+                    />
+                    <ChecklistLine
+                        done={hasCachedAssignedPlaces}
+                        label="Assigned places are cached locally"
+                    />
+                    <ChecklistLine
+                        done={hasCachedInstrument}
+                        label="YEE survey instrument is cached for offline audits"
+                    />
+                </YStack>
+
                 <XStack gap="$3" flexWrap="wrap">
                     <MetricCard
                         label="Assigned Places"
@@ -257,7 +307,7 @@ export default function DashboardScreen() {
                         label="Pending Sync"
                         value={summary.pendingSyncCount}
                         tone="orange"
-                        helperText="Drafts waiting for connectivity"
+                        helperText="Drafts or submissions waiting for connectivity"
                     />
                 </XStack>
 
@@ -444,11 +494,17 @@ export default function DashboardScreen() {
                                                 pressStyle={{ opacity: 0.92, scale: 0.985 }}
                                                 onPress={() => {
                                                     setSelectedPlaceId(view.place.id);
-                                                    router.push(
-                                                        view.status === "submitted"
-                                                            ? "/(tabs)/reports"
-                                                            : `/audit/${view.place.id}/1`,
-                                                    );
+                                                    if (
+                                                        view.status === "submitted" &&
+                                                        view.submission !== null
+                                                    ) {
+                                                        router.push(
+                                                            `/reports/${view.submission.id}`,
+                                                        );
+                                                        return;
+                                                    }
+
+                                                    router.push(`/audit/${view.place.id}/1`);
                                                 }}
                                             >
                                                 <Button.Text
@@ -475,6 +531,17 @@ export default function DashboardScreen() {
                 )}
             </YStack>
         </ScrollView>
+    );
+}
+
+function ChecklistLine({ done, label }: { done: boolean; label: string }) {
+    return (
+        <Paragraph
+            color={designSystem.colors.secondaryForeground}
+            fontFamily={designSystem.fonts.bodyMedium}
+        >
+            {done ? "Done" : "Needed"}: {label}
+        </Paragraph>
     );
 }
 
