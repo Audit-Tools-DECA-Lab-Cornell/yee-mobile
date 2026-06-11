@@ -7,10 +7,10 @@ import { ArrowLeft, BarChart3, CloudOff, FileText } from "components/icons";
 import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
 import { fetchSubmission } from "lib/yee-api";
+import { getSubmissionSyncLabel, getSubmissionTimestampLabel } from "lib/yee-mobile-selectors";
 import {
     buildDomainScoreRows,
     buildMobileSubmissionScorePreview,
-    formatAuditTimestamp,
     getOverallComments,
     getReadableWeather,
     getSectionComments,
@@ -113,6 +113,23 @@ export default function MobileReportDetailScreen() {
         return buildMobileSubmissionScorePreview(submission.score, submission.participant_info);
     }, [submission]);
     const rows = useMemo(() => (preview ? buildDomainScoreRows(preview) : []), [preview]);
+    const submissionListItem = useMemo(() => {
+        if (submissionSummary !== null) {
+            return submissionSummary;
+        }
+        if (submission === null) {
+            return null;
+        }
+
+        return {
+            id: submission.id,
+            place_id: submission.place_id,
+            place_name: submission.place_name ?? submission.place_id,
+            submitted_at: submission.submitted_at,
+            total_score: submission.score.total_score,
+            ...(submission.syncState ? { syncState: submission.syncState } : {}),
+        };
+    }, [submission, submissionSummary]);
 
     if (loading && submission === null) {
         return (
@@ -154,8 +171,9 @@ export default function MobileReportDetailScreen() {
                             "Submitted audit"}
                     </Text>
                     <Paragraph color={designSystem.colors.mutedForeground}>
-                        Locked results for one YEE audit. This mobile report uses the same backend
-                        scoring data as the website.
+                        {submission?.syncState === "pending_upload"
+                            ? "This is the device-saved preview for one YEE audit while upload is still pending."
+                            : "Locked results for one YEE audit. This mobile report uses the same backend scoring data as the website."}
                     </Paragraph>
                 </YStack>
 
@@ -165,15 +183,15 @@ export default function MobileReportDetailScreen() {
                             {errorMessage ??
                                 "This audit summary is available, but the detailed report needs one online load before it can be reopened offline."}
                         </Paragraph>
-                        {submissionSummary === null ? null : (
+                        {submissionListItem === null ? null : (
                             <YStack gap="$1.5">
                                 <MetricRow
                                     label="Submitted"
-                                    value={formatAuditTimestamp(submissionSummary.submitted_at)}
+                                    value={getSubmissionTimestampLabel(submissionListItem)}
                                 />
                                 <MetricRow
                                     label="Total raw score"
-                                    value={`${submissionSummary.total_score}%`}
+                                    value={`${submissionListItem.total_score}%`}
                                 />
                             </YStack>
                         )}
@@ -211,7 +229,27 @@ export default function MobileReportDetailScreen() {
                             />
                             <MetricRow
                                 label="Submitted"
-                                value={formatAuditTimestamp(submission.submitted_at)}
+                                value={getSubmissionTimestampLabel(
+                                    submissionListItem ?? {
+                                        id: submission.id,
+                                        place_id: submission.place_id,
+                                        place_name: submission.place_name ?? submission.place_id,
+                                        submitted_at: submission.submitted_at,
+                                        total_score: submission.score.total_score,
+                                    },
+                                )}
+                            />
+                            <MetricRow
+                                label="Status"
+                                value={getSubmissionSyncLabel(
+                                    submissionListItem ?? {
+                                        id: submission.id,
+                                        place_id: submission.place_id,
+                                        place_name: submission.place_name ?? submission.place_id,
+                                        submitted_at: submission.submitted_at,
+                                        total_score: submission.score.total_score,
+                                    },
+                                )}
                             />
                             <MetricRow
                                 label="Audit date"

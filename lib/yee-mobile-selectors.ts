@@ -18,6 +18,26 @@ export interface MobileAuditSummary {
     readonly pendingSyncCount: number;
 }
 
+export function getSubmissionSyncLabel(audit: YeeMyAuditItem): string {
+    if (audit.syncState === "pending_upload") {
+        return "Saved on device and waiting to upload";
+    }
+
+    if (audit.syncState === "sync_failed") {
+        return "Upload needs attention";
+    }
+
+    return "Submitted to backend";
+}
+
+export function getSubmissionTimestampLabel(audit: YeeMyAuditItem): string {
+    if (audit.syncState === "pending_upload") {
+        return formatTimestamp(audit.submitted_at, "Saved");
+    }
+
+    return formatTimestamp(audit.submitted_at, "Submitted");
+}
+
 export function buildPlaceViews(
     places: readonly YeeAssignedPlace[],
     draftsByPlace: Record<string, YeeLocalDraft>,
@@ -90,19 +110,21 @@ export function summarizeMobileAudits(placeViews: readonly MobilePlaceView[]): M
 }
 
 export function averageSubmittedScore(audits: readonly YeeMyAuditItem[]): number {
-    if (audits.length === 0) {
+    const syncedAudits = audits.filter(isBackendSyncedAudit);
+    if (syncedAudits.length === 0) {
         return 0;
     }
 
-    const total = audits.reduce((sum, audit) => {
+    const total = syncedAudits.reduce((sum, audit) => {
         return sum + audit.total_score;
     }, 0);
 
-    return Math.round(total / audits.length);
+    return Math.round(total / syncedAudits.length);
 }
 
 export function getTopSubmission(audits: readonly YeeMyAuditItem[]): YeeMyAuditItem | null {
-    const [firstAudit, ...remaining] = audits;
+    const syncedAudits = audits.filter(isBackendSyncedAudit);
+    const [firstAudit, ...remaining] = syncedAudits;
     if (firstAudit === undefined) {
         return null;
     }
@@ -114,6 +136,14 @@ export function getTopSubmission(audits: readonly YeeMyAuditItem[]): YeeMyAuditI
 
         return highest;
     }, firstAudit);
+}
+
+export function sortAuditsNewestFirst(
+    audits: readonly YeeMyAuditItem[],
+): readonly YeeMyAuditItem[] {
+    return [...audits].sort((left, right) => {
+        return Date.parse(right.submitted_at) - Date.parse(left.submitted_at);
+    });
 }
 
 export function getLatestSubmissionForPlace(
@@ -181,4 +211,8 @@ function formatTimestamp(value: string, prefix: string): string {
     });
 
     return `${prefix} ${formatter.format(new Date(parsed))}`;
+}
+
+function isBackendSyncedAudit(audit: YeeMyAuditItem): boolean {
+    return audit.syncState !== "pending_upload" && audit.syncState !== "sync_failed";
 }

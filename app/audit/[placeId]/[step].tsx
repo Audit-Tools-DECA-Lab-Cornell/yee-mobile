@@ -261,6 +261,26 @@ export default function AuditStepScreen() {
         return <LoadingScreen />;
     }
 
+    if (place === null) {
+        return (
+            <BlockedAuditScreen
+                title="Place not available"
+                body="This audit route is not available on this device right now. Return to the places list and refresh the assigned-place cache when you are online."
+                onBack={() => router.replace("/(tabs)/places")}
+            />
+        );
+    }
+
+    if (!isOnline && instrument === null) {
+        return (
+            <BlockedAuditScreen
+                title="Survey not cached yet"
+                body="This device has not cached the full YEE survey instrument yet. Connect once online and refresh the mobile app before starting or continuing this audit offline."
+                onBack={() => router.replace("/(tabs)/places")}
+            />
+        );
+    }
+
     const currentDraft = draft;
 
     async function goNext() {
@@ -386,6 +406,59 @@ function LoadingScreen() {
             <Text color={designSystem.colors.foreground} fontFamily={designSystem.fonts.bodyBold}>
                 Loading mobile audit step...
             </Text>
+        </YStack>
+    );
+}
+
+function BlockedAuditScreen({
+    title,
+    body,
+    onBack,
+}: {
+    title: string;
+    body: string;
+    onBack: () => void;
+}) {
+    return (
+        <YStack flex={1} bg={designSystem.colors.background} px="$4" py="$6" justify="center">
+            <YStack
+                rounded={designSystem.radii.xl}
+                borderWidth={1}
+                borderColor={designSystem.colors.warning}
+                bg={designSystem.colors.surface}
+                p="$5"
+                gap="$4"
+                style={{ boxShadow: designSystem.shadows.card }}
+            >
+                <Text
+                    color={designSystem.colors.foreground}
+                    fontFamily={designSystem.fonts.headingBold}
+                    fontSize={28}
+                >
+                    {title}
+                </Text>
+                <Paragraph
+                    color={designSystem.colors.mutedForeground}
+                    fontFamily={designSystem.fonts.bodyMedium}
+                >
+                    {body}
+                </Paragraph>
+                <Button
+                    rounded={designSystem.radii.full}
+                    bg={designSystem.colors.primary}
+                    borderWidth={1}
+                    borderColor={designSystem.colors.primary}
+                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                    onPress={onBack}
+                >
+                    <Button.Text
+                        color={designSystem.colors.primaryForeground}
+                        fontFamily={designSystem.fonts.bodyBold}
+                    >
+                        Back to places
+                    </Button.Text>
+                </Button>
+            </YStack>
         </YStack>
     );
 }

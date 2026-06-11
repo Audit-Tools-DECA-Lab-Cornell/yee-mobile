@@ -1,10 +1,11 @@
 import { useMemo } from "react";
-import { ScrollView } from "react-native";
+import { Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { Clock3, MapPin, UploadCloud } from "components/icons";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem, getPlaceStatusTone } from "lib/design-system";
+import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
 import { buildPlaceViews, getStatusLabel, summarizeMobileAudits } from "lib/yee-mobile-selectors";
 import { useAuthStore } from "stores/auth-store";
 import { useDemoUiStore } from "stores/demo-ui-store";
@@ -17,14 +18,16 @@ export default function PlacesScreen() {
     const router = useRouter();
     const setSelectedPlaceId = useDemoUiStore((state) => state.setSelectedPlaceId);
     const hasOfflineLoginCredentials = useAuthStore((state) => state.hasOfflineLoginCredentials);
-    const { assignedPlaces, submittedAudits, draftsByPlace, syncQueue } = useYeeMobileStore(
-        useShallow((state) => ({
-            assignedPlaces: state.assignedPlaces,
-            submittedAudits: state.submittedAudits,
-            draftsByPlace: state.draftsByPlace,
-            syncQueue: state.syncQueue,
-        })),
-    );
+    const { assignedPlaces, submittedAudits, draftsByPlace, syncQueue, isOnline } =
+        useYeeMobileStore(
+            useShallow((state) => ({
+                assignedPlaces: state.assignedPlaces,
+                submittedAudits: state.submittedAudits,
+                draftsByPlace: state.draftsByPlace,
+                syncQueue: state.syncQueue,
+                isOnline: state.isOnline,
+            })),
+        );
     const hasCachedAssignedPlaces = useYeeMobileStore((state) => state.hasCachedAssignedPlaces);
     const hasCachedInstrument = useYeeMobileStore((state) => state.hasCachedInstrument);
     const isOfflineReady = useYeeMobileStore((state) => state.isOfflineReady);
@@ -34,6 +37,11 @@ export default function PlacesScreen() {
         [assignedPlaces, draftsByPlace, submittedAudits],
     );
     const summary = useMemo(() => summarizeMobileAudits(placeViews), [placeViews]);
+    const offlineReadinessMessage = getOfflineReadinessMessage({
+        hasOfflineLoginCredentials,
+        hasCachedAssignedPlaces,
+        hasCachedInstrument,
+    });
 
     return (
         <ScrollView
@@ -260,7 +268,7 @@ export default function PlacesScreen() {
                                                     }
                                                     onPress={() => {
                                                         setSelectedPlaceId(view.place.id);
-                                                        router.push(`/audit/${view.place.id}/1`);
+                                                        openAuditForPlace(view.place.id);
                                                     }}
                                                 />
                                                 {view.status === "submitted" ? (
@@ -291,6 +299,15 @@ export default function PlacesScreen() {
             </YStack>
         </ScrollView>
     );
+
+    function openAuditForPlace(placeId: string) {
+        if (!isOnline && !isOfflineReady) {
+            Alert.alert("Offline setup incomplete", offlineReadinessMessage);
+            return;
+        }
+
+        router.push(`/audit/${placeId}/1`);
+    }
 }
 
 function mapStatusToPlaceTone(status: "not_started" | "draft" | "submitted") {

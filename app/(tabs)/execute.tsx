@@ -1,12 +1,14 @@
 import { useMemo } from "react";
-import { ScrollView } from "react-native";
+import { Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useShallow } from "zustand/react/shallow";
 import { CircleCheckBig, CloudOff, Save, Send, TriangleAlert } from "components/icons";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem, getPlaceStatusTone } from "lib/design-system";
+import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
 import { buildPlaceViews, getStatusLabel } from "lib/yee-mobile-selectors";
+import { useAuthStore } from "stores/auth-store";
 import { useDemoUiStore } from "stores/demo-ui-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
@@ -17,12 +19,26 @@ export default function ExecuteScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const selectedPlaceId = useDemoUiStore((state) => state.selectedPlaceId);
-    const { assignedPlaces, submittedAudits, draftsByPlace, syncQueue } = useYeeMobileStore(
+    const hasOfflineLoginCredentials = useAuthStore((state) => state.hasOfflineLoginCredentials);
+    const {
+        assignedPlaces,
+        submittedAudits,
+        draftsByPlace,
+        syncQueue,
+        isOnline,
+        isOfflineReady,
+        hasCachedAssignedPlaces,
+        hasCachedInstrument,
+    } = useYeeMobileStore(
         useShallow((state) => ({
             assignedPlaces: state.assignedPlaces,
             submittedAudits: state.submittedAudits,
             draftsByPlace: state.draftsByPlace,
             syncQueue: state.syncQueue,
+            isOnline: state.isOnline,
+            isOfflineReady: state.isOfflineReady,
+            hasCachedAssignedPlaces: state.hasCachedAssignedPlaces,
+            hasCachedInstrument: state.hasCachedInstrument,
         })),
     );
 
@@ -71,6 +87,11 @@ export default function ExecuteScreen() {
         activePlaceView.submission?.total_score ??
         activePlaceView.draft?.scorePreview?.total_score ??
         null;
+    const offlineReadinessMessage = getOfflineReadinessMessage({
+        hasOfflineLoginCredentials,
+        hasCachedAssignedPlaces,
+        hasCachedInstrument,
+    });
 
     return (
         <YStack flex={1} bg={designSystem.colors.background}>
@@ -201,16 +222,18 @@ export default function ExecuteScreen() {
                             fontFamily={designSystem.fonts.bodyBold}
                             fontSize={15}
                         >
-                            Offline audit capture is ready
+                            {activePlaceView.status === "submitted"
+                                ? "Report access is ready"
+                                : "Offline audit capture is ready"}
                         </Text>
                     </XStack>
                     <Paragraph
                         color={designSystem.colors.mutedForeground}
                         fontFamily={designSystem.fonts.bodyMedium}
                     >
-                        This place is ready for the full YEE mobile survey workflow. Draft responses
-                        are saved locally, and queued changes can sync back to the backend when
-                        connectivity returns.
+                        {activePlaceView.status === "submitted"
+                            ? "This place already has a mobile report available. Open the report now, or return to the backend later for broader comparisons and exports."
+                            : "This place is ready for the full YEE mobile survey workflow. Draft responses are saved locally, and queued changes can sync back to the backend when connectivity returns."}
                     </Paragraph>
                     <YStack
                         rounded={designSystem.radii.md}
@@ -269,13 +292,13 @@ export default function ExecuteScreen() {
                     borderColor={designSystem.colors.border}
                     pressStyle={{ opacity: 0.92, scale: 0.985 }}
                     icon={<Save size={16} color={designSystem.colors.foreground} />}
-                    onPress={() => router.push(`/audit/${activePlaceView.place.id}/1`)}
+                    onPress={() => openAuditForPlace(activePlaceView.place.id)}
                 >
                     <Button.Text
                         color={designSystem.colors.foreground}
                         fontFamily={designSystem.fonts.bodyBold}
                     >
-                        Open YEE survey
+                        {activePlaceView.status === "draft" ? "Continue survey" : "Start survey"}
                     </Button.Text>
                 </Button>
                 <Button
@@ -290,19 +313,32 @@ export default function ExecuteScreen() {
                         activePlaceView.status === "submitted" &&
                         activePlaceView.submission !== null
                             ? router.push(`/reports/${activePlaceView.submission.id}`)
-                            : router.push(`/audit/${activePlaceView.place.id}/1`)
+                            : openAuditForPlace(activePlaceView.place.id)
                     }
                 >
                     <Button.Text
                         color={designSystem.colors.primaryForeground}
                         fontFamily={designSystem.fonts.bodyBold}
                     >
-                        Open current audit
+                        {activePlaceView.status === "submitted"
+                            ? "Open report"
+                            : activePlaceView.status === "draft"
+                              ? "Resume audit"
+                              : "Open current audit"}
                     </Button.Text>
                 </Button>
             </XStack>
         </YStack>
     );
+
+    function openAuditForPlace(placeId: string) {
+        if (!isOnline && !isOfflineReady) {
+            Alert.alert("Offline setup incomplete", offlineReadinessMessage);
+            return;
+        }
+
+        router.push(`/audit/${placeId}/1`);
+    }
 }
 
 function mapStatusToPlaceTone(status: "not_started" | "draft" | "submitted") {

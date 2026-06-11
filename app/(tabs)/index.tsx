@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { useMemo } from "react";
-import { ScrollView } from "react-native";
+import { Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -15,6 +15,7 @@ import {
 } from "components/icons";
 import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { designSystem, getMetricTone, getPlaceStatusTone } from "lib/design-system";
+import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
 import { buildPlaceViews, getStatusLabel, summarizeMobileAudits } from "lib/yee-mobile-selectors";
 import { useAuthStore } from "stores/auth-store";
 import { useDemoUiStore } from "stores/demo-ui-store";
@@ -78,6 +79,11 @@ export default function DashboardScreen() {
         });
     }, []);
     const syncSummary = describeSync(lastPlacesSyncAt, lastAuditsSyncAt, syncQueue.length);
+    const offlineReadinessMessage = getOfflineReadinessMessage({
+        hasOfflineLoginCredentials,
+        hasCachedAssignedPlaces,
+        hasCachedInstrument,
+    });
 
     return (
         <ScrollView
@@ -301,7 +307,7 @@ export default function DashboardScreen() {
                         label="Submitted Audits"
                         value={summary.submittedCount}
                         tone="green"
-                        helperText="Locked and ready for reporting"
+                        helperText="Available in mobile reports"
                     />
                     <MetricCard
                         label="Pending Sync"
@@ -369,7 +375,7 @@ export default function DashboardScreen() {
                                 }
 
                                 setSelectedPlaceId(target.place.id);
-                                router.push(`/audit/${target.place.id}/1`);
+                                openAuditForPlace(target.place.id);
                             }}
                         />
                         <ActionButton
@@ -504,7 +510,7 @@ export default function DashboardScreen() {
                                                         return;
                                                     }
 
-                                                    router.push(`/audit/${view.place.id}/1`);
+                                                    openAuditForPlace(view.place.id);
                                                 }}
                                             >
                                                 <Button.Text
@@ -532,6 +538,15 @@ export default function DashboardScreen() {
             </YStack>
         </ScrollView>
     );
+
+    function openAuditForPlace(placeId: string) {
+        if (!isOnline && !isOfflineReady) {
+            Alert.alert("Offline setup incomplete", offlineReadinessMessage);
+            return;
+        }
+
+        router.push(`/audit/${placeId}/1`);
+    }
 }
 
 function ChecklistLine({ done, label }: { done: boolean; label: string }) {

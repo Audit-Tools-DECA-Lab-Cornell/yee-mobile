@@ -34,7 +34,7 @@ export default function AuditSubmittedScreen() {
                         fontFamily={designSystem.fonts.headingBold}
                         fontSize={28}
                     >
-                        {queued ? "Submission queued offline" : "Audit submitted"}
+                        {queued ? "Audit saved and queued" : "Audit submitted"}
                     </Text>
                 </XStack>
                 <Paragraph
@@ -42,7 +42,7 @@ export default function AuditSubmittedScreen() {
                     fontFamily={designSystem.fonts.bodyMedium}
                 >
                     {queued
-                        ? "This audit is saved on the device and queued for backend upload as soon as connectivity is available again."
+                        ? "This audit is saved on the device, visible in mobile reports, and queued for backend upload as soon as connectivity is available again."
                         : "The audit was submitted through the same backend used by the website and is now locked for editing."}
                 </Paragraph>
                 <YStack gap="$2.5">

@@ -4,8 +4,14 @@ import { useRouter } from "expo-router";
 import { FileBarChart, TriangleAlert } from "components/icons";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
-import { averageSubmittedScore, getTopSubmission } from "lib/yee-mobile-selectors";
-import { formatAuditTimestamp } from "lib/yee-mobile-reporting";
+import {
+    averageSubmittedScore,
+    getLatestSubmissionForPlace,
+    getSubmissionSyncLabel,
+    getSubmissionTimestampLabel,
+    getTopSubmission,
+    sortAuditsNewestFirst,
+} from "lib/yee-mobile-selectors";
 import { useDemoUiStore } from "stores/demo-ui-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
@@ -17,11 +23,17 @@ export default function ReportsScreen() {
     const selectedPlaceId = useDemoUiStore((state) => state.selectedPlaceId);
     const submittedAudits = useYeeMobileStore((state) => state.submittedAudits);
 
+    const sortedAudits = useMemo(() => sortAuditsNewestFirst(submittedAudits), [submittedAudits]);
     const averageScore = useMemo(() => averageSubmittedScore(submittedAudits), [submittedAudits]);
     const topSubmission = useMemo(() => getTopSubmission(submittedAudits), [submittedAudits]);
     const focusedSubmission = useMemo(() => {
-        return submittedAudits.find((audit) => audit.place_id === selectedPlaceId) ?? topSubmission;
-    }, [selectedPlaceId, submittedAudits, topSubmission]);
+        return (
+            getLatestSubmissionForPlace(sortedAudits, selectedPlaceId) ??
+            topSubmission ??
+            sortedAudits[0] ??
+            null
+        );
+    }, [selectedPlaceId, sortedAudits, topSubmission]);
 
     return (
         <ScrollView
@@ -49,8 +61,9 @@ export default function ReportsScreen() {
                         color={designSystem.colors.mutedForeground}
                         fontFamily={designSystem.fonts.bodyMedium}
                     >
-                        Submitted and locally queued mobile audits appear here. Open any report to
-                        review field answers right away, even before upload finishes.
+                        Backend-submitted reports and device-saved queued reports appear together
+                        here. Open any report to confirm field answers right away, even before an
+                        upload finishes.
                     </Paragraph>
                 </YStack>
 
@@ -59,13 +72,13 @@ export default function ReportsScreen() {
                         label="Average raw score"
                         value={`${averageScore}%`}
                         accentColor={designSystem.colors.primary}
-                        helperText="Across synced submissions"
+                        helperText="Across backend-synced reports"
                     />
                     <MetricCard
                         label="Top synced score"
                         value={topSubmission === null ? "--" : `${topSubmission.total_score}%`}
                         accentColor={designSystem.colors.success}
-                        helperText={topSubmission?.place_name ?? "No submission yet"}
+                        helperText={topSubmission?.place_name ?? "No synced report yet"}
                     />
                 </XStack>
             </YStack>
@@ -90,8 +103,8 @@ export default function ReportsScreen() {
                         color={designSystem.colors.mutedForeground}
                         fontFamily={designSystem.fonts.bodyMedium}
                     >
-                        Once an audit is submitted and synced, this screen will show each locked
-                        report and allow it to be opened again on the device.
+                        Submitted backend reports and device-saved queued reports will appear here
+                        once the auditor completes an audit.
                     </Paragraph>
                 </YStack>
             ) : (
@@ -112,7 +125,7 @@ export default function ReportsScreen() {
                                 fontFamily={designSystem.fonts.headingBold}
                                 fontSize={20}
                             >
-                                Selected report
+                                Current report
                             </Text>
                         </XStack>
                         <YStack gap="$1">
@@ -127,7 +140,18 @@ export default function ReportsScreen() {
                                 color={designSystem.colors.mutedForeground}
                                 fontFamily={designSystem.fonts.bodyMedium}
                             >
-                                Submitted {formatAuditTimestamp(focusedSubmission.submitted_at)}
+                                {getSubmissionTimestampLabel(focusedSubmission)}
+                            </Paragraph>
+                            <Paragraph
+                                color={
+                                    focusedSubmission.syncState === "pending_upload"
+                                        ? designSystem.colors.warning
+                                        : designSystem.colors.success
+                                }
+                                fontFamily={designSystem.fonts.bodyBold}
+                                fontSize={12}
+                            >
+                                {getSubmissionSyncLabel(focusedSubmission)}
                             </Paragraph>
                         </YStack>
                         <YStack gap="$2">
@@ -193,10 +217,10 @@ export default function ReportsScreen() {
                             textTransform="uppercase"
                             letterSpacing={1.5}
                         >
-                            Synced submissions
+                            Report list
                         </Text>
                         <YStack gap="$3">
-                            {submittedAudits.map((audit) => (
+                            {sortedAudits.map((audit) => (
                                 <YStack
                                     key={audit.id}
                                     rounded={designSystem.radii.md}
@@ -220,7 +244,7 @@ export default function ReportsScreen() {
                                                 fontFamily={designSystem.fonts.bodyMedium}
                                                 fontSize={12}
                                             >
-                                                Submitted {formatAuditTimestamp(audit.submitted_at)}
+                                                {getSubmissionTimestampLabel(audit)}
                                             </Paragraph>
                                         </YStack>
                                         <YStack items="flex-end" gap="$0.5">
@@ -239,9 +263,7 @@ export default function ReportsScreen() {
                                                 fontFamily={designSystem.fonts.bodyMedium}
                                                 fontSize={12}
                                             >
-                                                {audit.syncState === "pending_upload"
-                                                    ? "Queued offline"
-                                                    : "Locked result"}
+                                                {getSubmissionSyncLabel(audit)}
                                             </Paragraph>
                                         </YStack>
                                     </XStack>
@@ -274,7 +296,9 @@ export default function ReportsScreen() {
                                             color={designSystem.colors.foreground}
                                             fontFamily={designSystem.fonts.bodyBold}
                                         >
-                                            Open report
+                                            {audit.syncState === "pending_upload"
+                                                ? "Open queued report"
+                                                : "Open report"}
                                         </Button.Text>
                                     </Button>
                                 </YStack>
