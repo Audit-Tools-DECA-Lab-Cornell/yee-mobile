@@ -7,7 +7,8 @@ import type {
     YeeSubmissionResponse,
 } from "lib/yee-types";
 
-const DEFAULT_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000";
+const DEFAULT_API_BASE_URL =
+    process.env.EXPO_PUBLIC_API_BASE_URL || "https://audit-tools-backend.onrender.com/";
 
 export class YeeMobileApiError extends Error {
     readonly statusCode: number;
@@ -34,7 +35,9 @@ export async function fetchYeeInstrument(): Promise<YeeInstrumentResponse> {
     return getJson<YeeInstrumentResponse>("/yee/instrument");
 }
 
-export async function fetchAssignedPlaces(session: AuthSession): Promise<readonly YeeAssignedPlace[]> {
+export async function fetchAssignedPlaces(
+    session: AuthSession,
+): Promise<readonly YeeAssignedPlace[]> {
     return getAuthedJson<readonly YeeAssignedPlace[]>("/yee/dashboard/my-places", session);
 }
 
@@ -57,7 +60,12 @@ export async function saveAuditDraft(
         responses: Record<string, unknown>;
     },
 ): Promise<YeeAuditStateResponse> {
-    return sendAuthedJson<YeeAuditStateResponse>(`/yee/places/${placeId}/draft`, session, "PUT", payload);
+    return sendAuthedJson<YeeAuditStateResponse>(
+        `/yee/places/${placeId}/draft`,
+        session,
+        "PUT",
+        payload,
+    );
 }
 
 export async function previewScore(
@@ -68,7 +76,12 @@ export async function previewScore(
         responses: Record<string, unknown>;
     },
 ): Promise<YeeAuditStateResponse["score"]> {
-    return sendAuthedJson<YeeAuditStateResponse["score"]>("/yee/audits/score", session, "POST", payload);
+    return sendAuthedJson<YeeAuditStateResponse["score"]>(
+        "/yee/audits/score",
+        session,
+        "POST",
+        payload,
+    );
 }
 
 export async function submitAudit(
