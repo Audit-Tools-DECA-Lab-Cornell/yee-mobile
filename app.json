@@ -15,7 +15,7 @@
         "assetBundlePatterns": ["**/*"],
         "ios": {
             "supportsTablet": true,
-            "bundleIdentifier": "com.pratyush.sudhakar.audit-tools-yee-mobile",
+            "bundleIdentifier": "com.andisha2004.audit-tools-yee-mobile",
             "appleTeamId": "ZD947U862S",
             "infoPlist": {
                 "ITSAppUsesNonExemptEncryption": false
@@ -27,7 +27,7 @@
                 "backgroundColor": "#F7F1EB",
                 "monochromeImage": "./assets/images/adaptive-monochrome.png"
             },
-            "package": "com.pratyush.sudhakar.audittoolsyeemobile"
+            "package": "com.andisha2004.audittoolsyeemobile"
         },
         "web": {
             "bundler": "metro",
@@ -62,15 +62,12 @@
         "extra": {
             "router": {},
             "eas": {
-                "projectId": "bde8f0a0-4679-445a-a872-acd1b7107c89"
+                "projectId": "34a0dc8b-bf74-4b5a-8d76-ac98418eccd3"
             }
         },
         "runtimeVersion": {
             "policy": "appVersion"
         },
-        "owner": "pratyush.sudhakar",
-        "updates": {
-            "url": "https://u.expo.dev/bde8f0a0-4679-445a-a872-acd1b7107c89"
-        }
+        "owner": "andisha2004"
     }
 }
