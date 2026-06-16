@@ -10,6 +10,8 @@ export interface MobileAuditFormState {
     readonly finishTime: string;
     readonly totalMinutes: number;
     readonly visitFrequency: string;
+    readonly publicAccess: string;
+    readonly openHoursAccess: string;
     readonly season: string;
     readonly weather: readonly string[];
     readonly weights: Record<MobileYeeDomainKey, string>;
@@ -35,6 +37,8 @@ export function createEmptyFormState(
         finishTime: "",
         totalMinutes: 0,
         visitFrequency: "",
+        publicAccess: "",
+        openHoursAccess: "",
         season: "",
         weather: [],
         weights: emptyWeights(),
@@ -76,6 +80,8 @@ export function buildFormStateFromSources(input: {
         finishTime: asString(draftPayload.finish_time) ?? "",
         totalMinutes: asNumber(draftPayload.total_minutes) ?? 0,
         visitFrequency: asString(draftPayload.visit_frequency) ?? "",
+        publicAccess: asString(draftPayload.public_access) ?? "",
+        openHoursAccess: asString(draftPayload.open_hours_access) ?? "",
         season: asString(draftPayload.season) ?? "",
         weather: splitCsv(asString(draftPayload.weather)),
         weights: {
@@ -129,6 +135,8 @@ export function buildParticipantInfo(state: MobileAuditFormState): Record<string
         finish_time: state.finishTime,
         total_minutes: state.totalMinutes,
         visit_frequency: state.visitFrequency,
+        public_access: state.publicAccess,
+        open_hours_access: state.openHoursAccess,
         season: state.season,
         weather: state.weather.join(","),
         domain_weights: state.weights,

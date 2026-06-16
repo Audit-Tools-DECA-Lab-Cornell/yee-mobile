@@ -52,6 +52,18 @@ export const visitFrequencyOptions = [
     { value: "not-in-last-6-months", label: "I have not been here in the last 6 months" },
 ] as const;
 
+export const publicAccessOptions = [
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" },
+    { value: "not-sure", label: "I'm not sure" },
+] as const;
+
+export const openHoursAccessOptions = [
+    { value: "yes", label: "Yes" },
+    { value: "no", label: "No" },
+    { value: "not-sure", label: "I'm not sure" },
+] as const;
+
 export const seasonOptions = [
     { value: "spring", label: "Spring" },
     { value: "summer", label: "Summer" },
@@ -101,6 +113,14 @@ export function getVisitFrequencyLabel(value: string | null | undefined): string
 
 export function getSeasonLabel(value: string | null | undefined): string {
     return getOptionLabel(seasonOptions, value);
+}
+
+export function getPublicAccessLabel(value: string | null | undefined): string {
+    return getOptionLabel(publicAccessOptions, value);
+}
+
+export function getOpenHoursAccessLabel(value: string | null | undefined): string {
+    return getOptionLabel(openHoursAccessOptions, value);
 }
 
 export function getWeatherLabelList(values: readonly string[]): string {

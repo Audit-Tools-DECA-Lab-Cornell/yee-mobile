@@ -13,6 +13,8 @@ import {
     type MobileAuditFormState,
 } from "lib/yee-mobile-draft";
 import {
+    getOpenHoursAccessLabel,
+    getPublicAccessLabel,
     getSeasonLabel,
     getVisitFrequencyLabel,
     getWeatherLabelList,
@@ -421,6 +423,14 @@ export default function AuditReviewScreen() {
                         <SummaryRow
                             label="Visit frequency"
                             value={getVisitFrequencyLabel(draft.visitFrequency)}
+                        />
+                        <SummaryRow
+                            label="Open to the public"
+                            value={getPublicAccessLabel(draft.publicAccess)}
+                        />
+                        <SummaryRow
+                            label="Open all hours"
+                            value={getOpenHoursAccessLabel(draft.openHoursAccess)}
                         />
                         <SummaryRow label="Season" value={getSeasonLabel(draft.season)} />
                         <SummaryRow label="Weather" value={getWeatherLabelList(draft.weather)} />
@@ -905,6 +915,8 @@ function findFirstIncompleteStep(
 ): { step: MobileYeeStepNumber; label: string } | null {
     if (
         draft.visitFrequency.length === 0 ||
+        draft.publicAccess.length === 0 ||
+        draft.openHoursAccess.length === 0 ||
         draft.season.length === 0 ||
         draft.weather.length === 0
     ) {

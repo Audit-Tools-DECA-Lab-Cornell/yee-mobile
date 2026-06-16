@@ -23,6 +23,8 @@ import {
     mobileYeeDomainLabels,
     mobileYeeSteps,
     mobileYeeWeightOptions,
+    openHoursAccessOptions,
+    publicAccessOptions,
     seasonOptions,
     visitFrequencyOptions,
     weatherOptions,
@@ -689,6 +691,38 @@ function ContextStep({
                     palette={palette}
                 />
                 <ChoiceQuestion
+                    label="Is this place open to the public (or can only certain people use it)"
+                    value={draft.publicAccess}
+                    options={
+                        publicAccessOptions as unknown as readonly {
+                            value: string;
+                            label: string;
+                        }[]
+                    }
+                    onChange={(value) =>
+                        onChange((current) =>
+                            current === null ? current : { ...current, publicAccess: value },
+                        )
+                    }
+                    palette={palette}
+                />
+                <ChoiceQuestion
+                    label="Is this place open all hours or is it closed for some hours (Ex: closed after 11pm)"
+                    value={draft.openHoursAccess}
+                    options={
+                        openHoursAccessOptions as unknown as readonly {
+                            value: string;
+                            label: string;
+                        }[]
+                    }
+                    onChange={(value) =>
+                        onChange((current) =>
+                            current === null ? current : { ...current, openHoursAccess: value },
+                        )
+                    }
+                    palette={palette}
+                />
+                <ChoiceQuestion
                     label="What is the current season"
                     value={draft.season}
                     options={
@@ -1203,19 +1237,23 @@ function SelectionButton({
             justify="flex-start"
             rounded={designSystem.radii.full}
             borderWidth={1}
-            hoverStyle={{ opacity: 0.96 }}
+            hoverStyle={{
+                opacity: 0.98,
+                background: selected ? palette.selectedBorder : palette.selected,
+            }}
             pressStyle={{ opacity: 0.92, scale: 0.985 }}
             onPress={onPress}
             py="$3"
             px="$3.5"
             style={{
                 backgroundColor: selected ? palette.selected : palette.inner,
+                borderColor: selected ? palette.selectedBorder : palette.innerBorder,
                 boxShadow: selected ? designSystem.shadows.accent : "none",
             }}
         >
             <Button.Text
                 style={{
-                    color: selected ? designSystem.colors.primaryForeground : palette.mutedAccent,
+                    color: selected ? designSystem.colors.primaryForeground : palette.accent,
                     textAlign: "left",
                 }}
                 fontFamily={designSystem.fonts.bodyBold}
@@ -1419,6 +1457,8 @@ function countAnsweredRows(
 function buildDraftFingerprint(draft: MobileAuditFormState): string {
     return JSON.stringify({
         visitFrequency: draft.visitFrequency,
+        publicAccess: draft.publicAccess,
+        openHoursAccess: draft.openHoursAccess,
         season: draft.season,
         weather: draft.weather,
         weights: draft.weights,
@@ -1457,6 +1497,8 @@ function getStepIncompleteMessage(
     if (step === 1) {
         const missing = [
             draft.visitFrequency.length === 0 ? "visit frequency" : null,
+            draft.publicAccess.length === 0 ? "public access" : null,
+            draft.openHoursAccess.length === 0 ? "hours / availability" : null,
             draft.season.length === 0 ? "season" : null,
             draft.weather.length === 0 ? "weather" : null,
         ].filter(Boolean);
@@ -1489,6 +1531,8 @@ function findFirstIncompleteStep(
 ): { step: MobileYeeStepNumber; label: string } | null {
     if (
         draft.visitFrequency.length === 0 ||
+        draft.publicAccess.length === 0 ||
+        draft.openHoursAccess.length === 0 ||
         draft.season.length === 0 ||
         draft.weather.length === 0
     ) {
