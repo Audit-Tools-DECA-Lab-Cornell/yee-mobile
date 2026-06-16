@@ -18,7 +18,11 @@ import {
     getYouthWeightedScoreMaximum,
     totalRawScoreMaximum,
 } from "lib/yee-mobile-reporting";
-import { mobileYeeDomainLabels, type MobileYeeDomainKey } from "lib/yee-mobile-audit-config";
+import {
+    getWeightLabel,
+    mobileYeeDomainLabels,
+    type MobileYeeDomainKey,
+} from "lib/yee-mobile-audit-config";
 import { readSubmissionDetail, writeSubmissionDetail } from "lib/yee-offline-storage";
 import type { YeeSubmissionResponse } from "lib/yee-types";
 import { useAuthStore } from "stores/auth-store";
@@ -320,7 +324,8 @@ export default function MobileReportDetailScreen() {
                                             color={designSystem.colors.mutedForeground}
                                             fontFamily={designSystem.fonts.bodyMedium}
                                         >
-                                            Selected importance weight: {row.weightValue}
+                                            Selected importance weight:{" "}
+                                            {getWeightLabel(row.weightValue)}
                                         </Paragraph>
                                     </YStack>
                                 </Card>

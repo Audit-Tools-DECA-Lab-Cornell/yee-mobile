@@ -1,6 +1,6 @@
 import type { Dispatch, PropsWithChildren, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, ScrollView } from "react-native";
+import { Alert, Platform, ScrollView } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowLeft, ArrowRight, Save } from "components/icons";
@@ -18,6 +18,7 @@ import {
     getDomainForStep,
     getNextStep,
     getPreviousStep,
+    getWeightPrompt,
     getStepTitle,
     mobileYeeDomainLabels,
     mobileYeeSteps,
@@ -40,11 +41,23 @@ import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 const STEP_VALUES = new Set(["1", "2", "3", "4", "5", "6", "7", "8", "9"]);
-const SURVEY_CARD = "rgba(226, 239, 229, 0.55)";
-const SURVEY_CARD_BORDER = "rgba(110, 156, 124, 0.22)";
-const OPTION_SURFACE = "rgba(243, 247, 238, 0.95)";
-const OPTION_SELECTED = "rgba(169, 236, 217, 0.46)";
-const INTRO_SURFACE = "rgba(242, 247, 239, 0.92)";
+type SurveyPalette = {
+    readonly card: string;
+    readonly cardBorder: string;
+    readonly inner: string;
+    readonly innerBorder: string;
+    readonly selected: string;
+    readonly selectedBorder: string;
+    readonly intro: string;
+    readonly introBorder: string;
+    readonly accent: string;
+    readonly mutedAccent: string;
+    readonly progress: string;
+    readonly progressTrack: string;
+    readonly stepSurface: string;
+    readonly stepBorder: string;
+    readonly stepText: string;
+};
 
 export default function AuditStepScreen() {
     const router = useRouter();
@@ -170,6 +183,7 @@ export default function AuditStepScreen() {
     }, [isOnline, loadPlaceAuditState, place?.name, placeId, session]);
 
     const domain = getDomainForStep(step);
+    const stepPalette = useMemo(() => getSurveyPalette(step), [step]);
     const section = useMemo(() => {
         return instrument === null ? null : getSectionForStep(instrument, step);
     }, [instrument, step]);
@@ -282,6 +296,7 @@ export default function AuditStepScreen() {
     }
 
     const currentDraft = draft;
+    const auditIsComplete = findFirstIncompleteStep(currentDraft, instrument) === null;
 
     async function goNext() {
         const canProceed = await confirmStepProgress(step, currentDraft, section);
@@ -341,8 +356,10 @@ export default function AuditStepScreen() {
             >
                 <StepHeader
                     step={step}
+                    placeId={placeId}
                     placeName={draft.placeName || place?.name || "Assigned place"}
                     auditorId={draft.auditorId}
+                    onStepPress={(nextStep) => router.push(`/audit/${placeId}/${nextStep}`)}
                 />
 
                 {errorMessage === null ? null : (
@@ -350,21 +367,23 @@ export default function AuditStepScreen() {
                 )}
 
                 {step === 1 ? (
-                    <ContextStep draft={draft} onChange={setDraft} />
+                    <ContextStep draft={draft} onChange={setDraft} palette={stepPalette} />
                 ) : step === 2 ? (
                     <WeightingStep
                         draft={draft}
                         onChange={setDraft}
                         placeName={draft.placeName || place?.name || "this place"}
+                        palette={stepPalette}
                     />
                 ) : step === 9 ? (
-                    <FinalCommentsStep draft={draft} onChange={setDraft} />
+                    <FinalCommentsStep draft={draft} onChange={setDraft} palette={stepPalette} />
                 ) : section !== null && domain !== null ? (
                     <DomainStep
                         section={section}
                         draft={draft}
                         onChange={setDraft}
                         domain={domain}
+                        palette={stepPalette}
                     />
                 ) : (
                     <NoticeCard
@@ -388,6 +407,13 @@ export default function AuditStepScreen() {
                 onSaveExit={() => void saveAndExit()}
                 onNext={() => void goNext()}
                 nextLabel={step === 9 ? "Review Audit" : "Next"}
+                nextTone={stepPalette}
+                {...(step === 9 && auditIsComplete
+                    ? {
+                          extraActionLabel: "Submit audit",
+                          onExtraAction: () => router.push(`/audit/${placeId}/review`),
+                      }
+                    : {})}
             />
         </YStack>
     );
@@ -465,12 +491,16 @@ function BlockedAuditScreen({
 
 function StepHeader({
     step,
+    placeId,
     placeName,
     auditorId,
+    onStepPress,
 }: {
     step: MobileYeeStepNumber;
+    placeId: string;
     placeName: string;
     auditorId: string;
+    onStepPress: (step: MobileYeeStepNumber) => void;
 }) {
     const progressLabel =
         step <= 2 ? "Setup and weighting" : step === 9 ? "Final comments" : "Domain section";
@@ -485,8 +515,15 @@ function StepHeader({
                     textTransform="uppercase"
                     letterSpacing={1.5}
                 >
-                    {placeName}
+                    audit/{placeId}
                 </Paragraph>
+                <Text
+                    color={designSystem.colors.mutedForeground}
+                    fontFamily={designSystem.fonts.bodySemiBold}
+                    fontSize={13}
+                >
+                    {placeName}
+                </Text>
                 <XStack gap="$2" flexWrap="wrap" mb="$1">
                     <YStack
                         rounded={designSystem.radii.full}
@@ -570,7 +607,7 @@ function StepHeader({
                     style={{ backgroundColor: chipTone.surface }}
                 >
                     <Text
-                        color={chipTone.text}
+                        style={{ color: chipTone.text }}
                         fontFamily={designSystem.fonts.bodyBold}
                         fontSize={11}
                     >
@@ -583,26 +620,33 @@ function StepHeader({
                     const active = entry.step === step;
                     const tone = getStepTone(entry.step);
                     return (
-                        <YStack
+                        <Button
                             key={entry.step}
+                            type="button"
                             rounded={designSystem.radii.full}
                             borderWidth={1}
                             px="$3"
                             py="$2"
+                            onPress={() => onStepPress(entry.step)}
+                            disabled={active}
+                            hoverStyle={{ opacity: 0.96 }}
+                            pressStyle={{ opacity: 0.94, scale: 0.985 }}
                             style={{
-                                minWidth: 92,
+                                minWidth: 108,
                                 borderColor: active ? tone.border : tone.softBorder,
                                 backgroundColor: active ? tone.surface : tone.softSurface,
                             }}
                         >
-                            <Text
-                                color={active ? tone.text : designSystem.colors.mutedForeground}
+                            <Button.Text
+                                style={{
+                                    color: active ? tone.text : designSystem.colors.mutedForeground,
+                                }}
                                 fontFamily={designSystem.fonts.bodyBold}
                                 fontSize={11}
                             >
-                                {entry.step}. {entry.title}
-                            </Text>
-                        </YStack>
+                                {entry.title}
+                            </Button.Text>
+                        </Button>
                     );
                 })}
             </XStack>
@@ -613,15 +657,18 @@ function StepHeader({
 function ContextStep({
     draft,
     onChange,
+    palette,
 }: {
     draft: MobileAuditFormState;
     onChange: Dispatch<SetStateAction<MobileAuditFormState | null>>;
+    palette: SurveyPalette;
 }) {
     return (
         <YStack gap="$4">
             <Card
                 title="Visit details"
                 description={`Record the visit context for ${draft.placeName || "this place"}.`}
+                palette={palette}
             >
                 <ReadOnlyField label="Generated auditor ID" value={draft.auditorId} />
                 <ReadOnlyField label="Audit date" value={draft.auditDate} />
@@ -639,6 +686,7 @@ function ContextStep({
                             current === null ? current : { ...current, visitFrequency: value },
                         )
                     }
+                    palette={palette}
                 />
                 <ChoiceQuestion
                     label="What is the current season"
@@ -651,6 +699,7 @@ function ContextStep({
                             current === null ? current : { ...current, season: value },
                         )
                     }
+                    palette={palette}
                 />
                 <MultiChoiceQuestion
                     label="What is the weather like today"
@@ -670,6 +719,7 @@ function ContextStep({
                             };
                         })
                     }
+                    palette={palette}
                 />
             </Card>
         </YStack>
@@ -680,15 +730,18 @@ function WeightingStep({
     draft,
     onChange,
     placeName,
+    palette,
 }: {
     draft: MobileAuditFormState;
     onChange: Dispatch<SetStateAction<MobileAuditFormState | null>>;
     placeName: string;
+    palette: SurveyPalette;
 }) {
     return (
         <Card
             title="Youth weighting"
             description={`Please start by telling us how important each of the following issues are to you, especially about the play/recreation and green spaces in your community or neighborhood and at ${placeName}.`}
+            palette={palette}
         >
             {(Object.keys(mobileYeeDomainLabels) as MobileYeeDomainKey[]).map((domain) => (
                 <ChoiceQuestion
@@ -714,7 +767,8 @@ function WeightingStep({
                                   },
                         )
                     }
-                    promptOverride={weightPrompt(domain)}
+                    promptOverride={getWeightPrompt(domain)}
+                    palette={palette}
                 />
             ))}
             <CommentField
@@ -725,6 +779,7 @@ function WeightingStep({
                         current === null ? current : { ...current, weightingComments: value },
                     )
                 }
+                palette={palette}
             />
             <SectionProgressCard
                 title="Weighting progress"
@@ -733,6 +788,7 @@ function WeightingStep({
                     Object.values(draft.weights).filter((value) => value.length > 0).length
                 }
                 totalCount={Object.keys(mobileYeeDomainLabels).length}
+                palette={palette}
             />
         </Card>
     );
@@ -741,14 +797,17 @@ function WeightingStep({
 function FinalCommentsStep({
     draft,
     onChange,
+    palette,
 }: {
     draft: MobileAuditFormState;
     onChange: Dispatch<SetStateAction<MobileAuditFormState | null>>;
+    palette: SurveyPalette;
 }) {
     return (
         <Card
             title="Final comments"
             description="Add any overall comments you want included before review and submission."
+            palette={palette}
         >
             <CommentField
                 label="Overall survey comments"
@@ -758,6 +817,7 @@ function FinalCommentsStep({
                         current === null ? current : { ...current, comments: value },
                     )
                 }
+                palette={palette}
             />
         </Card>
     );
@@ -768,21 +828,25 @@ function DomainStep({
     draft,
     onChange,
     domain,
+    palette,
 }: {
     section: Exclude<ReturnType<typeof getSectionForStep>, null>;
     draft: MobileAuditFormState;
     onChange: Dispatch<SetStateAction<MobileAuditFormState | null>>;
     domain: MobileYeeDomainKey;
+    palette: SurveyPalette;
 }) {
     return (
         <YStack gap="$4">
             <SectionIntroCard
                 title={section.blockLabel}
                 description={section.introText || `Complete the ${section.title} section.`}
+                palette={palette}
             />
             <Card
                 title={section.title}
                 description="Answer each item below. If the feature is present, the condition follow-up will appear right underneath it."
+                palette={palette}
             >
                 {section.groups.map((group) => (
                     <YStack key={group.id} gap="$3.5">
@@ -805,10 +869,15 @@ function DomainStep({
                                     ? undefined
                                     : draft.responses[row.conditionItemId]?.[row.choiceId];
                             return (
-                                <QuestionCard key={`${group.id}-${row.choiceId}`} label={row.label}>
+                                <QuestionCard
+                                    key={`${group.id}-${row.choiceId}`}
+                                    label={row.label}
+                                    palette={palette}
+                                >
                                     <OptionGrid
                                         value={presenceValue}
                                         options={row.presenceAnswers}
+                                        palette={palette}
                                         onChange={(answerId) =>
                                             onChange((current) => {
                                                 if (current === null) return current;
@@ -847,11 +916,13 @@ function DomainStep({
                                             rounded={designSystem.radii.md}
                                             p="$3"
                                             borderWidth={1}
-                                            borderColor={SURVEY_CARD_BORDER}
-                                            style={{ backgroundColor: OPTION_SURFACE }}
+                                            style={{
+                                                backgroundColor: palette.inner,
+                                                borderColor: palette.innerBorder,
+                                            }}
                                         >
                                             <Paragraph
-                                                color={designSystem.colors.primary}
+                                                style={{ color: designSystem.colors.primary }}
                                                 fontFamily={designSystem.fonts.bodyBold}
                                             >
                                                 If yes, please rate the condition.
@@ -859,6 +930,7 @@ function DomainStep({
                                             <OptionGrid
                                                 value={conditionValue}
                                                 options={row.conditionAnswers}
+                                                palette={palette}
                                                 onChange={(answerId) =>
                                                     onChange((current) => {
                                                         if (current === null) return current;
@@ -900,12 +972,14 @@ function DomainStep({
                                   },
                         )
                     }
+                    palette={palette}
                 />
                 <SectionProgressCard
                     title={`${section.title} progress`}
                     helperText="This count updates as each question row is answered. Presence questions drive the condition follow-up when needed."
                     completedCount={countAnsweredRows(section, draft)}
                     totalCount={countTotalRows(section)}
+                    palette={palette}
                 />
             </Card>
         </YStack>
@@ -916,16 +990,19 @@ function Card({
     title,
     description,
     children,
-}: PropsWithChildren<{ title: string; description: string }>) {
+    palette,
+}: PropsWithChildren<{ title: string; description: string; palette: SurveyPalette }>) {
     return (
         <YStack
             rounded={designSystem.radii.xl}
             borderWidth={1}
-            borderColor={designSystem.colors.border}
-            bg={designSystem.colors.surface}
             p="$4"
             gap="$3.5"
-            style={{ boxShadow: designSystem.shadows.card }}
+            style={{
+                backgroundColor: palette.card,
+                borderColor: palette.cardBorder,
+                boxShadow: designSystem.shadows.card,
+            }}
         >
             <YStack gap="$1.5">
                 <Text
@@ -947,25 +1024,36 @@ function Card({
     );
 }
 
-function SectionIntroCard({ title, description }: { title: string; description: string }) {
+function SectionIntroCard({
+    title,
+    description,
+    palette,
+}: {
+    title: string;
+    description: string;
+    palette: SurveyPalette;
+}) {
     return (
         <YStack
             rounded={28}
             borderWidth={1}
-            borderColor={SURVEY_CARD_BORDER}
             p="$4"
             gap="$2.5"
-            style={{ backgroundColor: INTRO_SURFACE, boxShadow: designSystem.shadows.card }}
+            style={{
+                backgroundColor: palette.intro,
+                borderColor: palette.introBorder,
+                boxShadow: designSystem.shadows.card,
+            }}
         >
             <Text
-                color={designSystem.colors.foreground}
+                style={{ color: palette.accent }}
                 fontFamily={designSystem.fonts.headingBold}
                 fontSize={23}
             >
                 {title}
             </Text>
             <Paragraph
-                color={designSystem.colors.secondaryForeground}
+                style={{ color: palette.mutedAccent }}
                 fontFamily={designSystem.fonts.bodyMedium}
                 lineHeight={21}
             >
@@ -975,15 +1063,22 @@ function SectionIntroCard({ title, description }: { title: string; description: 
     );
 }
 
-function QuestionCard({ label, children }: PropsWithChildren<{ label: string }>) {
+function QuestionCard({
+    label,
+    children,
+    palette,
+}: PropsWithChildren<{ label: string; palette: SurveyPalette }>) {
     return (
         <YStack
             rounded={28}
             borderWidth={1}
-            borderColor={SURVEY_CARD_BORDER}
             p="$4"
             gap="$3"
-            style={{ backgroundColor: SURVEY_CARD, boxShadow: designSystem.shadows.card }}
+            style={{
+                backgroundColor: palette.card,
+                borderColor: palette.cardBorder,
+                boxShadow: designSystem.shadows.card,
+            }}
         >
             <Text
                 color={designSystem.colors.foreground}
@@ -1005,6 +1100,7 @@ function ChoiceQuestion({
     onChange,
     helperText,
     promptOverride,
+    palette,
 }: {
     label: string;
     value: string;
@@ -1012,15 +1108,17 @@ function ChoiceQuestion({
     onChange: (value: string) => void;
     helperText?: string;
     promptOverride?: string;
+    palette: SurveyPalette;
 }) {
     return (
-        <QuestionCard label={promptOverride ?? label}>
+        <QuestionCard label={promptOverride ?? label} palette={palette}>
             {helperText ? (
                 <Paragraph color={designSystem.colors.mutedForeground}>{helperText}</Paragraph>
             ) : null}
             <OptionGrid
                 value={value}
                 options={options.map((option) => ({ id: option.value, label: option.label }))}
+                palette={palette}
                 onChange={onChange}
             />
         </QuestionCard>
@@ -1032,14 +1130,16 @@ function MultiChoiceQuestion({
     values,
     options,
     onToggle,
+    palette,
 }: {
     label: string;
     values: readonly string[];
     options: readonly { value: string; label: string }[];
     onToggle: (value: string) => void;
+    palette: SurveyPalette;
 }) {
     return (
-        <QuestionCard label={label}>
+        <QuestionCard label={label} palette={palette}>
             <YStack gap="$2">
                 {options.map((option) => {
                     const selected = values.includes(option.value);
@@ -1048,6 +1148,7 @@ function MultiChoiceQuestion({
                             key={option.value}
                             label={option.label}
                             selected={selected}
+                            palette={palette}
                             onPress={() => onToggle(option.value)}
                         />
                     );
@@ -1061,11 +1162,12 @@ function OptionGrid({
     value,
     options,
     onChange,
+    palette,
 }: {
     value: string | undefined;
     options: readonly { id: string; label: string }[];
     onChange: (value: string) => void;
-    emphasizePrompt?: boolean;
+    palette: SurveyPalette;
 }) {
     return (
         <YStack gap="$2">
@@ -1076,6 +1178,7 @@ function OptionGrid({
                         key={option.id}
                         label={option.label}
                         selected={selected}
+                        palette={palette}
                         onPress={() => onChange(option.id)}
                     />
                 );
@@ -1088,36 +1191,35 @@ function SelectionButton({
     label,
     selected,
     onPress,
+    palette,
 }: {
     label: string;
     selected: boolean;
     onPress: () => void;
+    palette: SurveyPalette;
 }) {
     return (
         <Button
             justify="flex-start"
             rounded={designSystem.radii.full}
-            bg={designSystem.colors.surface}
             borderWidth={1}
-            borderColor={selected ? designSystem.colors.success : SURVEY_CARD_BORDER}
+            hoverStyle={{ opacity: 0.96 }}
             pressStyle={{ opacity: 0.92, scale: 0.985 }}
             onPress={onPress}
             py="$3"
             px="$3.5"
             style={{
-                backgroundColor: selected ? OPTION_SELECTED : OPTION_SURFACE,
+                backgroundColor: selected ? palette.selected : palette.inner,
                 boxShadow: selected ? designSystem.shadows.accent : "none",
             }}
         >
             <Button.Text
-                color={
-                    selected
-                        ? designSystem.colors.foreground
-                        : designSystem.colors.secondaryForeground
-                }
+                style={{
+                    color: selected ? designSystem.colors.primaryForeground : palette.mutedAccent,
+                    textAlign: "left",
+                }}
                 fontFamily={designSystem.fonts.bodyBold}
                 width="100%"
-                style={{ textAlign: "left" }}
             >
                 {label}
             </Button.Text>
@@ -1129,10 +1231,12 @@ function CommentField({
     label,
     value,
     onChange,
+    palette,
 }: {
     label: string;
     value: string;
     onChange: (value: string) => void;
+    palette: SurveyPalette;
 }) {
     return (
         <YStack gap="$2">
@@ -1148,9 +1252,12 @@ function CommentField({
                 multiline
                 numberOfLines={4}
                 color={designSystem.colors.foreground}
-                style={{ minHeight: 110, borderRadius: 20 }}
-                bg={designSystem.colors.input}
-                borderColor={SURVEY_CARD_BORDER}
+                style={{
+                    minHeight: 110,
+                    borderRadius: 20,
+                    backgroundColor: palette.inner,
+                    borderColor: palette.innerBorder,
+                }}
                 placeholder="Optional notes"
             />
         </YStack>
@@ -1162,21 +1269,25 @@ function SectionProgressCard({
     helperText,
     completedCount,
     totalCount,
+    palette,
 }: {
     title: string;
     helperText: string;
     completedCount: number;
     totalCount: number;
+    palette: SurveyPalette;
 }) {
     const percentage = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
     return (
         <YStack
             rounded={designSystem.radii.lg}
             borderWidth={1}
-            borderColor={SURVEY_CARD_BORDER}
             p="$3.5"
             gap="$2.5"
-            style={{ backgroundColor: OPTION_SURFACE }}
+            style={{
+                backgroundColor: palette.progress,
+                borderColor: palette.cardBorder,
+            }}
         >
             <XStack justify="space-between" items="center" gap="$3">
                 <YStack gap="$0.5" flex={1}>
@@ -1195,7 +1306,7 @@ function SectionProgressCard({
                     </Paragraph>
                 </YStack>
                 <Text
-                    color={designSystem.colors.primary}
+                    style={{ color: palette.accent }}
                     fontFamily={designSystem.fonts.headingBold}
                     fontSize={20}
                 >
@@ -1205,14 +1316,14 @@ function SectionProgressCard({
             <YStack
                 height={10}
                 rounded={designSystem.radii.full}
-                bg={designSystem.colors.mutedSurface}
+                style={{ backgroundColor: palette.progressTrack }}
                 overflow="hidden"
             >
                 <YStack
                     height={10}
                     rounded={designSystem.radii.full}
                     style={{
-                        backgroundColor: designSystem.colors.success,
+                        backgroundColor: palette.accent,
                         width: `${Math.max(0, Math.min(percentage, 100))}%`,
                     }}
                 />
@@ -1242,9 +1353,9 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
             <YStack
                 rounded={designSystem.radii.md}
                 borderWidth={1}
-                borderColor={SURVEY_CARD_BORDER}
+                borderColor={designSystem.colors.border}
                 p="$3"
-                style={{ backgroundColor: OPTION_SURFACE }}
+                style={{ backgroundColor: designSystem.colors.surface }}
             >
                 <Text
                     color={designSystem.colors.foreground}
@@ -1330,12 +1441,12 @@ async function confirmStepProgress(
         return true;
     }
 
-    return await new Promise<boolean>((resolve) => {
-        Alert.alert("Some questions are still unanswered", incompleteMessage, [
-            { text: "Stay here", style: "cancel", onPress: () => resolve(false) },
-            { text: "Move forward", style: "default", onPress: () => resolve(true) },
-        ]);
-    });
+    return confirmChoice(
+        "Some questions are still unanswered",
+        incompleteMessage,
+        "Move forward",
+        "Stay here",
+    );
 }
 
 function getStepIncompleteMessage(
@@ -1372,23 +1483,83 @@ function getStepIncompleteMessage(
     return null;
 }
 
+function findFirstIncompleteStep(
+    draft: MobileAuditFormState,
+    instrument: NormalizedInstrument | null,
+): { step: MobileYeeStepNumber; label: string } | null {
+    if (
+        draft.visitFrequency.length === 0 ||
+        draft.season.length === 0 ||
+        draft.weather.length === 0
+    ) {
+        return { step: 1, label: "Context" };
+    }
+
+    if (Object.values(draft.weights).some((value) => value.length === 0)) {
+        return { step: 2, label: "Weighting" };
+    }
+
+    if (instrument !== null) {
+        const domainSteps: readonly MobileYeeStepNumber[] = [3, 4, 5, 6, 7, 8];
+        for (const domainStep of domainSteps) {
+            const nextSection = getSectionForStep(instrument, domainStep);
+            if (nextSection === null) {
+                continue;
+            }
+
+            const completedCount = countAnsweredRows(nextSection, draft);
+            const totalCount = countTotalRows(nextSection);
+            if (completedCount < totalCount) {
+                return { step: domainStep, label: nextSection.title };
+            }
+        }
+    }
+
+    return null;
+}
+
+async function confirmChoice(
+    title: string,
+    message: string,
+    confirmLabel: string,
+    cancelLabel: string,
+): Promise<boolean> {
+    if (Platform.OS === "web" && typeof globalThis.confirm === "function") {
+        return globalThis.confirm(`${title}\n\n${message}`);
+    }
+
+    return await new Promise<boolean>((resolve) => {
+        Alert.alert(title, message, [
+            { text: cancelLabel, style: "cancel", onPress: () => resolve(false) },
+            { text: confirmLabel, style: "default", onPress: () => resolve(true) },
+        ]);
+    });
+}
+
 function FooterNav({
     isSaving,
     onBack,
     onSaveExit,
     onNext,
     nextLabel,
+    nextTone,
+    extraActionLabel,
+    onExtraAction,
 }: {
     isSaving: boolean;
     onBack: () => void;
     onSaveExit: () => void;
     onNext: () => void;
     nextLabel: string;
+    nextTone: SurveyPalette;
+    extraActionLabel?: string;
+    onExtraAction?: () => void;
 }) {
     return (
         <XStack
             position="absolute"
             gap="$2.5"
+            flexWrap="wrap"
             style={{
                 left: designSystem.spacing.screenPaddingHorizontal,
                 right: designSystem.spacing.screenPaddingHorizontal,
@@ -1432,12 +1603,15 @@ function FooterNav({
             <Button
                 flex={1}
                 rounded={designSystem.radii.full}
-                bg={designSystem.colors.primary}
                 borderWidth={1}
-                borderColor={designSystem.colors.primary}
+                hoverStyle={{ opacity: 0.96 }}
                 pressStyle={{ opacity: 0.92, scale: 0.985 }}
                 onPress={onNext}
                 disabled={isSaving}
+                style={{
+                    backgroundColor: nextTone.stepText,
+                    borderColor: nextTone.stepText,
+                }}
             >
                 <XStack items="center" gap="$2">
                     {isSaving ? (
@@ -1446,13 +1620,34 @@ function FooterNav({
                         <ArrowRight size={16} color={designSystem.colors.primaryForeground} />
                     )}
                     <Button.Text
-                        color={designSystem.colors.primaryForeground}
+                        style={{ color: designSystem.colors.primaryForeground }}
                         fontFamily={designSystem.fonts.bodyBold}
                     >
                         {nextLabel}
                     </Button.Text>
                 </XStack>
             </Button>
+            {extraActionLabel && onExtraAction ? (
+                <Button
+                    flexBasis="100%"
+                    rounded={designSystem.radii.full}
+                    borderWidth={1}
+                    hoverStyle={{ opacity: 0.96 }}
+                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                    onPress={onExtraAction}
+                    style={{
+                        backgroundColor: nextTone.stepSurface,
+                        borderColor: nextTone.stepBorder,
+                    }}
+                >
+                    <Button.Text
+                        style={{ color: nextTone.stepText }}
+                        fontFamily={designSystem.fonts.bodyBold}
+                    >
+                        {extraActionLabel}
+                    </Button.Text>
+                </Button>
+            ) : null}
         </XStack>
     );
 }
@@ -1535,6 +1730,174 @@ function getStepTone(step: MobileYeeStepNumber) {
     }
 }
 
+function getSurveyPalette(step: MobileYeeStepNumber): SurveyPalette {
+    switch (step) {
+        case 1:
+            return {
+                card: "#F2F6FA",
+                cardBorder: "#C9D8E5",
+                inner: "#FFFFFF",
+                innerBorder: "#B8D0E5",
+                selected: "#7F9CB8",
+                selectedBorder: "#6C88A4",
+                intro: "#7F9CB8",
+                introBorder: "#B8D0E5",
+                accent: "#29465F",
+                mutedAccent: "#49657D",
+                progress: "#EEF5FB",
+                progressTrack: "#D8E7F3",
+                stepSurface: "#E4EEF8",
+                stepBorder: "#9EB8D2",
+                stepText: "#29465F",
+            };
+        case 2:
+            return {
+                card: "#FFF8F4",
+                cardBorder: "#F0D0BE",
+                inner: "#FFFDFB",
+                innerBorder: "#E8C3AF",
+                selected: "#DEA882",
+                selectedBorder: "#C98F68",
+                intro: "#DEA882",
+                introBorder: "#EFCEBB",
+                accent: "#7A4B2A",
+                mutedAccent: "#8D5A38",
+                progress: "#FFF3EA",
+                progressTrack: "#F8E0D2",
+                stepSurface: "#FBE9DD",
+                stepBorder: "#E3B89B",
+                stepText: "#7A4B2A",
+            };
+        case 3:
+            return {
+                card: "#EFF8F4",
+                cardBorder: "#BCE2CF",
+                inner: "#FFFFFF",
+                innerBorder: "#B3D8C7",
+                selected: "#57B894",
+                selectedBorder: "#409E7A",
+                intro: "#57B894",
+                introBorder: "#8DD3B4",
+                accent: "#145B43",
+                mutedAccent: "#2D7259",
+                progress: "#E9F6F0",
+                progressTrack: "#CFE9DC",
+                stepSurface: "#E3F4ED",
+                stepBorder: "#9FCDB7",
+                stepText: "#145B43",
+            };
+        case 4:
+            return {
+                card: "#F0F6FF",
+                cardBorder: "#C8DBF3",
+                inner: "#FFFFFF",
+                innerBorder: "#BDD3EE",
+                selected: "#7B9ED9",
+                selectedBorder: "#668CC8",
+                intro: "#7B9ED9",
+                introBorder: "#B7CDEF",
+                accent: "#274F90",
+                mutedAccent: "#4A6DA8",
+                progress: "#ECF3FD",
+                progressTrack: "#D4E2F8",
+                stepSurface: "#E5EEFC",
+                stepBorder: "#AFC7EA",
+                stepText: "#274F90",
+            };
+        case 5:
+            return {
+                card: "#FFF8EE",
+                cardBorder: "#F0D9A9",
+                inner: "#FFFFFF",
+                innerBorder: "#E8CE98",
+                selected: "#E5AE47",
+                selectedBorder: "#C99232",
+                intro: "#E5AE47",
+                introBorder: "#F4D389",
+                accent: "#8B5B08",
+                mutedAccent: "#9D6A1A",
+                progress: "#FFF4E2",
+                progressTrack: "#F7E0B4",
+                stepSurface: "#FBEFCC",
+                stepBorder: "#E9CB7B",
+                stepText: "#8B5B08",
+            };
+        case 6:
+            return {
+                card: "#EEF9F7",
+                cardBorder: "#BFE8E2",
+                inner: "#FFFFFF",
+                innerBorder: "#B5DDD8",
+                selected: "#58BBB2",
+                selectedBorder: "#409D95",
+                intro: "#58BBB2",
+                introBorder: "#95E1DA",
+                accent: "#155E63",
+                mutedAccent: "#32747A",
+                progress: "#E7F8F6",
+                progressTrack: "#CBEAE7",
+                stepSurface: "#DDF4F2",
+                stepBorder: "#99D7D2",
+                stepText: "#155E63",
+            };
+        case 7:
+            return {
+                card: "#FFF3F7",
+                cardBorder: "#F2C6D5",
+                inner: "#FFFFFF",
+                innerBorder: "#E7B9CB",
+                selected: "#DE7CAB",
+                selectedBorder: "#C66293",
+                intro: "#DE7CAB",
+                introBorder: "#F0B6D0",
+                accent: "#8B2452",
+                mutedAccent: "#A03A66",
+                progress: "#FEEBF2",
+                progressTrack: "#F2C9DB",
+                stepSurface: "#FCE5EE",
+                stepBorder: "#E8B1C9",
+                stepText: "#8B2452",
+            };
+        case 8:
+            return {
+                card: "#F7F2FF",
+                cardBorder: "#D7C9F3",
+                inner: "#FFFFFF",
+                innerBorder: "#D0C0EF",
+                selected: "#9D7FE8",
+                selectedBorder: "#8666D4",
+                intro: "#9D7FE8",
+                introBorder: "#CCB2FF",
+                accent: "#4F2EA7",
+                mutedAccent: "#6847BB",
+                progress: "#F2EDFF",
+                progressTrack: "#DED0F8",
+                stepSurface: "#EEE7FF",
+                stepBorder: "#C7B0F2",
+                stepText: "#4F2EA7",
+            };
+        case 9:
+        default:
+            return {
+                card: "#EEF7F1",
+                cardBorder: "#C0E0CD",
+                inner: "#FFFFFF",
+                innerBorder: "#B2D4C0",
+                selected: "#57B894",
+                selectedBorder: "#409E7A",
+                intro: "#57B894",
+                introBorder: "#8DD3B4",
+                accent: "#145B43",
+                mutedAccent: "#2D7259",
+                progress: "#E7F5EC",
+                progressTrack: "#CBE4D5",
+                stepSurface: "#DFF1E7",
+                stepBorder: "#9FCDB7",
+                stepText: "#145B43",
+            };
+    }
+}
+
 function estimateMinutes(auditDate: string, startTime: string, now: Date): number {
     const start = Date.parse(`${auditDate}T${normalizeTime(startTime)}`);
     if (Number.isNaN(start)) {
@@ -1554,21 +1917,4 @@ function normalizeTime(value: string): string {
     if (meridiem === "PM" && hour < 12) hour += 12;
     if (meridiem === "AM" && hour === 12) hour = 0;
     return `${String(hour).padStart(2, "0")}:${minute}:00`;
-}
-
-function weightPrompt(domain: MobileYeeDomainKey): string {
-    switch (domain) {
-        case "access":
-            return "How important is it to you that you can easily and safely get to these spaces?";
-        case "activitySpaces":
-            return "How important is it to you that these places have the spaces and/or equipment that allow you to do the activities you like (Ex: have spaces for sports/games, for hanging out with friends, for spending quiet time on your own, etc)?";
-        case "amenities":
-            return "How important is it to you that these places have amenities that make the space more comfortable and suitable (like bathrooms, WiFi, garbage bins, places to buy food/drinks, seating for groups, shade, etc)?";
-        case "experienceOfSpace":
-            return "How important is it to you that these places feel pleasant and safe to be in (Ex: feel peaceful, have lots of nature or nice views, feel safe and comfortable, where you will not be bothered or feel out of place, etc)?";
-        case "aestheticsAndCare":
-            return "How important is it to you that these places look nice and well cared for (Ex: have lots of greenery, have gardens or art to look at, are free from litter and graffiti, look like someone is taking good care of it, etc)?";
-        case "useAndUsability":
-            return "How important is it to you that these places are suitable for many activities for youth and/or the community (Ex: allow for lots of different types of activities, have lights that allow for night use, are good for youth programming or dog walking, etc)?";
-    }
 }

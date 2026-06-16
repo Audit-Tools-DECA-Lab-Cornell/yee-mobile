@@ -70,6 +70,47 @@ export const weatherOptions = [
     { value: "feels-cold", label: "Feels cold / very cold" },
 ] as const;
 
+export function getOptionLabel(
+    options: readonly { value: string; label: string }[],
+    value: string | number | null | undefined,
+): string {
+    if (value === null || value === undefined) {
+        return "Not answered";
+    }
+
+    const normalized = String(value);
+    return options.find((option) => option.value === normalized)?.label ?? normalized;
+}
+
+export function getWeightLabel(value: string | number | null | undefined): string {
+    return getOptionLabel(mobileYeeWeightOptions, value);
+}
+
+export function getWeightNumber(value: string | number | null | undefined): string {
+    if (value === null || value === undefined) {
+        return "Not answered";
+    }
+
+    const normalized = String(value).trim();
+    return normalized.length === 0 ? "Not answered" : normalized;
+}
+
+export function getVisitFrequencyLabel(value: string | null | undefined): string {
+    return getOptionLabel(visitFrequencyOptions, value);
+}
+
+export function getSeasonLabel(value: string | null | undefined): string {
+    return getOptionLabel(seasonOptions, value);
+}
+
+export function getWeatherLabelList(values: readonly string[]): string {
+    if (values.length === 0) {
+        return "Not answered";
+    }
+
+    return values.map((value) => getOptionLabel(weatherOptions, value)).join(", ");
+}
+
 export function getDomainForStep(step: MobileYeeStepNumber): MobileYeeDomainKey | null {
     switch (step) {
         case 3:
