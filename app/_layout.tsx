@@ -16,7 +16,8 @@ import {
     JetBrainsMono_600SemiBold,
     JetBrainsMono_700Bold,
 } from "@expo-google-fonts/jetbrains-mono";
-import { SplashScreen, Stack, useRouter, useSegments } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import {
     SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
@@ -36,9 +37,9 @@ export const unstable_settings = {
 };
 
 /**
- * Keep splash visible until fonts are loaded.
+ * Keep splash visible until fonts and auth startup are ready.
  */
-SplashScreen.preventAutoHideAsync();
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 const navigationTheme = {
     ...DefaultTheme,
@@ -71,12 +72,6 @@ export default function RootLayout() {
         "JetBrainsMono-SemiBold": JetBrainsMono_600SemiBold,
         "JetBrainsMono-Bold": JetBrainsMono_700Bold,
     });
-
-    useEffect(() => {
-        if (fontsLoaded || fontError) {
-            void SplashScreen.hideAsync();
-        }
-    }, [fontError, fontsLoaded]);
 
     if (!fontsLoaded && !fontError) {
         return null;
@@ -137,6 +132,12 @@ function RootLayoutNav() {
 
         void syncPendingQueue(session).then(() => refreshRemoteState(session));
     }, [authStatus, isOnline, refreshRemoteState, session, syncPendingQueue]);
+
+    useEffect(() => {
+        if (authStatus !== "loading") {
+            void SplashScreen.hideAsync().catch(() => undefined);
+        }
+    }, [authStatus]);
 
     useEffect(() => {
         if (authStatus === "loading") {

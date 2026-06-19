@@ -1,8 +1,8 @@
-module.exports = (api) => {
+module.exports = function (api) {
     api.cache(true);
 
     return {
-        presets: [["babel-preset-expo", { jsxRuntime: "automatic" }], "@babel/preset-typescript"],
+        presets: [["babel-preset-expo", { jsxRuntime: "automatic" }]],
         plugins: [
             [
                 "@tamagui/babel-plugin",
@@ -13,8 +13,6 @@ module.exports = (api) => {
                     disableExtraction: true,
                 },
             ],
-
-            // NOTE: this is only necessary if you are using reanimated for animations
             "react-native-reanimated/plugin",
         ],
     };

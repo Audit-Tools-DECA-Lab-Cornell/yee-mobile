@@ -10,6 +10,8 @@ import {
 } from "lib/auth/storage";
 import type { AuthSession, LoginPayload, SignupPayload } from "lib/auth/types";
 
+const AUTH_INITIALIZE_TIMEOUT_MS = 5000;
+
 /**
  * Auth loading states used by route guards.
  */
@@ -48,8 +50,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         }
 
         try {
-            const cachedOfflineLogin = await readOfflineLoginCredentials();
-            const persistedSession = await readAuthSession();
+            const cachedOfflineLogin = await withTimeout(
+                readOfflineLoginCredentials(),
+                "offline login credentials",
+            );
+            const persistedSession = await withTimeout(readAuthSession(), "auth session");
             if (persistedSession === null || persistedSession.user.accountType !== "AUDITOR") {
                 if (persistedSession !== null) {
                     await clearAuthSession();
@@ -188,6 +193,28 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         }));
     },
 }));
+
+/**
+ * Bound startup storage reads so a native SecureStore stall cannot trap the app on splash.
+ */
+function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+            reject(new Error(`${label} read timed out.`));
+        }, AUTH_INITIALIZE_TIMEOUT_MS);
+
+        promise.then(
+            (value) => {
+                clearTimeout(timeoutId);
+                resolve(value);
+            },
+            (error: unknown) => {
+                clearTimeout(timeoutId);
+                reject(error);
+            },
+        );
+    });
+}
 
 /**
  * Convert unknown auth error values to a user-facing message.
