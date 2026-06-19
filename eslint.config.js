@@ -7,6 +7,7 @@ module.exports = defineConfig([
     prettierConfig,
     {
         ignores: [
+            "scripts/**",
             "android/**",
             "ios/**",
             ".expo/**",
@@ -20,7 +21,7 @@ module.exports = defineConfig([
     {
         files: ["**/*.{js,jsx,ts,tsx}"],
         rules: {
-            "no-console": ["warn", { allow: ["warn", "error"] }],
+            "no-console": ["warn", { allow: ["warn", "error", "info"] }],
         },
     },
     {
