@@ -47,3 +47,9 @@ node_modules
 .expo
 ios
 android
+
+# Credentials
+*.pem
+credentials.json
+*.apps.googleusercontent.com.json
+yee-deca.json

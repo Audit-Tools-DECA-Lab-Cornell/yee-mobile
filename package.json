@@ -6,7 +6,7 @@
     "scripts": {
         "dev": "bunx expo start --dev-client --tunnel",
         "upgrade:tamagui": "bunx npm-check-updates -u '*tamagui*' '@tamagui/*' && bun install",
-        "start": "bunx expo start --clear",
+        "start": "bunx expo start -c",
         "android": "expo run:android",
         "ios": "expo run:ios",
         "build": "expo export --platform all",
