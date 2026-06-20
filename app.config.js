@@ -65,7 +65,7 @@ export default {
         runtimeVersion: {
             policy: "appVersion",
         },
-        // owner: "audit-tools-deca-lab-cornell",
+        // owner: "yee-audit-tool",
         // githubUrl: "https://github.com/audit-tools-deca-lab-cornell/audit-tools-yee-mobile",
     },
 };
