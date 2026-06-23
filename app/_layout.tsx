@@ -1,6 +1,6 @@
 import "../tamagui.generated.css";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import NetInfo from "@react-native-community/netinfo";
 import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
@@ -57,7 +57,10 @@ const navigationTheme = {
 /**
  * Root app layout that mounts providers and tab routes.
  */
+const STARTUP_FALLBACK_TIMEOUT_MS = 8000;
+
 export default function RootLayout() {
+    const [startupFallbackElapsed, setStartupFallbackElapsed] = useState(false);
     const [fontsLoaded, fontError] = useFonts({
         "Geist-Regular": Geist_400Regular,
         "Geist-Medium": Geist_500Medium,
@@ -72,8 +75,24 @@ export default function RootLayout() {
         "JetBrainsMono-SemiBold": JetBrainsMono_600SemiBold,
         "JetBrainsMono-Bold": JetBrainsMono_700Bold,
     });
+    const canRenderApp = fontsLoaded || Boolean(fontError) || startupFallbackElapsed;
 
-    if (!fontsLoaded && !fontError) {
+    useEffect(() => {
+        if (canRenderApp) {
+            return;
+        }
+
+        const timeoutId = setTimeout(() => {
+            setStartupFallbackElapsed(true);
+            void SplashScreen.hideAsync().catch(() => undefined);
+        }, STARTUP_FALLBACK_TIMEOUT_MS);
+
+        return () => {
+            clearTimeout(timeoutId);
+        };
+    }, [canRenderApp]);
+
+    if (!canRenderApp) {
         return null;
     }
 

@@ -382,7 +382,7 @@ export default function AuditReviewScreen() {
                     <XStack gap="$2.5" flexWrap="wrap">
                         <ActionButton
                             label="Back to dashboard"
-                            onPress={() => router.replace("/(tabs)/index")}
+                            onPress={() => router.replace("/(tabs)")}
                             tone="neutral"
                         />
                         <ActionButton
