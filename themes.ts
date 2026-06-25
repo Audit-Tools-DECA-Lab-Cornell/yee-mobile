@@ -92,7 +92,4 @@ const builtThemes = createV5Theme({
 
 export type Themes = typeof builtThemes;
 
-// Expo web in this project needs the full theme map available at runtime.
-// Returning an empty object in production causes Tamagui to lose the default
-// theme during static rendering / preview builds.
 export const themes: Themes = builtThemes;

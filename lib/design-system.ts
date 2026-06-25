@@ -55,10 +55,10 @@ export const designSystem = {
         bold: "700",
     },
     radii: {
-        sm: 8,
-        md: 12,
-        lg: 16,
-        xl: 20,
+        sm: 4,
+        md: 8,
+        lg: 12,
+        xl: 16,
         full: 999,
     },
     spacing: {

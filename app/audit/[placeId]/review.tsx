@@ -544,7 +544,7 @@ export default function AuditReviewScreen() {
                                 return (
                                     <YStack
                                         key={domain}
-                                        rounded={18}
+                                        rounded={designSystem.radii.lg}
                                         borderWidth={1}
                                         p="$3.5"
                                         gap="$1.5"
@@ -626,7 +626,7 @@ export default function AuditReviewScreen() {
                                 {section.rows.map((row, index) => (
                                     <YStack
                                         key={`${section.domain}-${index}`}
-                                        rounded={18}
+                                        rounded={designSystem.radii.lg}
                                         borderWidth={1}
                                         p="$3.5"
                                         gap="$2"
@@ -897,7 +897,7 @@ function SubmitStatusBanner({ status }: { status: SubmitUiStatus }) {
     const { accent, soft } = submitStatusToneColors(copy.tone);
     return (
         <YStack
-            rounded={18}
+            rounded={designSystem.radii.lg}
             borderWidth={1}
             p="$3.5"
             gap="$1.5"
@@ -925,7 +925,7 @@ function SectionCard({
 }>) {
     return (
         <YStack
-            rounded={24}
+            rounded={designSystem.radii.lg}
             borderWidth={1}
             p="$4"
             gap="$3"

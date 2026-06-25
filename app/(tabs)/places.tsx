@@ -163,7 +163,7 @@ export default function PlacesScreen() {
                         return (
                             <YStack
                                 key={view.place.id}
-                                rounded={28}
+                                rounded={designSystem.radii.lg}
                                 borderWidth={1}
                                 borderColor={designSystem.colors.border}
                                 bg={designSystem.colors.surface}
@@ -364,7 +364,7 @@ function SummaryTile({ label, value, tone }: SummaryTileProps) {
         <YStack
             flex={1}
             style={{ minWidth: 102, boxShadow: designSystem.shadows.card }}
-            rounded={24}
+            rounded={designSystem.radii.lg}
             borderWidth={1}
             borderColor={palette.accent}
             bg={palette.surface}
@@ -479,7 +479,7 @@ interface EmptyStateCardProps {
 function EmptyStateCard({ title, body }: EmptyStateCardProps) {
     return (
         <YStack
-            rounded={24}
+            rounded={designSystem.radii.lg}
             borderWidth={1}
             borderColor={designSystem.colors.border}
             bg={designSystem.colors.surface}

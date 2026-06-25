@@ -1092,7 +1092,7 @@ function SectionIntroCard({
 }) {
     return (
         <YStack
-            rounded={28}
+            rounded={designSystem.radii.lg}
             borderWidth={1}
             p="$4"
             gap="$2.5"
@@ -1127,7 +1127,7 @@ function QuestionCard({
 }: PropsWithChildren<{ label: string; palette: SurveyPalette }>) {
     return (
         <YStack
-            rounded={28}
+            rounded={designSystem.radii.lg}
             borderWidth={1}
             p="$4"
             gap="$3"
@@ -1315,7 +1315,7 @@ function CommentField({
                 color={designSystem.colors.foreground}
                 style={{
                     minHeight: 110,
-                    borderRadius: 20,
+                    borderRadius: designSystem.radii.xl,
                     backgroundColor: palette.inner,
                     borderColor: palette.innerBorder,
                 }}

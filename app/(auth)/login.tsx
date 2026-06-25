@@ -129,7 +129,7 @@ export default function LoginScreen() {
 
                     <YStack
                         gap="$4"
-                        rounded={30}
+                        rounded={designSystem.radii.lg}
                         borderWidth={1}
                         borderColor={designSystem.colors.border}
                         bg={designSystem.colors.surface}

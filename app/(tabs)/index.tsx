@@ -330,7 +330,7 @@ export default function DashboardScreen() {
                 </XStack>
 
                 <YStack
-                    rounded={28}
+                    rounded={designSystem.radii.lg}
                     borderWidth={1}
                     borderColor="rgba(71, 203, 175, 0.18)"
                     bg={designSystem.colors.primary}
@@ -430,7 +430,7 @@ export default function DashboardScreen() {
                         return (
                             <YStack
                                 key={view.place.id}
-                                rounded={24}
+                                rounded={designSystem.radii.lg}
                                 borderWidth={1}
                                 borderColor={designSystem.colors.border}
                                 bg={designSystem.colors.surface}
@@ -623,7 +623,7 @@ function MetricCard({ label, value, tone, helperText }: MetricCardProps) {
         <YStack
             width="48%"
             style={{ minWidth: 160, boxShadow: designSystem.shadows.card }}
-            rounded={24}
+            rounded={designSystem.radii.lg}
             borderWidth={1}
             borderColor={palette.accent}
             bg={palette.surface}

@@ -530,7 +530,7 @@ export default function MobileReportDetailScreen() {
 function ReportHeroCard({ title, subtitle }: { title: string; subtitle: string }) {
     return (
         <YStack
-            rounded={28}
+            rounded={designSystem.radii.xl}
             borderWidth={1}
             p="$4.5"
             gap="$2"
@@ -556,7 +556,7 @@ function InfoPanel({ title, children }: PropsWithChildren<{ title: string }>) {
     return (
         <YStack
             flex={1}
-            rounded={24}
+            rounded={designSystem.radii.lg}
             borderWidth={1}
             p="$4"
             gap="$2.5"
@@ -582,7 +582,7 @@ function InfoPanel({ title, children }: PropsWithChildren<{ title: string }>) {
 function WeightingSummaryCard({ rows }: { rows: readonly DomainScoreRow[] }) {
     return (
         <YStack
-            rounded={26}
+            rounded={designSystem.radii.xl}
             borderWidth={1}
             p="$4"
             gap="$3"
@@ -614,7 +614,7 @@ function WeightingSummaryCard({ rows }: { rows: readonly DomainScoreRow[] }) {
                         <YStack
                             key={row.domain}
                             flex={1}
-                            rounded={22}
+                            rounded={designSystem.radii.lg}
                             borderWidth={1}
                             p="$3.5"
                             gap="$1"
@@ -780,7 +780,7 @@ function LegendPill({ color, title, detail }: { color: string; title: string; de
     return (
         <YStack
             flex={1}
-            rounded={22}
+            rounded={designSystem.radii.lg}
             borderWidth={1}
             p="$3"
             gap="$1"
@@ -791,7 +791,12 @@ function LegendPill({ color, title, detail }: { color: string; title: string; de
             }}
         >
             <XStack items="center" gap="$2">
-                <YStack width={14} height={14} rounded={999} style={{ backgroundColor: color }} />
+                <YStack
+                    width={14}
+                    height={14}
+                    rounded={designSystem.radii.full}
+                    style={{ backgroundColor: color }}
+                />
                 <Text
                     color={designSystem.colors.foreground}
                     fontFamily={designSystem.fonts.bodyBold}
@@ -848,7 +853,7 @@ function DomainScoreStatCard({
     return (
         <YStack
             flex={1}
-            rounded={24}
+            rounded={designSystem.radii.lg}
             borderWidth={1}
             p="$3.5"
             gap="$1.5"
@@ -885,7 +890,7 @@ function VerticalMeter({ percentage, fillColor }: { percentage: number; fillColo
         <YStack
             width={42}
             height={150}
-            rounded={999}
+            rounded={designSystem.radii.full}
             borderWidth={1}
             borderColor={designSystem.colors.border}
             bg={designSystem.colors.surface}
@@ -895,7 +900,7 @@ function VerticalMeter({ percentage, fillColor }: { percentage: number; fillColo
             mt="$1"
         >
             <YStack
-                rounded={999}
+                rounded={designSystem.radii.full}
                 mx={6}
                 mb={6}
                 style={{
