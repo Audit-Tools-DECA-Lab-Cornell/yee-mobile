@@ -25,7 +25,6 @@
         "prepare": "husky"
     },
     "resolutions": {
-        "hermes-compiler": "250829098.0.1",
         "@babel/core": "7.29.7",
         "@babel/helper-create-class-features-plugin": "7.29.7",
         "@babel/plugin-transform-class-static-block": "7.29.7"
