@@ -9,6 +9,7 @@ import {
     saveOfflineLoginCredentials,
 } from "lib/auth/storage";
 import type { AuthSession, LoginPayload, SignupPayload } from "lib/auth/types";
+import { setActiveAccount } from "lib/yee-secure-draft-storage";
 
 const AUTH_INITIALIZE_TIMEOUT_MS = 5000;
 
@@ -71,6 +72,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
             // Keep the last valid auditor identity available for offline field work,
             // even if the backend token is stale. Online requests will still require
             // a fresh backend-accepted session.
+            setActiveAccount(persistedSession.user.id);
             set(() => ({
                 session: persistedSession,
                 status: "authenticated",
@@ -96,6 +98,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
             await saveAuthSession(session);
             await saveOfflineLoginCredentials(payload);
 
+            setActiveAccount(session.user.id);
             set(() => ({
                 session,
                 status: "authenticated",
@@ -116,6 +119,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
                     cachedCredentials.email === normalizedEmail &&
                     cachedCredentials.password === payload.password
                 ) {
+                    setActiveAccount(cachedSession.user.id);
                     set(() => ({
                         session: cachedSession,
                         status: "authenticated",
@@ -154,6 +158,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
                 password: payload.password,
             });
 
+            setActiveAccount(session.user.id);
             set(() => ({
                 session,
                 status: "authenticated",
@@ -178,6 +183,10 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     logout: async () => {
         await clearAuthSession();
         await clearOfflineLoginCredentials();
+        // Clear the active-account pointer only. Drafts and the sync queue are
+        // intentionally preserved so token-expiry logout never loses unsynced
+        // field work; they are removed only on explicit account removal.
+        setActiveAccount(null);
         set(() => ({
             session: null,
             status: "unauthenticated",

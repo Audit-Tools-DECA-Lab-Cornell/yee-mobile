@@ -120,15 +120,13 @@ export default function AuditStepScreen() {
                 const cachedInstrument = await readInstrumentCache();
                 let normalizedInstrument: NormalizedInstrument | null = null;
                 if (cachedInstrument !== null) {
-                    normalizedInstrument = normalizeInstrument(cachedInstrument as never);
+                    normalizedInstrument = normalizeInstrument(cachedInstrument);
                 }
 
                 try {
                     const instrumentPayload = await fetchYeeInstrument();
                     normalizedInstrument = normalizeInstrument(instrumentPayload);
-                    await writeInstrumentCache(
-                        instrumentPayload as unknown as Record<string, unknown>,
-                    );
+                    await writeInstrumentCache(instrumentPayload);
                 } catch (error) {
                     if (normalizedInstrument === null) {
                         throw error;
@@ -202,10 +200,20 @@ export default function AuditStepScreen() {
                 previousDraft?.scorePreview ?? null,
                 syncIntent === "autosave" ? "local_only" : isOnline ? "synced" : "pending_upload",
             );
+            // Local MMKV draft is the SOURCE OF TRUTH. Commit it durably BEFORE
+            // any network work so recovery never depends on a remote draft save.
+            // For a manual save we are about to attempt the (legacy, optional)
+            // remote mirror, so the honest local state is "pending_upload" until
+            // that remote call confirms — a crash mid-call then leaves a state the
+            // queue can recover rather than a false "synced".
             await saveDraftLocally({
                 ...draftToPersist,
                 syncState:
-                    syncIntent === "autosave" ? "local_only" : isOnline ? "synced" : "local_only",
+                    syncIntent === "autosave"
+                        ? "local_only"
+                        : isOnline
+                          ? "pending_upload"
+                          : "local_only",
             });
 
             const payload = {
@@ -229,6 +237,9 @@ export default function AuditStepScreen() {
                 return;
             }
 
+            // Remote draft save is OPTIONAL legacy sync (the web mirror). It never
+            // blocks local recovery: the local draft is already durably committed
+            // above, so a failure here merely queues a best-effort retry.
             try {
                 const savedState = await saveAuditDraft(placeId, session, payload);
                 await saveDraftLocally({

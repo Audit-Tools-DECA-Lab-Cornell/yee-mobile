@@ -90,9 +90,24 @@ export async function submitAudit(
         place_id: string;
         participant_info: Record<string, unknown>;
         responses: Record<string, unknown>;
+        /**
+         * Stable idempotency key (max 64 chars). Sent as `idempotency_key` in
+         * the POST body so an exact-key replay returns the existing record (200)
+         * instead of creating a duplicate. This is the primary duplicate-submit
+         * guard; omit only for legacy callers.
+         */
+        idempotency_key?: string;
     },
 ): Promise<YeeSubmissionResponse> {
-    return sendAuthedJson<YeeSubmissionResponse>("/yee/audits", session, "POST", payload);
+    const body: Record<string, unknown> = {
+        place_id: payload.place_id,
+        participant_info: payload.participant_info,
+        responses: payload.responses,
+    };
+    if (typeof payload.idempotency_key === "string" && payload.idempotency_key.length > 0) {
+        body.idempotency_key = payload.idempotency_key;
+    }
+    return sendAuthedJson<YeeSubmissionResponse>("/yee/audits", session, "POST", body);
 }
 
 export async function fetchSubmission(
