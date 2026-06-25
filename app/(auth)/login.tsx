@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowRight, Check, Eye, EyeOff, KeyRound, UserRound } from "components/icons";
 import { Button, Checkbox, Input, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
+import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
@@ -14,6 +15,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 export default function LoginScreen() {
     const router = useRouter();
+    const scrollViewRef = useRef<ScrollView>(null);
     const login = useAuthStore((state) => state.login);
     const clearError = useAuthStore((state) => state.clearError);
     const isSubmitting = useAuthStore((state) => state.isSubmitting);
@@ -31,6 +33,14 @@ export default function LoginScreen() {
     const canSubmit = useMemo(() => {
         return !isSubmitting;
     }, [isSubmitting]);
+    const scrollToOffset = useCallback((offset: number) => {
+        scrollViewRef.current?.scrollTo({ y: offset, animated: false });
+    }, []);
+
+    useScreenshotScrollAutomation({
+        contentReady: true,
+        scrollToOffset,
+    });
 
     /**
      * Submit login credentials to backend auth.
@@ -77,6 +87,7 @@ export default function LoginScreen() {
             style={{ flex: 1, backgroundColor: designSystem.colors.background }}
         >
             <ScrollView
+                ref={scrollViewRef}
                 contentInsetAdjustmentBehavior="automatic"
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{

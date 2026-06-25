@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -15,6 +15,7 @@ import {
     StatusBanner,
 } from "components/ui";
 import { designSystem, getPlaceStatusTone } from "lib/design-system";
+import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
 import { buildPlaceViews, getStatusLabel } from "lib/yee-mobile-selectors";
 import { useAuthStore } from "stores/auth-store";
@@ -27,6 +28,7 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
 export default function ExecuteScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
+    const scrollViewRef = useRef<ScrollView>(null);
     const selectedPlaceId = useSelectionStore((state) => state.selectedPlaceId);
     const hasOfflineLoginCredentials = useAuthStore((state) => state.hasOfflineLoginCredentials);
     const {
@@ -60,6 +62,15 @@ export default function ExecuteScreen() {
             placeViews.find((view) => view.place.id === selectedPlaceId) ?? placeViews[0] ?? null
         );
     }, [placeViews, selectedPlaceId]);
+    const scrollToOffset = useCallback((offset: number) => {
+        scrollViewRef.current?.scrollTo({ y: offset, animated: false });
+    }, []);
+
+    useScreenshotScrollAutomation({
+        contentReady: activePlaceView !== null,
+        rerunKey: activePlaceView?.place.id ?? "empty",
+        scrollToOffset,
+    });
 
     if (activePlaceView === null) {
         return (
@@ -91,6 +102,7 @@ export default function ExecuteScreen() {
     return (
         <YStack flex={1} bg={designSystem.colors.background}>
             <ScrollView
+                ref={scrollViewRef}
                 contentInsetAdjustmentBehavior="automatic"
                 style={{ backgroundColor: designSystem.colors.background }}
                 contentContainerStyle={{

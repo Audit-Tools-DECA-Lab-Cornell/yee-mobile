@@ -53,7 +53,6 @@ The app is built with Expo + Expo Router, uses Tamagui for UI, and includes Type
     ```bash
     bun run ios
     bun run android
-    bun run web
     ```
 
 ## Scripts
@@ -61,10 +60,12 @@ The app is built with Expo + Expo Router, uses Tamagui for UI, and includes Type
 - `bun run start` - start Expo dev server (clears cache)
 - `bun run ios` - run iOS native app
 - `bun run android` - run Android native app
-- `bun run web` - run web target locally
-- `bun run build:web` - export static web build
+- `bun run build` - export the Expo app for all supported platforms
+- `bun run build:ios` - export the iOS bundle
+- `bun run build:android` - export the Android bundle
 - `bun run doctor` - run Expo diagnostics (`expo-doctor`)
 - `bun run perf:web:budget` - enforce web bundle size budget
+- `bun run screenshots:ios -- --list` - list automated iOS screenshot targets
 - `bun run ci:quality` - run the complete CI quality pipeline locally
 
 ## Code Quality
@@ -98,8 +99,6 @@ The pipeline runs:
 1. `bun install --frozen-lockfile`
 2. `bun run check`
 3. `bun run doctor`
-4. `bun run build:web`
-5. `bun run perf:web:budget`
 
 ### Dependency Governance
 

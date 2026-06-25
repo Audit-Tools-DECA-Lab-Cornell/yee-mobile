@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
 import { Platform, ScrollView, Share } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -6,6 +6,7 @@ import { useShallow } from "zustand/react/shallow";
 import { BarChart3, CloudOff } from "components/icons";
 import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
+import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { fetchSubmission } from "lib/yee-api";
 import { getSubmissionSyncLabel, getSubmissionTimestampLabel } from "lib/yee-mobile-selectors";
 import {
@@ -56,6 +57,7 @@ type DomainScoreRow = ReturnType<typeof buildDomainScoreRows>[number];
 export default function MobileReportDetailScreen() {
     const router = useRouter();
     const params = useLocalSearchParams<{ submissionId?: string }>();
+    const scrollViewRef = useRef<ScrollView>(null);
     const submissionId = typeof params.submissionId === "string" ? params.submissionId : "";
     const session = useAuthStore((state) => state.session);
     const { isOnline, submittedAudits } = useYeeMobileStore(
@@ -147,6 +149,15 @@ export default function MobileReportDetailScreen() {
             ...(submission.syncState ? { syncState: submission.syncState } : {}),
         };
     }, [submission, submissionSummary]);
+    const scrollToOffset = useCallback((offset: number) => {
+        scrollViewRef.current?.scrollTo({ y: offset, animated: false });
+    }, []);
+
+    useScreenshotScrollAutomation({
+        contentReady: !loading || submission !== null,
+        rerunKey: `${submissionId}:${rows.length}`,
+        scrollToOffset,
+    });
 
     /**
      * Share the submission as CSV through the native OS share sheet, which on
@@ -213,6 +224,7 @@ export default function MobileReportDetailScreen() {
     return (
         <YStack flex={1} bg={designSystem.colors.background}>
             <ScrollView
+                ref={scrollViewRef}
                 contentInsetAdjustmentBehavior="automatic"
                 style={{ backgroundColor: designSystem.colors.background }}
                 contentContainerStyle={{

@@ -1,11 +1,12 @@
 import { Alert, Platform, ScrollView } from "react-native";
 import type { PropsWithChildren } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowLeft, Send } from "components/icons";
 import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
+import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import {
     buildParticipantInfo,
     buildStoredDraft,
@@ -62,6 +63,7 @@ type ReviewSection = {
 export default function AuditReviewScreen() {
     const router = useRouter();
     const params = useLocalSearchParams<{ placeId?: string }>();
+    const scrollViewRef = useRef<ScrollView>(null);
     const placeId = typeof params.placeId === "string" ? params.placeId : "";
     const session = useAuthStore((state) => state.session);
     const {
@@ -280,6 +282,15 @@ export default function AuditReviewScreen() {
     // OR the audit has already been submitted.
     const submitDisabled =
         isSubmitting || pendingSubmission !== null || submitStatus === "submitted";
+    const scrollToOffset = useCallback((offset: number) => {
+        scrollViewRef.current?.scrollTo({ y: offset, animated: false });
+    }, []);
+
+    useScreenshotScrollAutomation({
+        contentReady: draft !== null,
+        rerunKey: `${placeId}:${reviewSections.length}:${answeredCount}`,
+        scrollToOffset,
+    });
 
     if (draft === null) {
         return (
@@ -423,6 +434,7 @@ export default function AuditReviewScreen() {
     return (
         <YStack flex={1} bg={designSystem.colors.background}>
             <ScrollView
+                ref={scrollViewRef}
                 contentInsetAdjustmentBehavior="automatic"
                 style={{ backgroundColor: designSystem.colors.background }}
                 contentContainerStyle={{

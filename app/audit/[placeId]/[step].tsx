@@ -6,6 +6,7 @@ import { useShallow } from "zustand/react/shallow";
 import { ArrowLeft, ArrowRight, Save } from "components/icons";
 import { Button, Input, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
+import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import {
     buildParticipantInfo,
     buildStoredDraft,
@@ -64,6 +65,7 @@ type SurveyPalette = {
 export default function AuditStepScreen() {
     const router = useRouter();
     const params = useLocalSearchParams<{ placeId?: string; step?: string }>();
+    const scrollViewRef = useRef<ScrollView>(null);
     const session = useAuthStore((state) => state.session);
     const {
         assignedPlaces,
@@ -187,6 +189,15 @@ export default function AuditStepScreen() {
     const section = useMemo(() => {
         return instrument === null ? null : getSectionForStep(instrument, step);
     }, [instrument, step]);
+    const scrollToOffset = useCallback((offset: number) => {
+        scrollViewRef.current?.scrollTo({ y: offset, animated: false });
+    }, []);
+
+    useScreenshotScrollAutomation({
+        contentReady: draft !== null && !isLoading,
+        rerunKey: `${placeId}:${step}:${instrument?.sections.length ?? 0}`,
+        scrollToOffset,
+    });
 
     const persistDraft = useCallback(
         async (
@@ -358,6 +369,7 @@ export default function AuditStepScreen() {
     return (
         <YStack flex={1} bg={designSystem.colors.background}>
             <ScrollView
+                ref={scrollViewRef}
                 contentInsetAdjustmentBehavior="automatic"
                 style={{ backgroundColor: designSystem.colors.background }}
                 contentContainerStyle={{

@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { FileBarChart, TriangleAlert } from "components/icons";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
+import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import {
     averageSubmittedScore,
     getLatestSubmissionForPlace,
@@ -20,6 +21,7 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
  */
 export default function ReportsScreen() {
     const router = useRouter();
+    const scrollViewRef = useRef<ScrollView>(null);
     const selectedPlaceId = useSelectionStore((state) => state.selectedPlaceId);
     const submittedAudits = useYeeMobileStore((state) => state.submittedAudits);
 
@@ -34,9 +36,19 @@ export default function ReportsScreen() {
             null
         );
     }, [selectedPlaceId, sortedAudits, topSubmission]);
+    const scrollToOffset = useCallback((offset: number) => {
+        scrollViewRef.current?.scrollTo({ y: offset, animated: false });
+    }, []);
+
+    useScreenshotScrollAutomation({
+        contentReady: true,
+        rerunKey: sortedAudits.length,
+        scrollToOffset,
+    });
 
     return (
         <ScrollView
+            ref={scrollViewRef}
             contentInsetAdjustmentBehavior="automatic"
             style={{ backgroundColor: designSystem.colors.background }}
             contentContainerStyle={{

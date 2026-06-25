@@ -32,6 +32,8 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 export { ErrorBoundary } from "expo-router";
 
+const SCREENSHOT_AUTOMATION_ENABLED = __DEV__;
+
 export const unstable_settings = {
     initialRouteName: "(auth)",
 };
@@ -163,7 +165,17 @@ function RootLayoutNav() {
             return;
         }
 
-        const inAuthGroup = segments[0] === "(auth)";
+        const segment0 = String(segments[0] ?? "");
+        const inAuthGroup = segment0 === "(auth)";
+        const isScreenshotAutomationRoute = segment0 === "__screenshot-bootstrap";
+        const canBypassAuthForScreenshotAutomation =
+            SCREENSHOT_AUTOMATION_ENABLED && isScreenshotAutomationRoute;
+
+        // Allow the screenshot bootstrap route to manage auth state and
+        // redirection itself so simulator automation can open any target page.
+        if (canBypassAuthForScreenshotAutomation) {
+            return;
+        }
 
         if (authStatus === "authenticated" && inAuthGroup) {
             router.replace("/(tabs)");

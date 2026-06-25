@@ -1,5 +1,5 @@
 import type { ReactElement } from "react";
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
@@ -15,6 +15,7 @@ import {
 } from "components/icons";
 import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { designSystem, getMetricTone, getPlaceStatusTone } from "lib/design-system";
+import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
 import { buildPlaceViews, getStatusLabel, summarizeMobileAudits } from "lib/yee-mobile-selectors";
 import { useAuthStore } from "stores/auth-store";
@@ -26,6 +27,7 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
  */
 export default function DashboardScreen() {
     const router = useRouter();
+    const scrollViewRef = useRef<ScrollView>(null);
     const session = useAuthStore((state) => state.session);
     const logout = useAuthStore((state) => state.logout);
     const hasOfflineLoginCredentials = useAuthStore((state) => state.hasOfflineLoginCredentials);
@@ -84,9 +86,19 @@ export default function DashboardScreen() {
         hasCachedAssignedPlaces,
         hasCachedInstrument,
     });
+    const scrollToOffset = useCallback((offset: number) => {
+        scrollViewRef.current?.scrollTo({ y: offset, animated: false });
+    }, []);
+
+    useScreenshotScrollAutomation({
+        contentReady: true,
+        rerunKey: placeViews.length,
+        scrollToOffset,
+    });
 
     return (
         <ScrollView
+            ref={scrollViewRef}
             contentInsetAdjustmentBehavior="automatic"
             style={{ backgroundColor: designSystem.colors.background }}
             contentContainerStyle={{

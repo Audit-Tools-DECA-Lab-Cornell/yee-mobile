@@ -1,10 +1,11 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { Clock3, MapPin, UploadCloud } from "components/icons";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { designSystem, getPlaceStatusTone } from "lib/design-system";
+import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
 import { buildPlaceViews, getStatusLabel, summarizeMobileAudits } from "lib/yee-mobile-selectors";
 import { useAuthStore } from "stores/auth-store";
@@ -16,6 +17,7 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
  */
 export default function PlacesScreen() {
     const router = useRouter();
+    const scrollViewRef = useRef<ScrollView>(null);
     const setSelectedPlaceId = useSelectionStore((state) => state.setSelectedPlaceId);
     const hasOfflineLoginCredentials = useAuthStore((state) => state.hasOfflineLoginCredentials);
     const { assignedPlaces, submittedAudits, draftsByPlace, syncQueue, isOnline } =
@@ -42,9 +44,19 @@ export default function PlacesScreen() {
         hasCachedAssignedPlaces,
         hasCachedInstrument,
     });
+    const scrollToOffset = useCallback((offset: number) => {
+        scrollViewRef.current?.scrollTo({ y: offset, animated: false });
+    }, []);
+
+    useScreenshotScrollAutomation({
+        contentReady: true,
+        rerunKey: placeViews.length,
+        scrollToOffset,
+    });
 
     return (
         <ScrollView
+            ref={scrollViewRef}
             contentInsetAdjustmentBehavior="automatic"
             style={{ backgroundColor: designSystem.colors.background }}
             contentContainerStyle={{
