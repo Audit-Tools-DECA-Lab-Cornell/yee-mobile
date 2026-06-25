@@ -12,7 +12,7 @@ import {
     getTopSubmission,
     sortAuditsNewestFirst,
 } from "lib/yee-mobile-selectors";
-import { useDemoUiStore } from "stores/demo-ui-store";
+import { useSelectionStore } from "stores/selection-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 /**
@@ -20,7 +20,7 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
  */
 export default function ReportsScreen() {
     const router = useRouter();
-    const selectedPlaceId = useDemoUiStore((state) => state.selectedPlaceId);
+    const selectedPlaceId = useSelectionStore((state) => state.selectedPlaceId);
     const submittedAudits = useYeeMobileStore((state) => state.submittedAudits);
 
     const sortedAudits = useMemo(() => sortAuditsNewestFirst(submittedAudits), [submittedAudits]);

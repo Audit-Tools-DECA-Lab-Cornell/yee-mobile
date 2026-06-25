@@ -122,9 +122,12 @@ bun run ci:quality
 
 - `app/` - Expo Router routes/screens
 - `components/` - shared UI components
-- `lib/` - domain logic (auth/api/demo data)
+    - `components/ui/` - token-backed component library (Button, Card, Badge, Field, EmptyState, LoadingState, ErrorState, ScreenHeader, MetricCard, ListRow, ProgressBar, StatusBanner)
+- `lib/` - domain logic (auth/api/offline storage)
+    - `lib/design-system.ts` - the single source of design tokens (colors, fonts, radii, spacing, shadows) and tone helpers
 - `stores/` - Zustand state stores
 - `assets/` - static app assets
+- `DESIGN.md` - design system reference (tokens, component library, usage rules)
 
 ## Notes
 

@@ -3,22 +3,31 @@ import { Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useShallow } from "zustand/react/shallow";
-import { CircleCheckBig, CloudOff, Save, Send, TriangleAlert } from "components/icons";
-import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
+import { CloudOff, Save, Send } from "components/icons";
+import { Paragraph, XStack, YStack } from "tamagui";
+import {
+    AppButton,
+    Badge,
+    Card,
+    EmptyState,
+    MetricCard,
+    ScreenHeader,
+    StatusBanner,
+} from "components/ui";
 import { designSystem, getPlaceStatusTone } from "lib/design-system";
 import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
 import { buildPlaceViews, getStatusLabel } from "lib/yee-mobile-selectors";
 import { useAuthStore } from "stores/auth-store";
-import { useDemoUiStore } from "stores/demo-ui-store";
+import { useSelectionStore } from "stores/selection-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 /**
- * Execution tab that now reflects the real assigned-place selection and offline draft state.
+ * Execution tab reflecting the real assigned-place selection and offline draft state.
  */
 export default function ExecuteScreen() {
     const insets = useSafeAreaInsets();
     const router = useRouter();
-    const selectedPlaceId = useDemoUiStore((state) => state.selectedPlaceId);
+    const selectedPlaceId = useSelectionStore((state) => state.selectedPlaceId);
     const hasOfflineLoginCredentials = useAuthStore((state) => state.hasOfflineLoginCredentials);
     const {
         assignedPlaces,
@@ -55,29 +64,11 @@ export default function ExecuteScreen() {
     if (activePlaceView === null) {
         return (
             <YStack flex={1} bg={designSystem.colors.background} px="$4" py="$6" justify="center">
-                <YStack
-                    rounded={designSystem.radii.lg}
-                    borderWidth={1}
-                    borderColor={designSystem.colors.border}
-                    bg={designSystem.colors.surface}
-                    p="$4"
-                    gap="$2.5"
-                >
-                    <Text
-                        color={designSystem.colors.foreground}
-                        fontFamily={designSystem.fonts.bodyBold}
-                        fontSize={16}
-                    >
-                        Select a place to begin
-                    </Text>
-                    <Paragraph
-                        color={designSystem.colors.mutedForeground}
-                        fontFamily={designSystem.fonts.bodyMedium}
-                    >
-                        Assigned places will appear here once the auditor has been synced from the
-                        YEE backend.
-                    </Paragraph>
-                </YStack>
+                <EmptyState
+                    icon={<CloudOff size={22} color={designSystem.colors.primary} />}
+                    title="Select a place to begin"
+                    description="Assigned places appear here once the auditor has been synced from the YEE backend."
+                />
             </YStack>
         );
     }
@@ -92,6 +83,10 @@ export default function ExecuteScreen() {
         hasCachedAssignedPlaces,
         hasCachedInstrument,
     });
+    const pendingForPlace = syncQueue.filter(
+        (item) => item.placeId === activePlaceView.place.id,
+    ).length;
+    const isSubmitted = activePlaceView.status === "submitted";
 
     return (
         <YStack flex={1} bg={designSystem.colors.background}>
@@ -105,174 +100,67 @@ export default function ExecuteScreen() {
                     paddingBottom: insets.bottom + 116,
                 }}
             >
-                <YStack
-                    rounded={designSystem.radii.lg}
-                    borderWidth={1}
-                    borderColor={designSystem.colors.border}
-                    bg={designSystem.colors.surface}
-                    p="$4"
-                    gap="$3"
-                    style={{ boxShadow: designSystem.shadows.card }}
-                >
-                    <XStack justify="space-between" items="center">
-                        <YStack
-                            rounded={designSystem.radii.sm}
-                            px="$2"
-                            py="$1"
-                            bg={designSystem.colors.surfaceMuted}
-                        >
-                            <Text
-                                color={designSystem.colors.warning}
-                                fontFamily={designSystem.fonts.bodyBold}
-                                fontSize={10}
-                                textTransform="uppercase"
-                                letterSpacing={1.2}
-                            >
-                                Mobile audit workspace
-                            </Text>
-                        </YStack>
-                        <YStack
-                            rounded={designSystem.radii.full}
-                            px="$3"
-                            py="$1"
-                            style={{ backgroundColor: tone.surface }}
-                        >
-                            <Text
-                                style={{ color: tone.text }}
-                                fontFamily={designSystem.fonts.bodyBold}
-                                fontSize={10}
-                                textTransform="uppercase"
-                                letterSpacing={1.2}
-                            >
-                                {getStatusLabel(activePlaceView.status)}
-                            </Text>
-                        </YStack>
-                    </XStack>
+                <StatusBanner isOnline={isOnline} pendingCount={pendingForPlace} />
 
+                <Card gap="$3">
+                    <ScreenHeader
+                        eyebrow={activePlaceView.place.project}
+                        title={activePlaceView.place.name}
+                        subtitle={activePlaceView.place.address}
+                        trailing={
+                            <Badge label={getStatusLabel(activePlaceView.status)} tone={tone} />
+                        }
+                    />
                     <YStack gap="$1">
-                        <Text
-                            color={designSystem.colors.mutedForeground}
-                            fontFamily={designSystem.fonts.monoBold}
-                            fontSize={12}
-                            textTransform="uppercase"
-                            letterSpacing={1.1}
+                        <Paragraph
+                            fontFamily={designSystem.fonts.bodyBold}
+                            style={{ color: tone.text }}
                         >
-                            {activePlaceView.place.project}
-                        </Text>
-                        <Text
-                            color={designSystem.colors.foreground}
-                            fontFamily={designSystem.fonts.headingBold}
-                            fontSize={28}
-                            lineHeight={32}
-                        >
-                            {activePlaceView.place.name}
-                        </Text>
+                            {activePlaceView.syncLabel}
+                        </Paragraph>
                         <Paragraph
                             color={designSystem.colors.mutedForeground}
                             fontFamily={designSystem.fonts.bodyMedium}
                         >
-                            {activePlaceView.place.address}
+                            {activePlaceView.latestActivityLabel}
                         </Paragraph>
                     </YStack>
+                </Card>
 
-                    <Paragraph
-                        fontFamily={designSystem.fonts.bodyBold}
-                        style={{ color: tone.text }}
-                    >
-                        {activePlaceView.syncLabel}
-                    </Paragraph>
-                    <Paragraph
-                        color={designSystem.colors.mutedForeground}
-                        fontFamily={designSystem.fonts.bodyMedium}
-                    >
-                        {activePlaceView.latestActivityLabel}
-                    </Paragraph>
-                </YStack>
-
-                <YStack gap="$3">
-                    <InfoCard
-                        label="Backend audits logged"
+                <XStack gap="$3" flexWrap="wrap">
+                    <MetricCard
+                        label="Audits logged"
                         value={activePlaceView.place.audits.toString()}
                     />
-                    <InfoCard
-                        label="Draft sync queue"
-                        value={`${syncQueue.filter((item) => item.placeId === activePlaceView.place.id).length} pending`}
+                    <MetricCard label="Sync queue" value={`${pendingForPlace} pending`} />
+                    <MetricCard
+                        label="Latest score"
+                        value={placeScore === null ? "Not scored" : `${placeScore}%`}
                     />
-                    <InfoCard
-                        label="Latest known score"
-                        value={
-                            placeScore === null ? "Not scored yet" : `${placeScore}% total score`
-                        }
-                    />
-                </YStack>
+                </XStack>
 
-                <YStack
-                    rounded={designSystem.radii.lg}
-                    borderWidth={1}
-                    borderColor={designSystem.colors.border}
-                    bg={designSystem.colors.surface}
-                    p="$4"
-                    gap="$3"
-                    style={{ boxShadow: designSystem.shadows.card }}
-                >
+                <Card gap="$3">
                     <XStack items="center" gap="$2.5">
                         <CloudOff size={15} color={designSystem.colors.primary} />
-                        <Text
+                        <Paragraph
                             color={designSystem.colors.foreground}
                             fontFamily={designSystem.fonts.bodyBold}
                             fontSize={15}
                         >
-                            {activePlaceView.status === "submitted"
+                            {isSubmitted
                                 ? "Report access is ready"
                                 : "Offline audit capture is ready"}
-                        </Text>
+                        </Paragraph>
                     </XStack>
                     <Paragraph
                         color={designSystem.colors.mutedForeground}
                         fontFamily={designSystem.fonts.bodyMedium}
                     >
-                        {activePlaceView.status === "submitted"
+                        {isSubmitted
                             ? "This place already has a mobile report available. Open the report now, or return to the backend later for broader comparisons and exports."
-                            : "This place is ready for the full YEE mobile survey workflow. Draft responses are saved locally, and queued changes can sync back to the backend when connectivity returns."}
+                            : "Draft responses are saved securely on this device and queued changes sync back to the backend the moment connectivity returns."}
                     </Paragraph>
-                    <YStack
-                        rounded={designSystem.radii.md}
-                        borderWidth={1}
-                        borderColor={designSystem.colors.border}
-                        bg={designSystem.colors.input}
-                        p="$3"
-                        gap="$2.5"
-                    >
-                        <XStack items="center" gap="$2">
-                            <CircleCheckBig size={14} color={designSystem.colors.success} />
-                            <Paragraph
-                                color={designSystem.colors.secondaryForeground}
-                                fontFamily={designSystem.fonts.bodyMedium}
-                            >
-                                Selected place comes from the real assigned-place cache
-                            </Paragraph>
-                        </XStack>
-                        <XStack items="center" gap="$2">
-                            <CircleCheckBig size={14} color={designSystem.colors.success} />
-                            <Paragraph
-                                color={designSystem.colors.secondaryForeground}
-                                fontFamily={designSystem.fonts.bodyMedium}
-                            >
-                                Draft and submitted status come from the shared offline YEE store
-                            </Paragraph>
-                        </XStack>
-                        <XStack items="center" gap="$2">
-                            <TriangleAlert size={14} color={designSystem.colors.warning} />
-                            <Paragraph
-                                color={designSystem.colors.secondaryForeground}
-                                fontFamily={designSystem.fonts.bodyMedium}
-                            >
-                                Survey steps, local draft storage, and queued submission sync are
-                                active for this place
-                            </Paragraph>
-                        </XStack>
-                    </YStack>
-                </YStack>
+                </Card>
             </ScrollView>
 
             <XStack
@@ -284,49 +172,35 @@ export default function ExecuteScreen() {
                     bottom: insets.bottom + 16,
                 }}
             >
-                <Button
+                <AppButton
                     flex={1}
-                    rounded={designSystem.radii.full}
-                    bg={designSystem.colors.surfaceMuted}
-                    borderWidth={1}
-                    borderColor={designSystem.colors.border}
-                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                    icon={<Save size={16} color={designSystem.colors.foreground} />}
-                    onPress={() => openAuditForPlace(activePlaceView.place.id)}
-                >
-                    <Button.Text
-                        color={designSystem.colors.foreground}
-                        fontFamily={designSystem.fonts.bodyBold}
-                    >
-                        {activePlaceView.status === "draft" ? "Continue survey" : "Start survey"}
-                    </Button.Text>
-                </Button>
-                <Button
+                    variant="secondary"
+                    label={activePlaceView.status === "draft" ? "Continue survey" : "Start survey"}
+                    leadingIcon={<Save size={16} color={designSystem.colors.foreground} />}
+                    onPress={() => {
+                        openAuditForPlace(activePlaceView.place.id);
+                    }}
+                />
+                <AppButton
                     flex={1}
-                    rounded={designSystem.radii.full}
-                    bg={designSystem.colors.primary}
-                    borderWidth={1}
-                    borderColor={designSystem.colors.primary}
-                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                    icon={<Send size={16} color={designSystem.colors.primaryForeground} />}
-                    onPress={() =>
-                        activePlaceView.status === "submitted" &&
-                        activePlaceView.submission !== null
-                            ? router.push(`/reports/${activePlaceView.submission.id}`)
-                            : openAuditForPlace(activePlaceView.place.id)
-                    }
-                >
-                    <Button.Text
-                        color={designSystem.colors.primaryForeground}
-                        fontFamily={designSystem.fonts.bodyBold}
-                    >
-                        {activePlaceView.status === "submitted"
+                    variant="primary"
+                    label={
+                        isSubmitted
                             ? "Open report"
                             : activePlaceView.status === "draft"
                               ? "Resume audit"
-                              : "Open current audit"}
-                    </Button.Text>
-                </Button>
+                              : "Open audit"
+                    }
+                    leadingIcon={<Send size={16} color={designSystem.colors.primaryForeground} />}
+                    onPress={() => {
+                        if (isSubmitted && activePlaceView.submission !== null) {
+                            router.push(`/reports/${activePlaceView.submission.id}`);
+                            return;
+                        }
+
+                        openAuditForPlace(activePlaceView.place.id);
+                    }}
+                />
             </XStack>
         </YStack>
     );
@@ -351,40 +225,4 @@ function mapStatusToPlaceTone(status: "not_started" | "draft" | "submitted") {
     }
 
     return "not_started" as const;
-}
-
-interface InfoCardProps {
-    readonly label: string;
-    readonly value: string;
-}
-
-function InfoCard({ label, value }: InfoCardProps) {
-    return (
-        <YStack
-            rounded={designSystem.radii.lg}
-            borderWidth={1}
-            borderColor={designSystem.colors.border}
-            bg={designSystem.colors.surface}
-            p="$4"
-            gap="$1.5"
-            style={{ boxShadow: designSystem.shadows.card }}
-        >
-            <Paragraph
-                color={designSystem.colors.mutedForeground}
-                fontFamily={designSystem.fonts.bodyBold}
-                fontSize={11}
-                textTransform="uppercase"
-                letterSpacing={1.2}
-            >
-                {label}
-            </Paragraph>
-            <Text
-                color={designSystem.colors.foreground}
-                fontFamily={designSystem.fonts.bodyBold}
-                fontSize={16}
-            >
-                {value}
-            </Text>
-        </YStack>
-    );
 }

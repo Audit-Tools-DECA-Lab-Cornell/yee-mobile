@@ -8,7 +8,7 @@ import { designSystem, getPlaceStatusTone } from "lib/design-system";
 import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
 import { buildPlaceViews, getStatusLabel, summarizeMobileAudits } from "lib/yee-mobile-selectors";
 import { useAuthStore } from "stores/auth-store";
-import { useDemoUiStore } from "stores/demo-ui-store";
+import { useSelectionStore } from "stores/selection-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 /**
@@ -16,7 +16,7 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
  */
 export default function PlacesScreen() {
     const router = useRouter();
-    const setSelectedPlaceId = useDemoUiStore((state) => state.setSelectedPlaceId);
+    const setSelectedPlaceId = useSelectionStore((state) => state.setSelectedPlaceId);
     const hasOfflineLoginCredentials = useAuthStore((state) => state.hasOfflineLoginCredentials);
     const { assignedPlaces, submittedAudits, draftsByPlace, syncQueue, isOnline } =
         useYeeMobileStore(

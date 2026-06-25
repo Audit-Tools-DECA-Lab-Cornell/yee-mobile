@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowRight, Check, Eye, EyeOff, KeyRound, UserRound } from "components/icons";
 import { Button, Checkbox, Input, Paragraph, Text, XStack, YStack } from "tamagui";
@@ -55,6 +55,18 @@ export default function LoginScreen() {
             email: normalizedEmail,
             password: trimmedPassword,
         });
+    };
+
+    /**
+     * Explain how to recover account access. Password resets are handled by the
+     * YEE backend, so we direct auditors to their program administrator rather
+     * than expose a non-functional control.
+     */
+    const handleForgotPassword = (): void => {
+        Alert.alert(
+            "Reset your password",
+            "Password resets are managed by your YEE program administrator. Contact them to receive a secure reset link for your auditor account.",
+        );
     };
 
     const visibleErrorMessage = validationMessage ?? errorMessage;
@@ -114,21 +126,6 @@ export default function LoginScreen() {
                         style={{ boxShadow: designSystem.shadows.card }}
                     >
                         <YStack gap="$3">
-                            <XStack
-                                rounded={designSystem.radii.full}
-                                px="$3"
-                                py="$1.5"
-                                bg={designSystem.colors.mintSoft}
-                                style={{ alignSelf: "flex-start" }}
-                            >
-                                <Paragraph
-                                    color={designSystem.colors.success}
-                                    fontFamily={designSystem.fonts.bodyBold}
-                                    fontSize={11}
-                                >
-                                    Step 1 of product flow
-                                </Paragraph>
-                            </XStack>
                             <YStack gap="$1.5">
                                 <Text
                                     color={designSystem.colors.foreground}
@@ -242,6 +239,11 @@ export default function LoginScreen() {
                                     color={designSystem.colors.success}
                                     fontFamily={designSystem.fonts.bodySemiBold}
                                     fontSize={13}
+                                    onPress={handleForgotPassword}
+                                    pressStyle={{ opacity: 0.6 }}
+                                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                    accessibilityRole="button"
+                                    accessibilityLabel="Forgot password? Get help resetting it."
                                 >
                                     Forgot password?
                                 </Paragraph>

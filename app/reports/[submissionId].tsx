@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
-import { ScrollView } from "react-native";
+import { Platform, ScrollView, Share } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { BarChart3, CloudOff } from "components/icons";
@@ -148,7 +148,31 @@ export default function MobileReportDetailScreen() {
         };
     }, [submission, submissionSummary]);
 
+    /**
+     * Share the submission as CSV through the native OS share sheet, which on
+     * iOS and Android exposes Print, Files, Mail, and other export targets.
+     */
+    async function shareSubmissionCsv(): Promise<void> {
+        if (submission === null) {
+            return;
+        }
+
+        try {
+            await Share.share({
+                title: `${submission.place_name ?? submission.place_id} audit report`,
+                message: buildSubmissionCsv(submission),
+            });
+        } catch {
+            // The user dismissed the share sheet or it was unavailable.
+        }
+    }
+
     function handlePrintReport() {
+        if (Platform.OS !== "web") {
+            void shareSubmissionCsv();
+            return;
+        }
+
         if (typeof window === "undefined") {
             return;
         }
@@ -157,6 +181,11 @@ export default function MobileReportDetailScreen() {
     }
 
     function handleExportData() {
+        if (Platform.OS !== "web") {
+            void shareSubmissionCsv();
+            return;
+        }
+
         if (submission === null || typeof window === "undefined") {
             return;
         }
