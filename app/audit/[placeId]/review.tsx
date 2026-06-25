@@ -31,10 +31,16 @@ import {
     normalizeInstrument,
     type NormalizedInstrument,
 } from "lib/yee-mobile-instrument";
+import {
+    deriveSubmitStatus,
+    findFirstIncompleteStep,
+    findPendingSubmission,
+    type SubmitUiStatus,
+} from "lib/yee-submit-guard";
 import { scoreYeeResponsesLocally } from "lib/yee-local-scoring";
 import { previewScore } from "lib/yee-api";
 import { readInstrumentCache } from "lib/yee-offline-storage";
-import type { YeeScoreResult, YeeSubmissionResponse } from "lib/yee-types";
+import type { YeeInstrumentResponse, YeeScoreResult, YeeSubmissionResponse } from "lib/yee-types";
 import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
@@ -61,28 +67,49 @@ export default function AuditReviewScreen() {
     const {
         assignedPlaces,
         draftsByPlace,
+        syncQueue,
+        submittedAudits,
         isOnline,
         saveDraftLocally,
         queueSubmissionSync,
         syncPendingQueue,
         refreshRemoteState,
+        reconcilePlaceSubmission,
     } = useYeeMobileStore(
         useShallow((state) => ({
             assignedPlaces: state.assignedPlaces,
             draftsByPlace: state.draftsByPlace,
+            syncQueue: state.syncQueue,
+            submittedAudits: state.submittedAudits,
             isOnline: state.isOnline,
             saveDraftLocally: state.saveDraftLocally,
             queueSubmissionSync: state.queueSubmissionSync,
             syncPendingQueue: state.syncPendingQueue,
             refreshRemoteState: state.refreshRemoteState,
+            reconcilePlaceSubmission: state.reconcilePlaceSubmission,
         })),
     );
     const place = assignedPlaces.find((entry) => entry.id === placeId) ?? null;
     const storedDraft = draftsByPlace[placeId] ?? null;
 
+    // Persisted in-flight guard: a queued submission item for this place survives
+    // app restarts (the queue lives in MMKV), so a restart mid-submit must NOT be
+    // able to enqueue a second submission for the same place.
+    const pendingSubmission = useMemo(
+        () => findPendingSubmission(syncQueue, placeId),
+        [syncQueue, placeId],
+    );
+    const hasSyncedSubmission = useMemo(
+        () =>
+            submittedAudits.some(
+                (audit) => audit.place_id === placeId && audit.syncState !== "pending_upload",
+            ),
+        [submittedAudits, placeId],
+    );
+
     const [draft, setDraft] = useState<MobileAuditFormState | null>(null);
     const [instrument, setInstrument] = useState<NormalizedInstrument | null>(null);
-    const [rawInstrument, setRawInstrument] = useState<Record<string, unknown> | null>(null);
+    const [rawInstrument, setRawInstrument] = useState<YeeInstrumentResponse | null>(null);
     const [scorePreview, setScorePreview] = useState<number | null>(
         storedDraft?.scorePreview?.total_score ?? null,
     );
@@ -116,7 +143,7 @@ export default function AuditReviewScreen() {
                 return;
             }
             setRawInstrument(cachedInstrument);
-            setInstrument(normalizeInstrument(cachedInstrument as never));
+            setInstrument(normalizeInstrument(cachedInstrument));
         }
 
         void loadInstrument();
@@ -244,6 +271,16 @@ export default function AuditReviewScreen() {
         );
     }, [draft]);
 
+    const submitStatus = useMemo<SubmitUiStatus>(
+        () => deriveSubmitStatus({ pendingSubmission, hasSyncedSubmission }),
+        [pendingSubmission, hasSyncedSubmission],
+    );
+    // Disable the final-submit affordance while a submission is in flight OR a
+    // persisted submission queue item exists for this place (survives restart),
+    // OR the audit has already been submitted.
+    const submitDisabled =
+        isSubmitting || pendingSubmission !== null || submitStatus === "submitted";
+
     if (draft === null) {
         return (
             <YStack flex={1} items="center" justify="center" bg={designSystem.colors.background}>
@@ -255,6 +292,20 @@ export default function AuditReviewScreen() {
     const currentDraft = draft;
 
     async function submitNow() {
+        // Persisted in-flight guard. Block a rapid double-tap OR a re-tap after an
+        // app restart that left a queued submission for this place: only ever one
+        // submission queue item per place. The button is also disabled in the UI,
+        // but guard here too because the async confirm dialog yields the event loop.
+        if (isSubmitting || pendingSubmission !== null) {
+            if (pendingSubmission !== null && session !== null && isOnline) {
+                // Best-effort: nudge the existing queued item forward instead of
+                // creating a new one, then route to the appropriate status screen.
+                await syncPendingQueue(session);
+                await reconcileAfterSync(pendingSubmission.payload.provisional_submission_id ?? "");
+            }
+            return;
+        }
+
         const incomplete = findFirstIncompleteStep(currentDraft, instrument);
         if (incomplete !== null) {
             const goFix = await confirmChoice(
@@ -299,41 +350,74 @@ export default function AuditReviewScreen() {
             await saveDraftLocally(draftForQueue);
             await queueSubmissionSync(draftForQueue, provisionalSubmission);
 
-            let nextMode: "queued" | "submitted" = "queued";
-            let nextSubmissionId = provisionalSubmission.id;
             if (session !== null && isOnline) {
                 await syncPendingQueue(session);
-                await refreshRemoteState(session);
-                const currentState = useYeeMobileStore.getState();
-                const latestSubmissionForPlace = currentState.submittedAudits
-                    .filter((audit) => audit.place_id === placeId)
-                    .sort(
-                        (left, right) =>
-                            Date.parse(right.submitted_at) - Date.parse(left.submitted_at),
-                    )[0];
-                const queuedSubmissionStillPresent = currentState.syncQueue.some(
-                    (item) => item.kind === "submission" && item.placeId === placeId,
-                );
-
-                if (
-                    latestSubmissionForPlace !== undefined &&
-                    latestSubmissionForPlace.syncState !== "pending_upload"
-                ) {
-                    nextMode = "submitted";
-                    nextSubmissionId = latestSubmissionForPlace.id;
-                } else if (!queuedSubmissionStillPresent) {
-                    nextMode = "submitted";
-                }
             }
-
-            router.replace(
-                `/audit/${placeId}/submitted?mode=${nextMode}&submissionId=${nextSubmissionId}`,
-            );
+            await reconcileAfterSync(provisionalSubmission.id);
         } catch (error) {
             setErrorMessage(error instanceof Error ? error.message : "Unable to queue submission.");
         } finally {
             setIsSubmitting(false);
         }
+    }
+
+    /**
+     * Resolve the post-sync outcome and route to the submitted screen.
+     *
+     * PRIMARY path: the queue drain already re-POSTs with the same idempotency
+     * key, so a landed submission converges with no duplicate. After it runs we
+     * inspect the live store: if the queued submission item is gone and a synced
+     * summary exists, treat it as submitted.
+     *
+     * SECONDARY (ambiguous-success) fallback: if the item is STILL queued but we
+     * are online — i.e. the key path was inconclusive (timeout / lost response) —
+     * ask the backend directly via GET /yee/places/{placeId}/audit-state
+     * (reconcilePlaceSubmission). If it reports SUBMITTED we drop the local
+     * provisional record and converge as submitted; otherwise we stay queued.
+     */
+    async function reconcileAfterSync(fallbackSubmissionId: string) {
+        if (session !== null && isOnline) {
+            await refreshRemoteState(session);
+        }
+
+        let currentState = useYeeMobileStore.getState();
+        let queuedStillPresent = currentState.syncQueue.some(
+            (item) => item.kind === "submission" && item.placeId === placeId,
+        );
+
+        // Secondary fallback: still queued while online means the idempotency-key
+        // drain was inconclusive. Confirm directly with audit-state.
+        if (queuedStillPresent && session !== null && isOnline) {
+            const reconciledStatus = await reconcilePlaceSubmission(placeId, session);
+            if (reconciledStatus === "SUBMITTED") {
+                currentState = useYeeMobileStore.getState();
+                queuedStillPresent = currentState.syncQueue.some(
+                    (item) => item.kind === "submission" && item.placeId === placeId,
+                );
+            }
+        }
+
+        const latestSubmissionForPlace = currentState.submittedAudits
+            .filter((audit) => audit.place_id === placeId)
+            .sort(
+                (left, right) => Date.parse(right.submitted_at) - Date.parse(left.submitted_at),
+            )[0];
+
+        let nextMode: "queued" | "submitted" = "queued";
+        let nextSubmissionId = fallbackSubmissionId;
+        if (
+            latestSubmissionForPlace !== undefined &&
+            latestSubmissionForPlace.syncState !== "pending_upload"
+        ) {
+            nextMode = "submitted";
+            nextSubmissionId = latestSubmissionForPlace.id;
+        } else if (!queuedStillPresent) {
+            nextMode = "submitted";
+        }
+
+        router.replace(
+            `/audit/${placeId}/submitted?mode=${nextMode}&submissionId=${nextSubmissionId}`,
+        );
     }
 
     return (
@@ -378,6 +462,8 @@ export default function AuditReviewScreen() {
                     <Chip>{incompleteStep === null ? "Ready to submit" : "Still incomplete"}</Chip>
                 </XStack>
 
+                <SubmitStatusBanner status={submitStatus} />
+
                 <SectionCard title="Quick actions">
                     <XStack gap="$2.5" flexWrap="wrap">
                         <ActionButton
@@ -391,10 +477,10 @@ export default function AuditReviewScreen() {
                             tone="neutral"
                         />
                         <ActionButton
-                            label={isSubmitting ? "Submitting..." : "Submit audit"}
+                            label={submitActionLabel(submitStatus, isSubmitting)}
                             onPress={() => void submitNow()}
                             tone="primary"
-                            disabled={isSubmitting}
+                            disabled={submitDisabled}
                         />
                     </XStack>
                     {incompleteStep === null ? null : (
@@ -634,6 +720,8 @@ export default function AuditReviewScreen() {
                     bg={designSystem.colors.primary}
                     borderWidth={1}
                     borderColor={designSystem.colors.primary}
+                    disabled={submitDisabled}
+                    opacity={submitDisabled ? 0.6 : 1}
                     pressStyle={{ opacity: 0.92, scale: 0.985 }}
                     onPress={() => void submitNow()}
                 >
@@ -647,7 +735,7 @@ export default function AuditReviewScreen() {
                             color={designSystem.colors.primaryForeground}
                             fontFamily={designSystem.fonts.bodyBold}
                         >
-                            Submit audit
+                            {submitActionLabel(submitStatus, isSubmitting)}
                         </Button.Text>
                     </XStack>
                 </Button>
@@ -681,6 +769,134 @@ function emptyScoreResult(): YeeScoreResult {
         category_scores: {},
         matched_scored_answers: 0,
     };
+}
+
+/** Button label that reflects the current persisted submit status. */
+function submitActionLabel(status: SubmitUiStatus, isSubmitting: boolean): string {
+    if (isSubmitting) {
+        return "Submitting...";
+    }
+    switch (status) {
+        case "queued":
+            return "Queued for upload";
+        case "retry_scheduled":
+            return "Retry scheduled";
+        case "auth_required":
+            return "Sign in to upload";
+        case "sync_failed":
+            return "Retry upload";
+        case "submitted":
+            return "Submitted";
+        default:
+            return "Submit audit";
+    }
+}
+
+interface SubmitStatusCopy {
+    readonly title: string;
+    readonly message: string;
+    readonly tone: "neutral" | "info" | "warning" | "danger" | "success";
+}
+
+/** Map a {@link SubmitUiStatus} to user-facing banner copy + tone. */
+function submitStatusCopy(status: SubmitUiStatus): SubmitStatusCopy | null {
+    switch (status) {
+        case "saved_locally":
+            return {
+                title: "Saved on this device",
+                message:
+                    "Your answers are saved locally. They will upload automatically when you are back online.",
+                tone: "info",
+            };
+        case "queued":
+            return {
+                title: "Queued for upload",
+                message:
+                    "This audit is saved on the device and queued. It will upload automatically as soon as connectivity is available.",
+                tone: "info",
+            };
+        case "retry_scheduled":
+            return {
+                title: "Retry scheduled",
+                message:
+                    "The last upload attempt did not complete. A retry is scheduled automatically; no duplicate will be created.",
+                tone: "warning",
+            };
+        case "auth_required":
+            return {
+                title: "Sign in to upload",
+                message:
+                    "Your session expired before the upload finished. The audit is safe on this device — sign in again to upload it.",
+                tone: "warning",
+            };
+        case "sync_failed":
+            return {
+                title: "Upload failed",
+                message:
+                    "The backend could not accept this submission. The audit is still saved locally — tap to retry or contact support if it keeps failing.",
+                tone: "danger",
+            };
+        case "submitted":
+            return {
+                title: "Submitted",
+                message: "This audit has been submitted and is locked for editing.",
+                tone: "success",
+            };
+        default:
+            return null;
+    }
+}
+
+function submitStatusToneColors(tone: SubmitStatusCopy["tone"]): {
+    readonly accent: string;
+    readonly soft: string;
+} {
+    switch (tone) {
+        case "warning":
+            return {
+                accent: designSystem.colors.warning,
+                soft: designSystem.colors.warningSoft,
+            };
+        case "danger":
+            return {
+                accent: designSystem.colors.danger,
+                soft: designSystem.colors.dangerSoft,
+            };
+        case "success":
+            return {
+                accent: designSystem.colors.success,
+                soft: designSystem.colors.successSoft,
+            };
+        default:
+            return {
+                accent: designSystem.colors.primary,
+                soft: designSystem.colors.surfaceMuted,
+            };
+    }
+}
+
+/** Single, clear status line for the final-submit lifecycle. Renders nothing
+ * when there is no persisted submission state to report (idle). */
+function SubmitStatusBanner({ status }: { status: SubmitUiStatus }) {
+    const copy = submitStatusCopy(status);
+    if (copy === null) {
+        return null;
+    }
+    const { accent, soft } = submitStatusToneColors(copy.tone);
+    return (
+        <YStack
+            rounded={18}
+            borderWidth={1}
+            p="$3.5"
+            gap="$1.5"
+            style={{ backgroundColor: soft, borderColor: accent }}
+        >
+            <Text style={{ color: accent }} fontFamily={designSystem.fonts.bodyBold}>
+                {copy.title}
+            </Text>
+            <Paragraph color={designSystem.colors.secondaryForeground}>{copy.message}</Paragraph>
+        </YStack>
+    );
 }
 
 function SectionCard({
@@ -907,51 +1123,6 @@ function normalizeTime(value: string): string {
     }
 
     return "00:00:00";
-}
-
-function findFirstIncompleteStep(
-    draft: MobileAuditFormState,
-    instrument: NormalizedInstrument | null,
-): { step: MobileYeeStepNumber; label: string } | null {
-    if (
-        draft.visitFrequency.length === 0 ||
-        draft.publicAccess.length === 0 ||
-        draft.openHoursAccess.length === 0 ||
-        draft.season.length === 0 ||
-        draft.weather.length === 0
-    ) {
-        return { step: 1, label: "Context" };
-    }
-
-    if (Object.values(draft.weights).some((value) => value.length === 0)) {
-        return { step: 2, label: "Weighting" };
-    }
-
-    if (instrument !== null) {
-        const domainSteps: readonly MobileYeeStepNumber[] = [3, 4, 5, 6, 7, 8];
-        for (const step of domainSteps) {
-            const section = getSectionForStep(instrument, step);
-            if (section === null) {
-                continue;
-            }
-
-            const totalRows = section.groups.reduce((sum, group) => sum + group.rows.length, 0);
-            const answeredRows = section.groups.reduce((sum, group) => {
-                return (
-                    sum +
-                    group.rows.filter((row) => {
-                        const presenceValue = draft.responses[row.presenceItemId]?.[row.choiceId];
-                        return typeof presenceValue === "string" && presenceValue.length > 0;
-                    }).length
-                );
-            }, 0);
-            if (answeredRows < totalRows) {
-                return { step, label: section.title };
-            }
-        }
-    }
-
-    return null;
 }
 
 async function confirmChoice(

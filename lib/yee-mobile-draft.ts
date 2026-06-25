@@ -1,5 +1,10 @@
 import type { MobileYeeDomainKey } from "./yee-mobile-audit-config";
-import type { YeeAuditStateResponse, YeeLocalDraft, YeeScoreResult } from "./yee-types";
+import {
+    YEE_DRAFT_SCHEMA_VERSION,
+    type YeeAuditStateResponse,
+    type YeeLocalDraft,
+    type YeeScoreResult,
+} from "./yee-types";
 
 export interface MobileAuditFormState {
     readonly placeId: string;
@@ -113,9 +118,16 @@ export function buildStoredDraft(
     scorePreview: YeeScoreResult | null,
     syncState: YeeLocalDraft["syncState"],
 ): YeeLocalDraft {
+    const nowIso = new Date().toISOString();
+    const nextVersion = (previousDraft?.version ?? 0) + 1;
+
     return {
+        id: previousDraft?.id ?? state.placeId,
+        schemaVersion: YEE_DRAFT_SCHEMA_VERSION,
+        version: nextVersion,
         placeId: state.placeId,
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowIso,
+        lastUpdatedIso: nowIso,
         participantInfo: buildParticipantInfo(state),
         responses: state.responses,
         lastKnownBackendStatus: previousDraft?.lastKnownBackendStatus ?? "DRAFT",

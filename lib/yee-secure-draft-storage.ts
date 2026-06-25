@@ -1,0 +1,392 @@
+/**
+ * Per-account MMKV storage substrate for YEE offline drafts and the sync queue.
+ *
+ * This module owns the crash-safe local persistence for the two pieces of state
+ * that must survive app restart, network loss, and token expiry: in-progress
+ * audit drafts and the pending sync queue. Both live in the SAME per-account
+ * MMKV instance so their durability story is coherent (no split-brain where
+ * drafts persist but the queue is lost).
+ *
+ * Design notes:
+ * - One MMKV instance per account, keyed by the authenticated user's id, so two
+ *   auditors sharing a device never collide.
+ * - Drafts are stored ONE KEY PER PLACE ID (and queue items one key per item id)
+ *   rather than a single JSON map, which removes the read-modify-write race the
+ *   previous AsyncStorage map implementation had.
+ * - A one-time, idempotent migration copies the legacy AsyncStorage payloads
+ *   into MMKV on first load and records a completion marker so a second launch
+ *   never re-runs or duplicates.
+ *
+ * Encryption is intentionally DEFERRED (product decision). The MMKV construction
+ * exposes an optional `encryptionKey` seam that is left undefined for now. Plain
+ * MMKV is used, exactly like the production reference app. See the
+ * `// TODO(encryption):` markers below.
+ */
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createMMKV } from "react-native-mmkv";
+import { readAuthSession } from "lib/auth/storage";
+import type { YeeLocalDraft, YeeSyncQueueItem } from "lib/yee-types";
+
+/**
+ * Minimal subset of the MMKV v4 instance API this module depends on.
+ *
+ * Declared locally (rather than importing the `MMKV` type) so the module stays
+ * decoupled from the nitro spec surface and remains easy to substitute in tests.
+ */
+interface MmkvInstance {
+    getString(key: string): string | undefined;
+    set(key: string, value: string): void;
+    remove(key: string): boolean;
+    getAllKeys(): string[];
+    contains(key: string): boolean;
+    clearAll(): void;
+}
+
+/**
+ * Typed storage error surfaced when a persisted payload cannot be parsed.
+ *
+ * Corrupt payloads are NOT silently dropped — callers receive this error so the
+ * failure can be surfaced rather than masked as missing data.
+ */
+export class YeeStorageError extends Error {
+    readonly key: string;
+
+    constructor(message: string, key: string, options?: { cause?: unknown }) {
+        super(message, options);
+        this.name = "YeeStorageError";
+        this.key = key;
+    }
+}
+
+const DRAFT_KEY_PREFIX = "draft.";
+const QUEUE_KEY_PREFIX = "queue.";
+const MIGRATION_MARKER_KEY = "yee.migration.async-to-mmkv.v1";
+
+const LEGACY_DRAFTS_KEY = "yee.mobile.local-drafts.v1";
+const LEGACY_SYNC_QUEUE_KEY = "yee.mobile.sync-queue.v1";
+
+/**
+ * Per-account MMKV instances, memoized by account id so we open each native
+ * instance only once.
+ */
+const instancesByAccount = new Map<string, MmkvInstance>();
+
+/**
+ * The active account id. Set explicitly via {@link setActiveAccount} on login /
+ * hydrate. When unset, the active account is resolved lazily from the persisted
+ * auth session so existing store actions (which do not pass an account id) keep
+ * working without signature changes.
+ */
+let activeAccountId: string | null = null;
+
+/**
+ * Set or switch the active account whose draft store should be used.
+ *
+ * Call this on login and on hydrate once the persisted session is known. Passing
+ * `null` clears the active account (e.g. on logout) WITHOUT deleting any drafts —
+ * drafts survive logout for the same account by design and are only removed via
+ * {@link clearAccountStorage}.
+ *
+ * @param accountId Authenticated user id, or null to clear.
+ */
+export function setActiveAccount(accountId: string | null): void {
+    activeAccountId = accountId !== null && accountId.trim().length > 0 ? accountId : null;
+}
+
+/**
+ * Resolve the active account id, falling back to the persisted auth session.
+ *
+ * YEE auditors log in before doing field work, so an account id is always
+ * available by the time drafts are read or written. This asserts that contract
+ * rather than building an anonymous-draft path.
+ *
+ * @returns The resolved account id.
+ * @throws {YeeStorageError} When no account can be resolved.
+ */
+async function resolveAccountId(): Promise<string> {
+    if (activeAccountId !== null) {
+        return activeAccountId;
+    }
+
+    const session = await readAuthSession();
+    const accountId = session?.user.id ?? null;
+    if (accountId === null || accountId.trim().length === 0) {
+        throw new YeeStorageError(
+            "No active account for draft storage; log in before reading or writing drafts.",
+            "<account>",
+        );
+    }
+
+    activeAccountId = accountId;
+    return accountId;
+}
+
+/**
+ * Get (or lazily open) the per-account MMKV instance.
+ *
+ * @param accountId Account id used to namespace the MMKV instance id.
+ * @returns The MMKV instance for the account.
+ */
+function getInstance(accountId: string): MmkvInstance {
+    const existing = instancesByAccount.get(accountId);
+    if (existing !== undefined) {
+        return existing;
+    }
+
+    // TODO(encryption): generate/lookup a per-account key in expo-secure-store and
+    // pass it here as `encryptionKey` to encrypt drafts at rest. Deferred by
+    // product decision — drafts are stored in plaintext MMKV for now, matching
+    // the production reference app. The seam below is intentionally left wired so
+    // enabling encryption later is a single-line change.
+    const encryptionKey: string | undefined = undefined;
+    const instance = createMMKV({
+        id: `yee.drafts.${accountId}`,
+        ...(encryptionKey === undefined ? {} : { encryptionKey }),
+    });
+    instancesByAccount.set(accountId, instance);
+    return instance;
+}
+
+/**
+ * Resolve the active account's MMKV instance, running the one-time migration if
+ * it has not yet completed for this account.
+ */
+async function getActiveInstance(): Promise<MmkvInstance> {
+    const accountId = await resolveAccountId();
+    const instance = getInstance(accountId);
+    await runMigrationIfNeeded(instance);
+    return instance;
+}
+
+function draftKey(placeId: string): string {
+    return `${DRAFT_KEY_PREFIX}${placeId}`;
+}
+
+function queueKey(itemId: string): string {
+    return `${QUEUE_KEY_PREFIX}${itemId}`;
+}
+
+/**
+ * Parse a persisted JSON value, raising a typed error on corruption.
+ *
+ * @param raw Raw stored string.
+ * @param key Storage key, included in the error for diagnostics.
+ */
+function parseJson<T>(raw: string, key: string): T {
+    try {
+        return JSON.parse(raw) as T;
+    } catch (error) {
+        throw new YeeStorageError(`Corrupt persisted payload for "${key}".`, key, {
+            cause: error,
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// One-time AsyncStorage -> MMKV migration (idempotent per account)
+// ---------------------------------------------------------------------------
+
+/**
+ * Copy legacy AsyncStorage drafts and sync queue into MMKV exactly once.
+ *
+ * Idempotent: a completion marker is written to MMKV after a successful copy, so
+ * a second launch short-circuits and never duplicates entries. Corrupt legacy
+ * payloads are NOT dropped — a {@link YeeStorageError} is raised so the failure
+ * is surfaced.
+ *
+ * @param instance The active account's MMKV instance.
+ */
+async function runMigrationIfNeeded(instance: MmkvInstance): Promise<void> {
+    if (instance.contains(MIGRATION_MARKER_KEY)) {
+        return;
+    }
+
+    const [legacyDraftsRaw, legacyQueueRaw] = await Promise.all([
+        readLegacyAsyncValue(LEGACY_DRAFTS_KEY),
+        readLegacyAsyncValue(LEGACY_SYNC_QUEUE_KEY),
+    ]);
+
+    if (legacyDraftsRaw !== null) {
+        const draftMap = parseJson<Record<string, YeeLocalDraft>>(
+            legacyDraftsRaw,
+            LEGACY_DRAFTS_KEY,
+        );
+        for (const draft of Object.values(draftMap)) {
+            if (
+                draft !== null &&
+                typeof draft === "object" &&
+                !instance.contains(draftKey(draft.placeId))
+            ) {
+                instance.set(draftKey(draft.placeId), JSON.stringify(draft));
+            }
+        }
+    }
+
+    if (legacyQueueRaw !== null) {
+        const queue = parseJson<readonly YeeSyncQueueItem[]>(legacyQueueRaw, LEGACY_SYNC_QUEUE_KEY);
+        for (const item of queue) {
+            if (
+                item !== null &&
+                typeof item === "object" &&
+                !instance.contains(queueKey(item.id))
+            ) {
+                instance.set(queueKey(item.id), JSON.stringify(item));
+            }
+        }
+    }
+
+    instance.set(MIGRATION_MARKER_KEY, new Date().toISOString());
+}
+
+/**
+ * Read a legacy AsyncStorage value, tolerating storage failures (treated as
+ * "nothing to migrate") but NOT swallowing parse errors — those are surfaced by
+ * the caller via {@link parseJson}.
+ */
+async function readLegacyAsyncValue(key: string): Promise<string | null> {
+    try {
+        return await AsyncStorage.getItem(key);
+    } catch {
+        return null;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Draft storage (one key per place id)
+// ---------------------------------------------------------------------------
+
+/**
+ * Read every persisted draft for the active account, keyed by place id.
+ *
+ * @throws {YeeStorageError} If any persisted draft payload is corrupt.
+ */
+export async function readDraftMapFromMmkv(): Promise<Record<string, YeeLocalDraft>> {
+    const instance = await getActiveInstance();
+    const result: Record<string, YeeLocalDraft> = {};
+
+    for (const key of instance.getAllKeys()) {
+        if (!key.startsWith(DRAFT_KEY_PREFIX)) {
+            continue;
+        }
+        const raw = instance.getString(key);
+        if (raw === undefined) {
+            continue;
+        }
+        const draft = parseJson<YeeLocalDraft>(raw, key);
+        result[draft.placeId] = draft;
+    }
+
+    return result;
+}
+
+/**
+ * Read a single draft by place id, or null when absent.
+ *
+ * @throws {YeeStorageError} If the persisted payload is corrupt.
+ */
+export async function readDraftFromMmkv(placeId: string): Promise<YeeLocalDraft | null> {
+    const instance = await getActiveInstance();
+    const raw = instance.getString(draftKey(placeId));
+    if (raw === undefined) {
+        return null;
+    }
+    return parseJson<YeeLocalDraft>(raw, draftKey(placeId));
+}
+
+/** Persist a single draft under its place-id key. */
+export async function writeDraftToMmkv(draft: YeeLocalDraft): Promise<void> {
+    const instance = await getActiveInstance();
+    instance.set(draftKey(draft.placeId), JSON.stringify(draft));
+}
+
+/** Remove a single draft by place id. No-op when absent. */
+export async function deleteDraftFromMmkv(placeId: string): Promise<void> {
+    const instance = await getActiveInstance();
+    instance.remove(draftKey(placeId));
+}
+
+// ---------------------------------------------------------------------------
+// Sync queue storage (one key per item id) — substrate for Stage 3
+// ---------------------------------------------------------------------------
+
+/**
+ * Read every persisted sync queue item for the active account.
+ *
+ * @throws {YeeStorageError} If any persisted queue payload is corrupt.
+ */
+export async function readSyncQueueFromMmkv(): Promise<readonly YeeSyncQueueItem[]> {
+    const instance = await getActiveInstance();
+    const items: YeeSyncQueueItem[] = [];
+
+    for (const key of instance.getAllKeys()) {
+        if (!key.startsWith(QUEUE_KEY_PREFIX)) {
+            continue;
+        }
+        const raw = instance.getString(key);
+        if (raw === undefined) {
+            continue;
+        }
+        items.push(parseJson<YeeSyncQueueItem>(raw, key));
+    }
+
+    return items;
+}
+
+/**
+ * Insert or replace a single sync queue item, keyed by its deterministic id.
+ *
+ * Per-key storage gives idempotent check-and-set semantics for free: writing the
+ * same id twice overwrites in place rather than appending a duplicate.
+ */
+export async function upsertSyncQueueItemInMmkv(item: YeeSyncQueueItem): Promise<void> {
+    const instance = await getActiveInstance();
+    instance.set(queueKey(item.id), JSON.stringify(item));
+}
+
+/** Remove a single sync queue item by id. No-op when absent. */
+export async function removeSyncQueueItemFromMmkv(itemId: string): Promise<void> {
+    const instance = await getActiveInstance();
+    instance.remove(queueKey(itemId));
+}
+
+/**
+ * Replace the entire persisted sync queue with the provided items.
+ *
+ * Existing queue keys are removed first so the persisted set matches the input
+ * exactly, preserving the semantics of the previous whole-array writer.
+ */
+export async function writeSyncQueueToMmkv(queue: readonly YeeSyncQueueItem[]): Promise<void> {
+    const instance = await getActiveInstance();
+
+    for (const key of instance.getAllKeys()) {
+        if (key.startsWith(QUEUE_KEY_PREFIX)) {
+            instance.remove(key);
+        }
+    }
+
+    for (const item of queue) {
+        instance.set(queueKey(item.id), JSON.stringify(item));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Account lifecycle
+// ---------------------------------------------------------------------------
+
+/**
+ * Delete ALL drafts and queue items for an account.
+ *
+ * Only called on explicit account removal. Ordinary logout (including
+ * token-expiry logout) must NOT call this — unsynced work survives logout for
+ * the same account by design.
+ *
+ * @param accountId Account whose storage should be wiped.
+ */
+export function clearAccountStorage(accountId: string): void {
+    const instance = getInstance(accountId);
+    instance.clearAll();
+    if (activeAccountId === accountId) {
+        activeAccountId = null;
+    }
+    instancesByAccount.delete(accountId);
+}

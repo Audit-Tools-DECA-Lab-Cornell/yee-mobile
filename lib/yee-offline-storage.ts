@@ -1,18 +1,36 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+    deleteDraftFromMmkv,
+    readDraftFromMmkv,
+    readDraftMapFromMmkv,
+    readSyncQueueFromMmkv,
+    removeSyncQueueItemFromMmkv,
+    upsertSyncQueueItemInMmkv,
+    writeDraftToMmkv,
+    writeSyncQueueToMmkv,
+} from "lib/yee-secure-draft-storage";
 import type {
     YeeAssignedPlace,
+    YeeInstrumentResponse,
     YeeLocalDraft,
     YeeMyAuditItem,
     YeeSubmissionResponse,
     YeeSyncQueueItem,
 } from "lib/yee-types";
 
+/**
+ * AsyncStorage namespaces still owned by this module.
+ *
+ * Drafts (`yee.mobile.local-drafts.v1`) and the sync queue
+ * (`yee.mobile.sync-queue.v1`) have moved to per-account MMKV
+ * (lib/yee-secure-draft-storage.ts) for crash safety. The cache-only namespaces
+ * below remain on AsyncStorage because they are reconstructable from the backend
+ * on next sync and do not carry unsynced user work.
+ */
 const STORAGE_KEYS = {
     places: "yee.mobile.assigned-places.v1",
     audits: "yee.mobile.submitted-audits.v1",
     submissionDetails: "yee.mobile.submission-details.v1",
-    drafts: "yee.mobile.local-drafts.v1",
-    syncQueue: "yee.mobile.sync-queue.v1",
     metadata: "yee.mobile.offline-metadata.v1",
     instrument: "yee.mobile.instrument.v1",
 } as const;
@@ -83,63 +101,41 @@ export async function deleteSubmissionDetail(submissionId: string): Promise<void
     await writeSubmissionDetailsCache(nextSubmissions);
 }
 
+/**
+ * Drafts and the sync queue are persisted in per-account, crash-safe MMKV (see
+ * lib/yee-secure-draft-storage.ts). These wrappers preserve the existing
+ * promise-based signatures the store depends on while delegating to MMKV.
+ */
 export async function readDraftMap(): Promise<Record<string, YeeLocalDraft>> {
-    return readJson(STORAGE_KEYS.drafts, {} as Record<string, YeeLocalDraft>);
-}
-
-export async function writeDraftMap(drafts: Record<string, YeeLocalDraft>): Promise<void> {
-    await writeJson(STORAGE_KEYS.drafts, drafts);
+    return readDraftMapFromMmkv();
 }
 
 export async function readDraft(placeId: string): Promise<YeeLocalDraft | null> {
-    const drafts = await readDraftMap();
-    return drafts[placeId] ?? null;
+    return readDraftFromMmkv(placeId);
 }
 
 export async function writeDraft(draft: YeeLocalDraft): Promise<void> {
-    const drafts = await readDraftMap();
-    await writeDraftMap({
-        ...drafts,
-        [draft.placeId]: draft,
-    });
+    await writeDraftToMmkv(draft);
 }
 
 export async function deleteDraft(placeId: string): Promise<void> {
-    const drafts = await readDraftMap();
-    if (!(placeId in drafts)) {
-        return;
-    }
-
-    const nextDrafts = { ...drafts };
-    delete nextDrafts[placeId];
-    await writeDraftMap(nextDrafts);
+    await deleteDraftFromMmkv(placeId);
 }
 
 export async function readSyncQueue(): Promise<readonly YeeSyncQueueItem[]> {
-    return readJson(STORAGE_KEYS.syncQueue, [] as readonly YeeSyncQueueItem[]);
+    return readSyncQueueFromMmkv();
 }
 
 export async function writeSyncQueue(queue: readonly YeeSyncQueueItem[]): Promise<void> {
-    await writeJson(STORAGE_KEYS.syncQueue, queue);
+    await writeSyncQueueToMmkv(queue);
 }
 
 export async function upsertSyncQueueItem(item: YeeSyncQueueItem): Promise<void> {
-    const queue = await readSyncQueue();
-    const index = queue.findIndex((entry) => entry.id === item.id);
-
-    if (index === -1) {
-        await writeSyncQueue([...queue, item]);
-        return;
-    }
-
-    const nextQueue = [...queue];
-    nextQueue[index] = item;
-    await writeSyncQueue(nextQueue);
+    await upsertSyncQueueItemInMmkv(item);
 }
 
 export async function removeSyncQueueItem(itemId: string): Promise<void> {
-    const queue = await readSyncQueue();
-    await writeSyncQueue(queue.filter((entry) => entry.id !== itemId));
+    await removeSyncQueueItemFromMmkv(itemId);
 }
 
 export async function readOfflineMetadata(): Promise<YeeOfflineMetadata> {
@@ -150,11 +146,11 @@ export async function writeOfflineMetadata(metadata: YeeOfflineMetadata): Promis
     await writeJson(STORAGE_KEYS.metadata, metadata);
 }
 
-export async function readInstrumentCache(): Promise<Record<string, unknown> | null> {
-    return readJson<Record<string, unknown> | null>(STORAGE_KEYS.instrument, null);
+export async function readInstrumentCache(): Promise<YeeInstrumentResponse | null> {
+    return readJson<YeeInstrumentResponse | null>(STORAGE_KEYS.instrument, null);
 }
 
-export async function writeInstrumentCache(instrument: Record<string, unknown>): Promise<void> {
+export async function writeInstrumentCache(instrument: YeeInstrumentResponse): Promise<void> {
     await writeJson(STORAGE_KEYS.instrument, instrument);
 }
 
