@@ -1,6 +1,7 @@
 import type { Dispatch, PropsWithChildren, SetStateAction } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Platform, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowLeft, ArrowRight, Save } from "components/icons";
@@ -66,6 +67,8 @@ export default function AuditStepScreen() {
     const router = useRouter();
     const params = useLocalSearchParams<{ placeId?: string; step?: string }>();
     const scrollViewRef = useRef<ScrollView>(null);
+    const insets = useSafeAreaInsets();
+    const [footerHeight, setFooterHeight] = useState(0);
     const session = useAuthStore((state) => state.session);
     const {
         assignedPlaces,
@@ -375,13 +378,12 @@ export default function AuditStepScreen() {
                 contentContainerStyle={{
                     paddingHorizontal: designSystem.spacing.screenPaddingHorizontal,
                     paddingTop: designSystem.spacing.screenPaddingVertical,
-                    paddingBottom: 128,
+                    paddingBottom: (footerHeight > 0 ? footerHeight : 96) + 24,
                     gap: 20,
                 }}
             >
                 <StepHeader
                     step={step}
-                    placeId={placeId}
                     placeName={draft.placeName || place?.name || "Assigned place"}
                     auditorId={draft.auditorId}
                     onStepPress={(nextStep) => router.push(`/audit/${placeId}/${nextStep}`)}
@@ -421,6 +423,8 @@ export default function AuditStepScreen() {
 
             <FooterNav
                 isSaving={isSaving}
+                bottomInset={insets.bottom}
+                onMeasure={setFooterHeight}
                 onBack={() => {
                     const previousStep = getPreviousStep(step);
                     if (previousStep === null) {
@@ -495,7 +499,7 @@ function BlockedAuditScreen({
                     {body}
                 </Paragraph>
                 <Button
-                    rounded={designSystem.radii.full}
+                    rounded={designSystem.radii.button}
                     bg={designSystem.colors.primary}
                     borderWidth={1}
                     borderColor={designSystem.colors.primary}
@@ -516,13 +520,11 @@ function BlockedAuditScreen({
 
 function StepHeader({
     step,
-    placeId,
     placeName,
     auditorId,
     onStepPress,
 }: {
     step: MobileYeeStepNumber;
-    placeId: string;
     placeName: string;
     auditorId: string;
     onStepPress: (step: MobileYeeStepNumber) => void;
@@ -540,15 +542,8 @@ function StepHeader({
                     textTransform="uppercase"
                     letterSpacing={1.5}
                 >
-                    audit/{placeId}
-                </Paragraph>
-                <Text
-                    color={designSystem.colors.mutedForeground}
-                    fontFamily={designSystem.fonts.bodySemiBold}
-                    fontSize={13}
-                >
                     {placeName}
-                </Text>
+                </Paragraph>
                 <XStack gap="$2" flexWrap="wrap" mb="$1">
                     <YStack
                         rounded={designSystem.radii.full}
@@ -648,7 +643,7 @@ function StepHeader({
                         <Button
                             key={entry.step}
                             type="button"
-                            rounded={designSystem.radii.full}
+                            rounded={designSystem.radii.button}
                             borderWidth={1}
                             px="$3"
                             py="$2"
@@ -1255,36 +1250,39 @@ function SelectionButton({
     onPress: () => void;
     palette: SurveyPalette;
 }) {
+    // Built from a pressable XStack rather than Tamagui's Button so the label can
+    // wrap onto multiple lines and the row grows with it. The Button component
+    // pins a fixed size-token height, which clipped longer option labels.
     return (
-        <Button
-            justify="flex-start"
-            rounded={designSystem.radii.full}
+        <XStack
+            items="center"
+            rounded={designSystem.radii.button}
             borderWidth={1}
-            hoverStyle={{
-                opacity: 0.98,
-                background: selected ? palette.selectedBorder : palette.selected,
-            }}
-            pressStyle={{ opacity: 0.92, scale: 0.985 }}
-            onPress={onPress}
             py="$3"
             px="$3.5"
+            cursor="pointer"
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            hoverStyle={{ opacity: 0.98 }}
+            pressStyle={{ opacity: 0.92, scale: 0.985 }}
+            onPress={onPress}
             style={{
                 backgroundColor: selected ? palette.selected : palette.inner,
                 borderColor: selected ? palette.selectedBorder : palette.innerBorder,
                 boxShadow: selected ? designSystem.shadows.accent : "none",
             }}
         >
-            <Button.Text
+            <Text
+                fontFamily={designSystem.fonts.bodyBold}
                 style={{
                     color: selected ? designSystem.colors.primaryForeground : palette.accent,
+                    flexShrink: 1,
                     textAlign: "left",
                 }}
-                fontFamily={designSystem.fonts.bodyBold}
-                width="100%"
             >
                 {label}
-            </Button.Text>
-        </Button>
+            </Text>
+        </XStack>
     );
 }
 
@@ -1311,15 +1309,22 @@ function CommentField({
                 value={value}
                 onChangeText={onChange}
                 multiline
-                numberOfLines={4}
                 color={designSystem.colors.foreground}
+                placeholder="Optional notes"
+                // Dropping `numberOfLines` is the real fix: a fixed line count on a
+                // multiline field fought the minHeight, so content spilled past the
+                // frame and the next card overlapped it. minHeight + top alignment +
+                // padding now keep the box sized to its content and text inside it.
+                rounded={designSystem.radii.lg}
+                borderWidth={1}
+                px="$3"
+                py="$3"
+                verticalAlign="top"
                 style={{
                     minHeight: 110,
-                    borderRadius: designSystem.radii.xl,
                     backgroundColor: palette.inner,
                     borderColor: palette.innerBorder,
                 }}
-                placeholder="Optional notes"
             />
         </YStack>
     );
@@ -1605,6 +1610,8 @@ async function confirmChoice(
 
 function FooterNav({
     isSaving,
+    bottomInset,
+    onMeasure,
     onBack,
     onSaveExit,
     onNext,
@@ -1614,6 +1621,8 @@ function FooterNav({
     onExtraAction,
 }: {
     isSaving: boolean;
+    bottomInset: number;
+    onMeasure: (height: number) => void;
     onBack: () => void;
     onSaveExit: () => void;
     onNext: () => void;
@@ -1623,346 +1632,143 @@ function FooterNav({
     onExtraAction?: () => void;
 }) {
     return (
-        <XStack
+        <YStack
             position="absolute"
-            gap="$2.5"
-            flexWrap="wrap"
+            onLayout={(event) => onMeasure(event.nativeEvent.layout.height)}
             style={{
-                left: designSystem.spacing.screenPaddingHorizontal,
-                right: designSystem.spacing.screenPaddingHorizontal,
-                bottom: 20,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: designSystem.colors.background,
+                borderTopWidth: 1,
+                borderTopColor: designSystem.colors.border,
+                paddingHorizontal: designSystem.spacing.screenPaddingHorizontal,
+                paddingTop: 12,
+                paddingBottom: bottomInset + 12,
             }}
         >
-            <Button
-                flex={1}
-                rounded={designSystem.radii.full}
-                bg={designSystem.colors.surfaceMuted}
-                borderWidth={1}
-                borderColor={designSystem.colors.border}
-                pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                onPress={onBack}
-                icon={<ArrowLeft size={16} color={designSystem.colors.foreground} />}
-            >
-                <Button.Text
-                    color={designSystem.colors.foreground}
-                    fontFamily={designSystem.fonts.bodyBold}
+            <XStack gap="$2.5" flexWrap="wrap">
+                <Button
+                    flex={1}
+                    rounded={designSystem.radii.button}
+                    bg={designSystem.colors.surfaceMuted}
+                    borderWidth={1}
+                    borderColor={designSystem.colors.border}
+                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                    onPress={onBack}
+                    icon={<ArrowLeft size={16} color={designSystem.colors.foreground} />}
                 >
-                    Back
-                </Button.Text>
-            </Button>
-            <Button
-                flex={1}
-                rounded={designSystem.radii.full}
-                bg={designSystem.colors.surfaceMuted}
-                borderWidth={1}
-                borderColor={designSystem.colors.border}
-                pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                onPress={onSaveExit}
-                icon={<Save size={16} color={designSystem.colors.foreground} />}
-            >
-                <Button.Text
-                    color={designSystem.colors.foreground}
-                    fontFamily={designSystem.fonts.bodyBold}
-                >
-                    Save & exit
-                </Button.Text>
-            </Button>
-            <Button
-                flex={1}
-                rounded={designSystem.radii.full}
-                borderWidth={1}
-                hoverStyle={{ opacity: 0.96 }}
-                pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                onPress={onNext}
-                disabled={isSaving}
-                style={{
-                    backgroundColor: nextTone.stepText,
-                    borderColor: nextTone.stepText,
-                }}
-            >
-                <XStack items="center" gap="$2">
-                    {isSaving ? (
-                        <Spinner color={designSystem.colors.primaryForeground} size="small" />
-                    ) : (
-                        <ArrowRight size={16} color={designSystem.colors.primaryForeground} />
-                    )}
                     <Button.Text
-                        style={{ color: designSystem.colors.primaryForeground }}
+                        color={designSystem.colors.foreground}
                         fontFamily={designSystem.fonts.bodyBold}
                     >
-                        {nextLabel}
+                        Back
                     </Button.Text>
-                </XStack>
-            </Button>
-            {extraActionLabel && onExtraAction ? (
+                </Button>
                 <Button
-                    flexBasis="100%"
-                    rounded={designSystem.radii.full}
+                    flex={1}
+                    rounded={designSystem.radii.button}
+                    bg={designSystem.colors.surfaceMuted}
+                    borderWidth={1}
+                    borderColor={designSystem.colors.border}
+                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                    onPress={onSaveExit}
+                    icon={<Save size={16} color={designSystem.colors.foreground} />}
+                >
+                    <Button.Text
+                        color={designSystem.colors.foreground}
+                        fontFamily={designSystem.fonts.bodyBold}
+                    >
+                        Save & exit
+                    </Button.Text>
+                </Button>
+                <Button
+                    flex={1}
+                    rounded={designSystem.radii.button}
                     borderWidth={1}
                     hoverStyle={{ opacity: 0.96 }}
                     pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                    onPress={onExtraAction}
+                    onPress={onNext}
+                    disabled={isSaving}
                     style={{
-                        backgroundColor: nextTone.stepSurface,
-                        borderColor: nextTone.stepBorder,
+                        backgroundColor: nextTone.stepText,
+                        borderColor: nextTone.stepText,
                     }}
                 >
-                    <Button.Text
-                        style={{ color: nextTone.stepText }}
-                        fontFamily={designSystem.fonts.bodyBold}
-                    >
-                        {extraActionLabel}
-                    </Button.Text>
+                    <XStack items="center" gap="$2">
+                        {isSaving ? (
+                            <Spinner color={designSystem.colors.primaryForeground} size="small" />
+                        ) : (
+                            <ArrowRight size={16} color={designSystem.colors.primaryForeground} />
+                        )}
+                        <Button.Text
+                            style={{ color: designSystem.colors.primaryForeground }}
+                            fontFamily={designSystem.fonts.bodyBold}
+                        >
+                            {nextLabel}
+                        </Button.Text>
+                    </XStack>
                 </Button>
-            ) : null}
-        </XStack>
+                {extraActionLabel && onExtraAction ? (
+                    <Button
+                        flexBasis="100%"
+                        rounded={designSystem.radii.button}
+                        borderWidth={1}
+                        hoverStyle={{ opacity: 0.96 }}
+                        pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                        onPress={onExtraAction}
+                        style={{
+                            backgroundColor: nextTone.stepSurface,
+                            borderColor: nextTone.stepBorder,
+                        }}
+                    >
+                        <Button.Text
+                            style={{ color: nextTone.stepText }}
+                            fontFamily={designSystem.fonts.bodyBold}
+                        >
+                            {extraActionLabel}
+                        </Button.Text>
+                    </Button>
+                ) : null}
+            </XStack>
+        </YStack>
     );
 }
 
-function getStepTone(step: MobileYeeStepNumber) {
-    switch (step) {
-        case 1:
-            return {
-                surface: designSystem.colors.mintSoft,
-                border: "rgba(71, 203, 175, 0.40)",
-                softSurface: "rgba(157, 220, 207, 0.12)",
-                softBorder: "rgba(157, 220, 207, 0.28)",
-                text: designSystem.colors.primary,
-            };
-        case 2:
-            return {
-                surface: designSystem.colors.skySoft,
-                border: "rgba(74, 119, 200, 0.30)",
-                softSurface: "rgba(223, 233, 251, 0.55)",
-                softBorder: "rgba(123, 158, 217, 0.24)",
-                text: designSystem.colors.info,
-            };
-        case 3:
-            return {
-                surface: "rgba(222, 246, 238, 0.88)",
-                border: "rgba(62, 138, 103, 0.30)",
-                softSurface: "rgba(222, 246, 238, 0.45)",
-                softBorder: "rgba(94, 156, 131, 0.24)",
-                text: designSystem.colors.success,
-            };
-        case 4:
-            return {
-                surface: designSystem.colors.skySoft,
-                border: "rgba(74, 119, 200, 0.24)",
-                softSurface: "rgba(223, 233, 251, 0.52)",
-                softBorder: "rgba(123, 158, 217, 0.22)",
-                text: designSystem.colors.info,
-            };
-        case 5:
-            return {
-                surface: designSystem.colors.amberSoft,
-                border: "rgba(200, 139, 45, 0.28)",
-                softSurface: "rgba(248, 230, 190, 0.56)",
-                softBorder: "rgba(200, 154, 87, 0.24)",
-                text: designSystem.colors.warning,
-            };
-        case 6:
-            return {
-                surface: "rgba(225, 248, 245, 0.9)",
-                border: "rgba(71, 203, 175, 0.28)",
-                softSurface: "rgba(225, 248, 245, 0.52)",
-                softBorder: "rgba(157, 220, 207, 0.24)",
-                text: designSystem.colors.success,
-            };
-        case 7:
-            return {
-                surface: designSystem.colors.roseSoft,
-                border: "rgba(181, 72, 61, 0.22)",
-                softSurface: "rgba(246, 218, 223, 0.52)",
-                softBorder: "rgba(181, 72, 61, 0.18)",
-                text: designSystem.colors.danger,
-            };
-        case 8:
-            return {
-                surface: designSystem.colors.violetSoft,
-                border: "rgba(140, 114, 221, 0.30)",
-                softSurface: "rgba(198, 182, 238, 0.34)",
-                softBorder: "rgba(140, 114, 221, 0.22)",
-                text: designSystem.colors.violet,
-            };
-        case 9:
-        default:
-            return {
-                surface: designSystem.colors.mintSoft,
-                border: "rgba(71, 203, 175, 0.30)",
-                softSurface: "rgba(157, 220, 207, 0.12)",
-                softBorder: "rgba(157, 220, 207, 0.22)",
-                text: designSystem.colors.primary,
-            };
-    }
+// Unified brand tone for the step pills and progress chip. The active step reads
+// as a soft green chip; inactive steps stay neutral so the wizard no longer uses
+// a different hue per section.
+function getStepTone(_step: MobileYeeStepNumber) {
+    return {
+        surface: designSystem.colors.primarySoft,
+        border: "rgba(16, 35, 31, 0.16)",
+        softSurface: designSystem.colors.surfaceMuted,
+        softBorder: designSystem.colors.border,
+        text: designSystem.colors.primary,
+    };
 }
 
-function getSurveyPalette(step: MobileYeeStepNumber): SurveyPalette {
-    switch (step) {
-        case 1:
-            return {
-                card: "#F2F6FA",
-                cardBorder: "#C9D8E5",
-                inner: "#FFFFFF",
-                innerBorder: "#B8D0E5",
-                selected: "#7F9CB8",
-                selectedBorder: "#6C88A4",
-                intro: "#7F9CB8",
-                introBorder: "#B8D0E5",
-                accent: "#29465F",
-                mutedAccent: "#49657D",
-                progress: "#EEF5FB",
-                progressTrack: "#D8E7F3",
-                stepSurface: "#E4EEF8",
-                stepBorder: "#9EB8D2",
-                stepText: "#29465F",
-            };
-        case 2:
-            return {
-                card: "#FFF8F4",
-                cardBorder: "#F0D0BE",
-                inner: "#FFFDFB",
-                innerBorder: "#E8C3AF",
-                selected: "#DEA882",
-                selectedBorder: "#C98F68",
-                intro: "#DEA882",
-                introBorder: "#EFCEBB",
-                accent: "#7A4B2A",
-                mutedAccent: "#8D5A38",
-                progress: "#FFF3EA",
-                progressTrack: "#F8E0D2",
-                stepSurface: "#FBE9DD",
-                stepBorder: "#E3B89B",
-                stepText: "#7A4B2A",
-            };
-        case 3:
-            return {
-                card: "#EFF8F4",
-                cardBorder: "#BCE2CF",
-                inner: "#FFFFFF",
-                innerBorder: "#B3D8C7",
-                selected: "#57B894",
-                selectedBorder: "#409E7A",
-                intro: "#57B894",
-                introBorder: "#8DD3B4",
-                accent: "#145B43",
-                mutedAccent: "#2D7259",
-                progress: "#E9F6F0",
-                progressTrack: "#CFE9DC",
-                stepSurface: "#E3F4ED",
-                stepBorder: "#9FCDB7",
-                stepText: "#145B43",
-            };
-        case 4:
-            return {
-                card: "#F0F6FF",
-                cardBorder: "#C8DBF3",
-                inner: "#FFFFFF",
-                innerBorder: "#BDD3EE",
-                selected: "#7B9ED9",
-                selectedBorder: "#668CC8",
-                intro: "#7B9ED9",
-                introBorder: "#B7CDEF",
-                accent: "#274F90",
-                mutedAccent: "#4A6DA8",
-                progress: "#ECF3FD",
-                progressTrack: "#D4E2F8",
-                stepSurface: "#E5EEFC",
-                stepBorder: "#AFC7EA",
-                stepText: "#274F90",
-            };
-        case 5:
-            return {
-                card: "#FFF8EE",
-                cardBorder: "#F0D9A9",
-                inner: "#FFFFFF",
-                innerBorder: "#E8CE98",
-                selected: "#E5AE47",
-                selectedBorder: "#C99232",
-                intro: "#E5AE47",
-                introBorder: "#F4D389",
-                accent: "#8B5B08",
-                mutedAccent: "#9D6A1A",
-                progress: "#FFF4E2",
-                progressTrack: "#F7E0B4",
-                stepSurface: "#FBEFCC",
-                stepBorder: "#E9CB7B",
-                stepText: "#8B5B08",
-            };
-        case 6:
-            return {
-                card: "#EEF9F7",
-                cardBorder: "#BFE8E2",
-                inner: "#FFFFFF",
-                innerBorder: "#B5DDD8",
-                selected: "#58BBB2",
-                selectedBorder: "#409D95",
-                intro: "#58BBB2",
-                introBorder: "#95E1DA",
-                accent: "#155E63",
-                mutedAccent: "#32747A",
-                progress: "#E7F8F6",
-                progressTrack: "#CBEAE7",
-                stepSurface: "#DDF4F2",
-                stepBorder: "#99D7D2",
-                stepText: "#155E63",
-            };
-        case 7:
-            return {
-                card: "#FFF3F7",
-                cardBorder: "#F2C6D5",
-                inner: "#FFFFFF",
-                innerBorder: "#E7B9CB",
-                selected: "#DE7CAB",
-                selectedBorder: "#C66293",
-                intro: "#DE7CAB",
-                introBorder: "#F0B6D0",
-                accent: "#8B2452",
-                mutedAccent: "#A03A66",
-                progress: "#FEEBF2",
-                progressTrack: "#F2C9DB",
-                stepSurface: "#FCE5EE",
-                stepBorder: "#E8B1C9",
-                stepText: "#8B2452",
-            };
-        case 8:
-            return {
-                card: "#F7F2FF",
-                cardBorder: "#D7C9F3",
-                inner: "#FFFFFF",
-                innerBorder: "#D0C0EF",
-                selected: "#9D7FE8",
-                selectedBorder: "#8666D4",
-                intro: "#9D7FE8",
-                introBorder: "#CCB2FF",
-                accent: "#4F2EA7",
-                mutedAccent: "#6847BB",
-                progress: "#F2EDFF",
-                progressTrack: "#DED0F8",
-                stepSurface: "#EEE7FF",
-                stepBorder: "#C7B0F2",
-                stepText: "#4F2EA7",
-            };
-        case 9:
-        default:
-            return {
-                card: "#EEF7F1",
-                cardBorder: "#C0E0CD",
-                inner: "#FFFFFF",
-                innerBorder: "#B2D4C0",
-                selected: "#57B894",
-                selectedBorder: "#409E7A",
-                intro: "#57B894",
-                introBorder: "#8DD3B4",
-                accent: "#145B43",
-                mutedAccent: "#2D7259",
-                progress: "#E7F5EC",
-                progressTrack: "#CBE4D5",
-                stepSurface: "#DFF1E7",
-                stepBorder: "#9FCDB7",
-                stepText: "#145B43",
-            };
-    }
+// Single brand survey palette shared by every step. Domain colour is expressed
+// through structure (cards, the active step pill, progress) rather than a unique
+// hue per section, keeping the wizard calm and on-brand (green on cream).
+function getSurveyPalette(_step: MobileYeeStepNumber): SurveyPalette {
+    return {
+        card: designSystem.colors.surface,
+        cardBorder: designSystem.colors.border,
+        inner: designSystem.colors.input,
+        innerBorder: designSystem.colors.border,
+        selected: designSystem.colors.primary,
+        selectedBorder: designSystem.colors.primary,
+        intro: designSystem.colors.successSoft,
+        introBorder: designSystem.colors.border,
+        accent: designSystem.colors.primary,
+        mutedAccent: designSystem.colors.secondaryForeground,
+        progress: designSystem.colors.surfaceMuted,
+        progressTrack: designSystem.colors.mutedSurface,
+        stepSurface: designSystem.colors.primarySoft,
+        stepBorder: designSystem.colors.border,
+        stepText: designSystem.colors.primary,
+    };
 }
 
 function estimateMinutes(auditDate: string, startTime: string, now: Date): number {

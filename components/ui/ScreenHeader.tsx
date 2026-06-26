@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { Paragraph, Text, XStack, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { XStack, YStack } from "tamagui";
+import { useDesignSystem } from "lib/design-system";
+import { ScaledParagraph as Paragraph, ScaledText as Text } from "./ScaledText";
 
 export interface ScreenHeaderProps {
     readonly title: string;
@@ -19,6 +20,7 @@ export interface ScreenHeaderProps {
  * @returns A screen header layout.
  */
 export function ScreenHeader({ title, eyebrow, subtitle, trailing }: ScreenHeaderProps) {
+    const designSystem = useDesignSystem();
     return (
         <XStack justify="space-between" items="flex-start" gap="$3">
             <YStack flex={1} gap="$1.5">

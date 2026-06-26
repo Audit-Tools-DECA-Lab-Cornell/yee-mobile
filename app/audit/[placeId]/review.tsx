@@ -1,4 +1,5 @@
 import { Alert, Platform, ScrollView } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { PropsWithChildren } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -64,6 +65,8 @@ export default function AuditReviewScreen() {
     const router = useRouter();
     const params = useLocalSearchParams<{ placeId?: string }>();
     const scrollViewRef = useRef<ScrollView>(null);
+    const insets = useSafeAreaInsets();
+    const [footerHeight, setFooterHeight] = useState(0);
     const placeId = typeof params.placeId === "string" ? params.placeId : "";
     const session = useAuthStore((state) => state.session);
     const {
@@ -440,7 +443,7 @@ export default function AuditReviewScreen() {
                 contentContainerStyle={{
                     paddingHorizontal: designSystem.spacing.screenPaddingHorizontal,
                     paddingTop: designSystem.spacing.screenPaddingVertical,
-                    paddingBottom: 150,
+                    paddingBottom: (footerHeight > 0 ? footerHeight : 96) + 24,
                     gap: 18,
                 }}
             >
@@ -452,7 +455,7 @@ export default function AuditReviewScreen() {
                         textTransform="uppercase"
                         letterSpacing={1.5}
                     >
-                        audit/{placeId}
+                        {draft.placeName || "Audit"}
                     </Paragraph>
                     <Text
                         color={designSystem.colors.foreground}
@@ -605,7 +608,7 @@ export default function AuditReviewScreen() {
                                     answered
                                 </Paragraph>
                                 <Button
-                                    rounded={designSystem.radii.full}
+                                    rounded={designSystem.radii.button}
                                     borderWidth={1}
                                     style={{
                                         backgroundColor: theme.accent,
@@ -678,7 +681,7 @@ export default function AuditReviewScreen() {
 
                 <SectionCard title="Score preview">
                     <SummaryRow
-                        label="Current preview"
+                        label="Estimated score"
                         value={
                             scorePreview === null
                                 ? isOnline
@@ -687,10 +690,6 @@ export default function AuditReviewScreen() {
                                 : `${scorePreview}%`
                         }
                     />
-                    <Paragraph color={designSystem.colors.mutedForeground}>
-                        This uses the same scoring logic as the website whenever the device is
-                        online.
-                    </Paragraph>
                 </SectionCard>
 
                 {errorMessage === null ? null : (
@@ -700,58 +699,69 @@ export default function AuditReviewScreen() {
                 )}
             </ScrollView>
 
-            <XStack
+            <YStack
                 position="absolute"
-                gap="$2.5"
+                onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
                 style={{
-                    left: designSystem.spacing.screenPaddingHorizontal,
-                    right: designSystem.spacing.screenPaddingHorizontal,
-                    bottom: 20,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: designSystem.colors.background,
+                    borderTopWidth: 1,
+                    borderTopColor: designSystem.colors.border,
+                    paddingHorizontal: designSystem.spacing.screenPaddingHorizontal,
+                    paddingTop: 12,
+                    paddingBottom: insets.bottom + 12,
                 }}
             >
-                <Button
-                    flex={1}
-                    rounded={designSystem.radii.full}
-                    bg={designSystem.colors.surfaceMuted}
-                    borderWidth={1}
-                    borderColor={designSystem.colors.border}
-                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                    onPress={() => router.push(`/audit/${placeId}/9`)}
-                    icon={<ArrowLeft size={16} color={designSystem.colors.foreground} />}
-                >
-                    <Button.Text
-                        color={designSystem.colors.foreground}
-                        fontFamily={designSystem.fonts.bodyBold}
+                <XStack gap="$2.5">
+                    <Button
+                        flex={1}
+                        rounded={designSystem.radii.button}
+                        bg={designSystem.colors.surfaceMuted}
+                        borderWidth={1}
+                        borderColor={designSystem.colors.border}
+                        pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                        onPress={() => router.push(`/audit/${placeId}/9`)}
+                        icon={<ArrowLeft size={16} color={designSystem.colors.foreground} />}
                     >
-                        Back
-                    </Button.Text>
-                </Button>
-                <Button
-                    flex={1}
-                    rounded={designSystem.radii.full}
-                    bg={designSystem.colors.primary}
-                    borderWidth={1}
-                    borderColor={designSystem.colors.primary}
-                    disabled={submitDisabled}
-                    opacity={submitDisabled ? 0.6 : 1}
-                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                    onPress={() => void submitNow()}
-                >
-                    <XStack items="center" gap="$2">
-                        {isSubmitting ? (
-                            <Spinner color={designSystem.colors.primaryForeground} size="small" />
-                        ) : (
-                            <Send size={16} color={designSystem.colors.primaryForeground} />
-                        )}
                         <Button.Text
-                            color={designSystem.colors.primaryForeground}
+                            color={designSystem.colors.foreground}
                             fontFamily={designSystem.fonts.bodyBold}
                         >
-                            {submitActionLabel(submitStatus, isSubmitting)}
+                            Back
                         </Button.Text>
-                    </XStack>
-                </Button>
-            </XStack>
+                    </Button>
+                    <Button
+                        flex={1}
+                        rounded={designSystem.radii.button}
+                        bg={designSystem.colors.primary}
+                        borderWidth={1}
+                        borderColor={designSystem.colors.primary}
+                        disabled={submitDisabled}
+                        opacity={submitDisabled ? 0.6 : 1}
+                        pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                        onPress={() => void submitNow()}
+                    >
+                        <XStack items="center" gap="$2">
+                            {isSubmitting ? (
+                                <Spinner
+                                    color={designSystem.colors.primaryForeground}
+                                    size="small"
+                                />
+                            ) : (
+                                <Send size={16} color={designSystem.colors.primaryForeground} />
+                            )}
+                            <Button.Text
+                                color={designSystem.colors.primaryForeground}
+                                fontFamily={designSystem.fonts.bodyBold}
+                            >
+                                {submitActionLabel(submitStatus, isSubmitting)}
+                            </Button.Text>
+                        </XStack>
+                    </Button>
+                </XStack>
+            </YStack>
         </YStack>
     );
 }
@@ -845,7 +855,7 @@ function submitStatusCopy(status: SubmitUiStatus): SubmitStatusCopy | null {
             return {
                 title: "Upload failed",
                 message:
-                    "The backend could not accept this submission. The audit is still saved locally — tap to retry or contact support if it keeps failing.",
+                    "Upload failed. Your audit is still saved on this device — tap to retry or contact support if the issue persists.",
                 tone: "danger",
             };
         case "submitted":
@@ -1036,7 +1046,7 @@ function StepJumpButton({
     const theme = getReviewThemeByStep(step);
     return (
         <Button
-            rounded={designSystem.radii.full}
+            rounded={designSystem.radii.button}
             borderWidth={1}
             px="$3.5"
             py="$2.5"
@@ -1069,7 +1079,7 @@ function ActionButton({
     const primary = tone === "primary";
     return (
         <Button
-            rounded={designSystem.radii.full}
+            rounded={designSystem.radii.button}
             borderWidth={1}
             disabled={disabled}
             hoverStyle={{ opacity: 0.96 }}
@@ -1172,28 +1182,15 @@ function getStepForDomain(domain: MobileYeeDomainKey): MobileYeeStepNumber {
     }
 }
 
-function getReviewThemeByStep(step: MobileYeeStepNumber) {
-    switch (step) {
-        case 1:
-            return { accent: "#29465F", soft: "#E9F1F8", border: "#B9D0E3" };
-        case 2:
-            return { accent: "#7A4B2A", soft: "#FBEDE3", border: "#E7C6B3" };
-        case 3:
-            return { accent: "#145B43", soft: "#E7F4ED", border: "#B9DCCB" };
-        case 4:
-            return { accent: "#274F90", soft: "#EAF1FB", border: "#C0D3EF" };
-        case 5:
-            return { accent: "#8B5B08", soft: "#FBF2DA", border: "#E8D29A" };
-        case 6:
-            return { accent: "#155E63", soft: "#E7F6F5", border: "#BFE3E0" };
-        case 7:
-            return { accent: "#8B2452", soft: "#FBEAF1", border: "#EDBED0" };
-        case 8:
-            return { accent: "#4F2EA7", soft: "#F0EAFF", border: "#D5C5F5" };
-        case 9:
-        default:
-            return { accent: "#145B43", soft: "#E7F4ED", border: "#B9DCCB" };
-    }
+// Unified brand theme for every review section. Sections are differentiated by
+// their heading and order, not by a unique colour, so the page reads as one calm
+// green/cream system instead of a rainbow of section tints.
+function getReviewThemeByStep(_step: MobileYeeStepNumber) {
+    return {
+        accent: designSystem.colors.primary,
+        soft: designSystem.colors.primarySoft,
+        border: designSystem.colors.border,
+    };
 }
 
 function getReviewTheme(domain: MobileYeeDomainKey) {

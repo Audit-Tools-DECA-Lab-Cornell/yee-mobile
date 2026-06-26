@@ -1,8 +1,9 @@
 import "../tamagui.generated.css";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Appearance } from "react-native";
 import NetInfo from "@react-native-community/netinfo";
-import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { useFonts } from "expo-font";
 import {
     Geist_400Regular,
@@ -26,8 +27,9 @@ import {
 } from "@expo-google-fonts/space-grotesk";
 import { StatusBar } from "expo-status-bar";
 import { Provider } from "components/Provider";
-import { designSystem } from "lib/design-system";
+import { useDesignSystem, type ColorTokens } from "lib/design-system";
 import { useAuthStore } from "stores/auth-store";
+import { usePreferencesStore, type ResolvedTheme } from "stores/preferences-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 export { ErrorBoundary } from "expo-router";
@@ -43,18 +45,32 @@ export const unstable_settings = {
  */
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-const navigationTheme = {
-    ...DefaultTheme,
-    colors: {
-        ...DefaultTheme.colors,
-        background: designSystem.colors.background,
-        card: designSystem.colors.surface,
-        primary: designSystem.colors.primary,
-        text: designSystem.colors.foreground,
-        border: designSystem.colors.border,
-        notification: designSystem.colors.primary,
-    },
-};
+// Load saved display preferences synchronously before first paint so the app
+// opens directly in the auditor's chosen theme without a flash.
+usePreferencesStore.getState().hydrate();
+
+/**
+ * Build a React Navigation theme from the active palette.
+ *
+ * @param colors Active color tokens.
+ * @param scheme Resolved light or dark theme.
+ * @returns Navigation theme matching the app palette.
+ */
+function buildNavigationTheme(colors: ColorTokens, scheme: ResolvedTheme) {
+    const base = scheme === "dark" ? DarkTheme : DefaultTheme;
+    return {
+        ...base,
+        colors: {
+            ...base.colors,
+            background: colors.background,
+            card: colors.surface,
+            primary: colors.primary,
+            text: colors.foreground,
+            border: colors.border,
+            notification: colors.primary,
+        },
+    };
+}
 
 /**
  * Root app layout that mounts providers and tab routes.
@@ -76,6 +92,8 @@ export default function RootLayout() {
         "JetBrainsMono-Medium": JetBrainsMono_500Medium,
         "JetBrainsMono-SemiBold": JetBrainsMono_600SemiBold,
         "JetBrainsMono-Bold": JetBrainsMono_700Bold,
+        "OpenDyslexic-Regular": require("../assets/fonts/OpenDyslexic-Regular.ttf"),
+        "OpenDyslexic-Bold": require("../assets/fonts/OpenDyslexic-Bold.ttf"),
     });
     const canRenderApp = fontsLoaded || Boolean(fontError) || startupFallbackElapsed;
 
@@ -130,11 +148,28 @@ function RootLayoutNav() {
     const syncPendingQueue = useYeeMobileStore((state) => state.syncPendingQueue);
     const setConnectivityState = useYeeMobileStore((state) => state.setConnectivityState);
     const isOnline = useYeeMobileStore((state) => state.isOnline);
+    const resolvedTheme = usePreferencesStore((state) => state.resolvedTheme);
+    const syncSystemTheme = usePreferencesStore((state) => state.syncSystemTheme);
+    const designSystem = useDesignSystem();
+    const navigationTheme = useMemo(
+        () => buildNavigationTheme(designSystem.colors, resolvedTheme),
+        [designSystem.colors, resolvedTheme],
+    );
 
     useEffect(() => {
         void initializeAuth();
         void hydrateOfflineState();
     }, [hydrateOfflineState, initializeAuth]);
+
+    useEffect(() => {
+        const subscription = Appearance.addChangeListener(() => {
+            syncSystemTheme();
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [syncSystemTheme]);
 
     useEffect(() => {
         const unsubscribe = NetInfo.addEventListener((state) => {
@@ -193,7 +228,7 @@ function RootLayoutNav() {
 
     return (
         <ThemeProvider value={navigationTheme}>
-            <StatusBar style="dark" />
+            <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
             <Stack
                 screenOptions={{
                     contentStyle: {
@@ -209,6 +244,12 @@ function RootLayoutNav() {
                 />
                 <Stack.Screen
                     name="(tabs)"
+                    options={{
+                        headerShown: false,
+                    }}
+                />
+                <Stack.Screen
+                    name="settings"
                     options={{
                         headerShown: false,
                     }}

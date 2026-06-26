@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { Input, Paragraph, XStack, YStack, type InputProps } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { Input, XStack, YStack, type InputProps } from "tamagui";
+import { useDesignSystem } from "lib/design-system";
+import { ScaledParagraph as Paragraph } from "./ScaledText";
 
 export interface FieldProps {
     readonly label: string;
@@ -20,6 +21,7 @@ export interface FieldProps {
  * @returns A vertical field group.
  */
 export function Field({ label, labelAccessory, hint, hasError = false, children }: FieldProps) {
+    const designSystem = useDesignSystem();
     return (
         <YStack gap="$2">
             <XStack justify="space-between" items="center" px="$1">
@@ -69,6 +71,7 @@ export interface FieldInputProps extends InputProps {
  * @returns A themed input row.
  */
 export function FieldInput({ leadingIcon, trailingAccessory, ...rest }: FieldInputProps) {
+    const designSystem = useDesignSystem();
     return (
         <XStack
             items="center"

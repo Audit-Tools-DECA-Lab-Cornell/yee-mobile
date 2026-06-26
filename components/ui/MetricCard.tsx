@@ -1,6 +1,7 @@
-import { Paragraph, Text, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { YStack } from "tamagui";
+import { useDesignSystem } from "lib/design-system";
 import type { DesignTone } from "lib/design-system";
+import { ScaledParagraph as Paragraph, ScaledText as Text } from "./ScaledText";
 
 export interface MetricCardProps {
     readonly label: string;
@@ -21,6 +22,7 @@ export interface MetricCardProps {
  * @returns A metric tile surface.
  */
 export function MetricCard({ label, value, caption, tone }: MetricCardProps) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             flex={1}
@@ -42,7 +44,7 @@ export function MetricCard({ label, value, caption, tone }: MetricCardProps) {
                 {label}
             </Paragraph>
             <Text
-                color={tone?.text ?? designSystem.colors.foreground}
+                style={{ color: tone?.text ?? designSystem.colors.foreground }}
                 fontFamily={designSystem.fonts.headingBold}
                 fontSize={24}
                 lineHeight={28}

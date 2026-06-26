@@ -77,6 +77,16 @@ function parseArgs(argv) {
         index += 1;
     }
 
+    if (options.email === null || options.password === null) {
+        loadEnvFiles();
+    }
+    if (options.email === null && typeof process.env.SCREENSHOT_EMAIL === "string") {
+        options.email = normalizeEmail(process.env.SCREENSHOT_EMAIL);
+    }
+    if (options.password === null && typeof process.env.SCREENSHOT_PASSWORD === "string") {
+        options.password = process.env.SCREENSHOT_PASSWORD || null;
+    }
+
     if (options.device !== null && !TARGET_DEVICE_TYPES.includes(options.device)) {
         throw new Error('--device must be "iphone" or "ipad".');
     }
@@ -100,8 +110,8 @@ Options:
   --api-base-url URL   Backend used only to resolve place/report IDs. Default: ${DEFAULT_API_BASE_URL}
   --appearance VALUE   light or dark. Omit to capture both appearances in sequence. Default: both
   --device VALUE       iphone or ipad. Omit to capture every booted simulator. Default: all booted
-  --email VALUE        Screenshot auditor email
-  --password VALUE     Screenshot auditor password
+  --email VALUE        Screenshot auditor email (or set SCREENSHOT_EMAIL in .env.local / .env)
+  --password VALUE     Screenshot auditor password (or set SCREENSHOT_PASSWORD in .env.local / .env)
   --login-wait-ms N    Extra wait after the first login target. Default: ${DEFAULT_LOGIN_WAIT_MS}
   --output-dir PATH    Output directory. Default: screenshots/<device>/<appearance>
   --scheme VALUE       App URL scheme. Default: ${DEFAULT_SCHEME}
@@ -110,6 +120,34 @@ Options:
   --wait-ms VALUE      Delay after each deep link before capture. Default: ${DEFAULT_WAIT_MS}
   --no-reset           Keep the existing app auth session between targets
 `);
+}
+
+/**
+ * Load screenshot credentials from local env files when CLI flags are omitted.
+ *
+ * Existing values win so explicit shell variables and `.env.local` stay higher
+ * priority than `.env`.
+ */
+function loadEnvFiles() {
+    if (typeof process.loadEnvFile !== "function") {
+        return;
+    }
+
+    for (const file of [".env.local", ".env"]) {
+        const existingEmail = process.env.SCREENSHOT_EMAIL;
+        const existingPassword = process.env.SCREENSHOT_PASSWORD;
+        try {
+            process.loadEnvFile(path.resolve(file));
+        } catch {
+            continue;
+        }
+        if (typeof existingEmail === "string") {
+            process.env.SCREENSHOT_EMAIL = existingEmail;
+        }
+        if (typeof existingPassword === "string") {
+            process.env.SCREENSHOT_PASSWORD = existingPassword;
+        }
+    }
 }
 
 function normalizeEmail(value) {

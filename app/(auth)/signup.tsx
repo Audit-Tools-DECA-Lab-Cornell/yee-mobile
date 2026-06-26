@@ -2,14 +2,16 @@ import { useCallback, useRef } from "react";
 import { ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowLeft, ShieldAlert } from "components/icons";
-import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { Button, XStack, YStack } from "tamagui";
+import { ScaledParagraph as Paragraph, ScaledText as Text } from "components/ui";
+import { useDesignSystem } from "lib/design-system";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 
 /**
  * Signup route shares auditor access setup guidance.
  */
 export default function SignupScreen() {
+    const designSystem = useDesignSystem();
     const router = useRouter();
     const scrollViewRef = useRef<ScrollView>(null);
     const scrollToOffset = useCallback((offset: number) => {

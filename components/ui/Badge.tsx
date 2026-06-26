@@ -1,6 +1,7 @@
-import { Text, XStack, type XStackProps } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { XStack, type XStackProps } from "tamagui";
+import { useDesignSystem } from "lib/design-system";
 import type { DesignTone } from "lib/design-system";
+import { ScaledText } from "./ScaledText";
 
 export interface BadgeProps extends XStackProps {
     /** Label rendered inside the badge. */
@@ -11,12 +12,6 @@ export interface BadgeProps extends XStackProps {
     readonly uppercase?: boolean;
 }
 
-const PRIMARY_TONE: DesignTone = {
-    accent: designSystem.colors.primary,
-    surface: designSystem.colors.primarySoft,
-    text: designSystem.colors.primary,
-};
-
 /**
  * Pill-shaped status indicator backed by a {@link DesignTone}.
  *
@@ -26,23 +21,30 @@ const PRIMARY_TONE: DesignTone = {
  * @param props Badge props including `label`, `tone`, and `uppercase`.
  * @returns A themed pill element.
  */
-export function Badge({ label, tone = PRIMARY_TONE, uppercase = true, ...rest }: BadgeProps) {
+export function Badge({ label, tone, uppercase = true, ...rest }: BadgeProps) {
+    const designSystem = useDesignSystem();
+    const resolvedTone: DesignTone = tone ?? {
+        accent: designSystem.colors.primary,
+        surface: designSystem.colors.primarySoft,
+        text: designSystem.colors.primary,
+    };
+
     return (
         <XStack
             rounded={designSystem.radii.full}
             px="$3"
             py="$1"
-            style={{ backgroundColor: tone.surface, alignSelf: "flex-start" }}
+            style={{ backgroundColor: resolvedTone.surface, alignSelf: "flex-start" }}
             {...rest}
         >
-            <Text
-                style={{ color: tone.text }}
+            <ScaledText
+                style={{ color: resolvedTone.text }}
                 fontFamily={designSystem.fonts.bodyBold}
                 fontSize={uppercase ? 10 : 12}
                 {...(uppercase ? { textTransform: "uppercase", letterSpacing: 1.2 } : null)}
             >
                 {label}
-            </Text>
+            </ScaledText>
         </XStack>
     );
 }

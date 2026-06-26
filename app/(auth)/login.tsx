@@ -2,8 +2,9 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowRight, Check, Eye, EyeOff, KeyRound, UserRound } from "components/icons";
-import { Button, Checkbox, Input, Paragraph, Text, XStack, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { Button, Checkbox, Input, XStack, YStack } from "tamagui";
+import { ScaledParagraph as Paragraph, ScaledText as Text } from "components/ui";
+import { useDesignSystem } from "lib/design-system";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
@@ -14,6 +15,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * Login screen for YEE mobile.
  */
 export default function LoginScreen() {
+    const designSystem = useDesignSystem();
     const router = useRouter();
     const scrollViewRef = useRef<ScrollView>(null);
     const login = useAuthStore((state) => state.login);
@@ -122,8 +124,7 @@ export default function LoginScreen() {
                             fontSize={17}
                             lineHeight={28}
                         >
-                            Continue your auditor fieldwork with a calmer, offline-friendly mobile
-                            flow.
+                            Sign in to access your assigned places and start auditing.
                         </Paragraph>
                     </YStack>
 
@@ -153,8 +154,7 @@ export default function LoginScreen() {
                                     fontSize={16}
                                     lineHeight={25}
                                 >
-                                    Use your verified YEE account to continue into the correct
-                                    onboarding step or dashboard.
+                                    Enter your YEE auditor credentials to continue.
                                 </Paragraph>
                             </YStack>
                         </YStack>
@@ -176,15 +176,15 @@ export default function LoginScreen() {
                             </Paragraph>
                             <ChecklistRow
                                 done={hasOfflineLoginCredentials}
-                                label="Offline sign-in has been saved from a previous successful login"
+                                label="Sign-in saved for offline use"
                             />
                             <ChecklistRow
                                 done={hasCachedAssignedPlaces}
-                                label="Assigned places are cached for field access"
+                                label="Assigned places available offline"
                             />
                             <ChecklistRow
                                 done={hasCachedInstrument}
-                                label="The YEE survey instrument is cached for offline scoring"
+                                label="Survey instrument ready offline"
                             />
                             <Paragraph
                                 color={designSystem.colors.mutedForeground}
@@ -195,8 +195,8 @@ export default function LoginScreen() {
                                 {hasOfflineLoginCredentials &&
                                 hasCachedAssignedPlaces &&
                                 hasCachedInstrument
-                                    ? "This device is already prepared for offline field work."
-                                    : "Complete one successful online login and sync so this device is fully ready before going offline."}
+                                    ? "This device is ready for offline field work."
+                                    : "Sign in once while online to prepare this device for offline use."}
                             </Paragraph>
                         </YStack>
 
@@ -347,7 +347,7 @@ export default function LoginScreen() {
 
                         <Button
                             height={56}
-                            rounded={designSystem.radii.full}
+                            rounded={designSystem.radii.button}
                             borderWidth={0}
                             bg={designSystem.colors.primary}
                             disabled={!canSubmit}
@@ -405,6 +405,7 @@ export default function LoginScreen() {
 }
 
 function ChecklistRow({ done, label }: { done: boolean; label: string }) {
+    const designSystem = useDesignSystem();
     return (
         <XStack items="flex-start" gap="$2.5">
             <YStack

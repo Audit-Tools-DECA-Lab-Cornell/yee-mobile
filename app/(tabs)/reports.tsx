@@ -2,8 +2,9 @@ import { useCallback, useMemo, useRef } from "react";
 import { ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { FileBarChart, TriangleAlert } from "components/icons";
-import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { Button, XStack, YStack } from "tamagui";
+import { ScaledParagraph as Paragraph, ScaledText as Text } from "components/ui";
+import { useDesignSystem } from "lib/design-system";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import {
     averageSubmittedScore,
@@ -20,6 +21,7 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
  * Reports tab backed by synced YEE submissions.
  */
 export default function ReportsScreen() {
+    const designSystem = useDesignSystem();
     const router = useRouter();
     const scrollViewRef = useRef<ScrollView>(null);
     const selectedPlaceId = useSelectionStore((state) => state.selectedPlaceId);
@@ -73,24 +75,22 @@ export default function ReportsScreen() {
                         color={designSystem.colors.mutedForeground}
                         fontFamily={designSystem.fonts.bodyMedium}
                     >
-                        Backend-submitted reports and device-saved queued reports appear together
-                        here. Open any report to confirm field answers right away, even before an
-                        upload finishes.
+                        View submitted audit results for your assigned places.
                     </Paragraph>
                 </YStack>
 
                 <XStack gap="$3">
                     <MetricCard
-                        label="Average raw score"
+                        label="Average score"
                         value={`${averageScore}%`}
                         accentColor={designSystem.colors.primary}
-                        helperText="Across backend-synced reports"
+                        helperText="Across all reports"
                     />
                     <MetricCard
-                        label="Top synced score"
+                        label="Top score"
                         value={topSubmission === null ? "--" : `${topSubmission.total_score}%`}
                         accentColor={designSystem.colors.success}
-                        helperText={topSubmission?.place_name ?? "No synced report yet"}
+                        helperText={topSubmission?.place_name ?? "No reports yet"}
                     />
                 </XStack>
             </YStack>
@@ -115,8 +115,7 @@ export default function ReportsScreen() {
                         color={designSystem.colors.mutedForeground}
                         fontFamily={designSystem.fonts.bodyMedium}
                     >
-                        Submitted backend reports and device-saved queued reports will appear here
-                        once the auditor completes an audit.
+                        Reports will appear here after you submit an audit.
                     </Paragraph>
                 </YStack>
             ) : (
@@ -197,7 +196,7 @@ export default function ReportsScreen() {
                             </YStack>
                         </YStack>
                         <Button
-                            rounded={designSystem.radii.full}
+                            rounded={designSystem.radii.button}
                             bg={designSystem.colors.primary}
                             borderWidth={1}
                             borderColor={designSystem.colors.primary}
@@ -297,7 +296,7 @@ export default function ReportsScreen() {
                                         />
                                     </YStack>
                                     <Button
-                                        rounded={designSystem.radii.full}
+                                        rounded={designSystem.radii.button}
                                         bg={designSystem.colors.surfaceMuted}
                                         borderWidth={1}
                                         borderColor={designSystem.colors.border}
@@ -323,35 +322,21 @@ export default function ReportsScreen() {
             <YStack
                 rounded={designSystem.radii.lg}
                 borderWidth={1}
-                borderColor={designSystem.colors.warning}
-                bg={designSystem.colors.warningSoft}
+                borderColor={designSystem.colors.border}
+                bg={designSystem.colors.surfaceMuted}
                 p="$4"
-                gap="$3"
+                gap="$2"
             >
-                <XStack items="flex-start" gap="$2.5" width="100%">
-                    <TriangleAlert size={16} color={designSystem.colors.warning} />
-                    <Text
-                        flex={1}
-                        color={designSystem.colors.warning}
-                        fontFamily={designSystem.fonts.bodyBold}
+                <XStack items="center" gap="$2.5">
+                    <TriangleAlert size={14} color={designSystem.colors.mutedForeground} />
+                    <Paragraph
+                        color={designSystem.colors.secondaryForeground}
+                        fontFamily={designSystem.fonts.bodyMedium}
                         fontSize={13}
-                        textTransform="uppercase"
-                        letterSpacing={1.1}
-                        style={{ flexShrink: 1, lineHeight: 18 }}
                     >
-                        Full comparison reports and export packages remain available in the web
-                        dashboard
-                    </Text>
+                        Comparison reports and exports are available on the web dashboard.
+                    </Paragraph>
                 </XStack>
-                <Paragraph
-                    color={designSystem.colors.secondaryForeground}
-                    fontFamily={designSystem.fonts.bodyMedium}
-                    lineHeight={20}
-                >
-                    Mobile now supports read-only submitted audit reports for field confirmation.
-                    Broader comparison views and exports still live on the browser dashboard for
-                    stakeholder review.
-                </Paragraph>
             </YStack>
         </ScrollView>
     );
@@ -368,6 +353,7 @@ function MetricCard({
     accentColor: string;
     helperText: string;
 }) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             flex={1}

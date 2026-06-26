@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { YStack, type YStackProps } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { useDesignSystem } from "lib/design-system";
 
 /**
  * Visual emphasis applied to a card surface.
@@ -27,6 +27,7 @@ export interface CardProps extends YStackProps {
  * @returns A themed surface container.
  */
 export function Card({ variant = "raised", children, ...rest }: CardProps) {
+    const designSystem = useDesignSystem();
     const backgroundColor =
         variant === "muted" ? designSystem.colors.input : designSystem.colors.surface;
 

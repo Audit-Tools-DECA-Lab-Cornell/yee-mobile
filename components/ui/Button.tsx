@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { Button, Text, XStack, type ButtonProps } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { Button, XStack, type ButtonProps } from "tamagui";
+import { useDesignSystem, type ColorTokens } from "lib/design-system";
+import { ScaledText as Text } from "./ScaledText";
 
 /**
  * Visual hierarchy for an action button.
@@ -30,29 +31,30 @@ interface VariantStyle {
  * Resolve the color treatment for a button variant.
  *
  * @param variant Requested visual hierarchy.
+ * @param colors Active color tokens.
  * @returns Background, border, and text colors for the variant.
  */
-function resolveVariantStyle(variant: AppButtonVariant): VariantStyle {
+function resolveVariantStyle(variant: AppButtonVariant, colors: ColorTokens): VariantStyle {
     if (variant === "primary") {
         return {
-            background: designSystem.colors.primary,
-            borderColor: designSystem.colors.primary,
-            textColor: designSystem.colors.primaryForeground,
+            background: colors.primary,
+            borderColor: colors.primary,
+            textColor: colors.primaryForeground,
         };
     }
 
     if (variant === "secondary") {
         return {
-            background: designSystem.colors.surfaceMuted,
-            borderColor: designSystem.colors.border,
-            textColor: designSystem.colors.foreground,
+            background: colors.surfaceMuted,
+            borderColor: colors.border,
+            textColor: colors.foreground,
         };
     }
 
     return {
         background: "transparent",
         borderColor: "transparent",
-        textColor: designSystem.colors.primary,
+        textColor: colors.primary,
     };
 }
 
@@ -74,12 +76,13 @@ export function AppButton({
     disabled,
     ...rest
 }: AppButtonProps) {
-    const variantStyle = resolveVariantStyle(variant);
+    const designSystem = useDesignSystem();
+    const variantStyle = resolveVariantStyle(variant, designSystem.colors);
 
     return (
         <Button
             height={52}
-            rounded={designSystem.radii.full}
+            rounded={designSystem.radii.button}
             borderWidth={variant === "ghost" ? 0 : 1}
             opacity={disabled === true ? 0.6 : 1}
             disabled={disabled}

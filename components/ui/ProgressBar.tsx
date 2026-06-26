@@ -1,5 +1,5 @@
 import { XStack, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { useDesignSystem } from "lib/design-system";
 
 export interface ProgressBarProps {
     /** Completed fraction in the inclusive range [0, 1]. */
@@ -31,6 +31,7 @@ function clampFraction(value: number): number {
  * @returns A progress track with an accessible status role.
  */
 export function ProgressBar({ value, color, accessibilityLabel }: ProgressBarProps) {
+    const designSystem = useDesignSystem();
     const fraction = clampFraction(value);
     const percent = Math.round(fraction * 100);
 

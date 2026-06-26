@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { Paragraph, Text } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { useDesignSystem } from "lib/design-system";
 import { Card } from "./Card";
+import { ScaledParagraph as Paragraph, ScaledText as Text } from "./ScaledText";
 
 export interface ErrorStateProps {
     readonly title: string;
@@ -19,6 +19,7 @@ export interface ErrorStateProps {
  * @returns A danger-tinted error card with an alert status region.
  */
 export function ErrorState({ title, description, icon, action }: ErrorStateProps) {
+    const designSystem = useDesignSystem();
     return (
         <Card
             variant="flat"

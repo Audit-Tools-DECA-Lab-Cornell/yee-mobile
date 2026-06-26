@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { Paragraph, Text, XStack, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { XStack, YStack } from "tamagui";
+import { useDesignSystem } from "lib/design-system";
+import { ScaledParagraph as Paragraph, ScaledText as Text } from "./ScaledText";
 
 export interface ListRowProps {
     readonly title: string;
@@ -24,6 +25,7 @@ export interface ListRowProps {
  * @returns A list row surface.
  */
 export function ListRow({ title, subtitle, leading, trailing, onPress }: ListRowProps) {
+    const designSystem = useDesignSystem();
     const isInteractive = onPress !== undefined;
 
     return (

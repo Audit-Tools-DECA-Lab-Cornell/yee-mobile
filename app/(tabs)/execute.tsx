@@ -4,17 +4,18 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useShallow } from "zustand/react/shallow";
 import { CloudOff, Save, Send } from "components/icons";
-import { Paragraph, XStack, YStack } from "tamagui";
+import { XStack, YStack } from "tamagui";
 import {
     AppButton,
     Badge,
     Card,
     EmptyState,
     MetricCard,
+    ScaledParagraph as Paragraph,
     ScreenHeader,
     StatusBanner,
 } from "components/ui";
-import { designSystem, getPlaceStatusTone } from "lib/design-system";
+import { useDesignSystem, getPlaceStatusTone } from "lib/design-system";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
 import { buildPlaceViews, getStatusLabel } from "lib/yee-mobile-selectors";
@@ -26,6 +27,7 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
  * Execution tab reflecting the real assigned-place selection and offline draft state.
  */
 export default function ExecuteScreen() {
+    const designSystem = useDesignSystem();
     const insets = useSafeAreaInsets();
     const router = useRouter();
     const scrollViewRef = useRef<ScrollView>(null);
@@ -78,13 +80,16 @@ export default function ExecuteScreen() {
                 <EmptyState
                     icon={<CloudOff size={22} color={designSystem.colors.primary} />}
                     title="Select a place to begin"
-                    description="Assigned places appear here once the auditor has been synced from the YEE backend."
+                    description="Select a place from the Places tab to begin an audit."
                 />
             </YStack>
         );
     }
 
-    const tone = getPlaceStatusTone(mapStatusToPlaceTone(activePlaceView.status));
+    const tone = getPlaceStatusTone(
+        mapStatusToPlaceTone(activePlaceView.status),
+        designSystem.colors,
+    );
     const placeScore =
         activePlaceView.submission?.total_score ??
         activePlaceView.draft?.scorePreview?.total_score ??
@@ -140,14 +145,11 @@ export default function ExecuteScreen() {
                 </Card>
 
                 <XStack gap="$3" flexWrap="wrap">
+                    <MetricCard label="Audits" value={activePlaceView.place.audits.toString()} />
+                    <MetricCard label="Pending" value={pendingForPlace.toString()} />
                     <MetricCard
-                        label="Audits logged"
-                        value={activePlaceView.place.audits.toString()}
-                    />
-                    <MetricCard label="Sync queue" value={`${pendingForPlace} pending`} />
-                    <MetricCard
-                        label="Latest score"
-                        value={placeScore === null ? "Not scored" : `${placeScore}%`}
+                        label="Score"
+                        value={placeScore === null ? "—" : `${placeScore}%`}
                     />
                 </XStack>
 
@@ -159,9 +161,7 @@ export default function ExecuteScreen() {
                             fontFamily={designSystem.fonts.bodyBold}
                             fontSize={15}
                         >
-                            {isSubmitted
-                                ? "Report access is ready"
-                                : "Offline audit capture is ready"}
+                            {isSubmitted ? "Report available" : "Ready for offline capture"}
                         </Paragraph>
                     </XStack>
                     <Paragraph
@@ -169,8 +169,8 @@ export default function ExecuteScreen() {
                         fontFamily={designSystem.fonts.bodyMedium}
                     >
                         {isSubmitted
-                            ? "This place already has a mobile report available. Open the report now, or return to the backend later for broader comparisons and exports."
-                            : "Draft responses are saved securely on this device and queued changes sync back to the backend the moment connectivity returns."}
+                            ? "View the submitted report for this place."
+                            : "Your responses are saved on this device and will sync when you are back online."}
                     </Paragraph>
                 </Card>
             </ScrollView>

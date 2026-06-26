@@ -1,5 +1,6 @@
-import { Paragraph, Spinner, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { Spinner, YStack } from "tamagui";
+import { useDesignSystem } from "lib/design-system";
+import { ScaledParagraph as Paragraph } from "./ScaledText";
 
 export interface LoadingStateProps {
     /** Optional caption rendered beneath the spinner. */
@@ -15,6 +16,7 @@ export interface LoadingStateProps {
  * @returns A centered spinner with an accessible status region.
  */
 export function LoadingState({ label, fullScreen = true }: LoadingStateProps) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             {...(fullScreen ? { flex: 1 } : { py: "$6" })}

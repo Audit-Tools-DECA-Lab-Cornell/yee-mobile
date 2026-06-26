@@ -1,64 +1,46 @@
 import { Tabs } from "expo-router";
 import { BarChart3, ClipboardCheck, LayoutDashboard, MapPinned } from "components/icons";
-import { designSystem } from "lib/design-system";
+import { useDesignSystem } from "lib/design-system";
 
 interface TabIconProps {
     readonly focused: boolean;
     readonly size: number;
+    readonly color: string;
 }
 
 /**
  * Dashboard tab icon renderer.
  */
-function DashboardTabIcon({ focused, size }: TabIconProps) {
-    return (
-        <LayoutDashboard
-            color={focused ? designSystem.colors.primary : designSystem.colors.mutedForeground}
-            size={size}
-        />
-    );
+function DashboardTabIcon({ size, color }: TabIconProps) {
+    return <LayoutDashboard color={color} size={size} />;
 }
 
 /**
  * Places tab icon renderer.
  */
-function PlacesTabIcon({ focused, size }: TabIconProps) {
-    return (
-        <MapPinned
-            color={focused ? designSystem.colors.primary : designSystem.colors.mutedForeground}
-            size={size}
-        />
-    );
+function PlacesTabIcon({ size, color }: TabIconProps) {
+    return <MapPinned color={color} size={size} />;
 }
 
 /**
  * Execute tab icon renderer.
  */
-function ExecuteTabIcon({ focused, size }: TabIconProps) {
-    return (
-        <ClipboardCheck
-            color={focused ? designSystem.colors.primary : designSystem.colors.mutedForeground}
-            size={size}
-        />
-    );
+function ExecuteTabIcon({ size, color }: TabIconProps) {
+    return <ClipboardCheck color={color} size={size} />;
 }
 
 /**
  * Reports tab icon renderer.
  */
-function ReportsTabIcon({ focused, size }: TabIconProps) {
-    return (
-        <BarChart3
-            color={focused ? designSystem.colors.primary : designSystem.colors.mutedForeground}
-            size={size}
-        />
-    );
+function ReportsTabIcon({ size, color }: TabIconProps) {
+    return <BarChart3 color={color} size={size} />;
 }
 
 /**
  * Main tab layout for the YEE mobile app.
  */
 export default function TabLayout() {
+    const designSystem = useDesignSystem();
     return (
         <Tabs
             screenOptions={{

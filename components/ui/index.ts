@@ -17,3 +17,4 @@ export { MetricCard, type MetricCardProps } from "./MetricCard";
 export { ListRow, type ListRowProps } from "./ListRow";
 export { ProgressBar, type ProgressBarProps } from "./ProgressBar";
 export { StatusBanner, type StatusBannerProps } from "./StatusBanner";
+export { ScaledText, ScaledParagraph } from "./ScaledText";

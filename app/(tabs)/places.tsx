@@ -3,8 +3,9 @@ import { Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { Clock3, MapPin, UploadCloud } from "components/icons";
-import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
-import { designSystem, getPlaceStatusTone } from "lib/design-system";
+import { Button, XStack, YStack } from "tamagui";
+import { ScaledParagraph as Paragraph, ScaledText as Text } from "components/ui";
+import { useDesignSystem, getPlaceStatusTone } from "lib/design-system";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
 import { buildPlaceViews, getStatusLabel, summarizeMobileAudits } from "lib/yee-mobile-selectors";
@@ -16,6 +17,7 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
  * Assigned places tab for auditor field execution.
  */
 export default function PlacesScreen() {
+    const designSystem = useDesignSystem();
     const router = useRouter();
     const scrollViewRef = useRef<ScrollView>(null);
     const setSelectedPlaceId = useSelectionStore((state) => state.setSelectedPlaceId);
@@ -68,23 +70,6 @@ export default function PlacesScreen() {
         >
             <YStack gap="$4">
                 <YStack gap="$1.5">
-                    <XStack
-                        rounded={designSystem.radii.full}
-                        px="$3"
-                        py="$1.5"
-                        bg={designSystem.colors.surface}
-                        borderWidth={1}
-                        borderColor={designSystem.colors.border}
-                        style={{ alignSelf: "flex-start" }}
-                    >
-                        <Paragraph
-                            color={designSystem.colors.secondaryForeground}
-                            fontFamily={designSystem.fonts.bodyMedium}
-                            fontSize={12}
-                        >
-                            Auditor view
-                        </Paragraph>
-                    </XStack>
                     <Text
                         color={designSystem.colors.foreground}
                         fontFamily={designSystem.fonts.headingBold}
@@ -98,8 +83,7 @@ export default function PlacesScreen() {
                         color={designSystem.colors.mutedForeground}
                         fontFamily={designSystem.fonts.bodyMedium}
                     >
-                        Every place below is assigned to this auditor. Start a new audit, continue
-                        an offline draft, or open a submitted report from the same queue.
+                        Your assigned places and their audit status.
                     </Paragraph>
                 </YStack>
 
@@ -110,7 +94,7 @@ export default function PlacesScreen() {
                         value={summary.submittedCount}
                         tone="submitted"
                     />
-                    <SummaryTile label="Queued Sync" value={syncQueue.length} tone="queued" />
+                    <SummaryTile label="Queued" value={syncQueue.length} tone="queued" />
                 </XStack>
 
                 <YStack
@@ -138,15 +122,15 @@ export default function PlacesScreen() {
                         textTransform="uppercase"
                         letterSpacing={1.1}
                     >
-                        {isOfflineReady ? "Offline ready" : "Offline setup incomplete"}
+                        {isOfflineReady ? "Ready for offline use" : "Online sync needed"}
                     </Paragraph>
                     <Paragraph
                         color={designSystem.colors.secondaryForeground}
                         fontFamily={designSystem.fonts.bodyMedium}
                     >
-                        {hasOfflineLoginCredentials ? "Done" : "Needed"}: sign-in saved on this
-                        device. {hasCachedAssignedPlaces ? "Done" : "Needed"}: assigned places
-                        cached. {hasCachedInstrument ? "Done" : "Needed"}: YEE survey cached.
+                        {isOfflineReady
+                            ? "This device can capture audits without an internet connection."
+                            : "Sign in once while online to prepare for offline field work."}
                     </Paragraph>
                 </YStack>
             </YStack>
@@ -159,7 +143,10 @@ export default function PlacesScreen() {
                     />
                 ) : (
                     placeViews.map((view) => {
-                        const tone = getPlaceStatusTone(mapStatusToPlaceTone(view.status));
+                        const tone = getPlaceStatusTone(
+                            mapStatusToPlaceTone(view.status),
+                            designSystem.colors,
+                        );
                         return (
                             <YStack
                                 key={view.place.id}
@@ -221,14 +208,6 @@ export default function PlacesScreen() {
                                             </Paragraph>
                                         </XStack>
 
-                                        <XStack gap="$3" flexWrap="wrap">
-                                            <InfoTile
-                                                label="Audits logged"
-                                                value={view.place.audits.toString()}
-                                            />
-                                            <InfoTile label="Sync state" value={view.syncLabel} />
-                                        </XStack>
-
                                         <YStack
                                             rounded={designSystem.radii.md}
                                             borderWidth={1}
@@ -262,7 +241,7 @@ export default function PlacesScreen() {
                                                 <XStack items="center" gap="$1.5">
                                                     <UploadCloud size={13} color={tone.text} />
                                                     <Paragraph
-                                                        color={tone.text}
+                                                        style={{ color: tone.text }}
                                                         fontFamily={designSystem.fonts.bodyBold}
                                                         fontSize={12}
                                                     >
@@ -341,6 +320,7 @@ interface SummaryTileProps {
 }
 
 function SummaryTile({ label, value, tone }: SummaryTileProps) {
+    const designSystem = useDesignSystem();
     const palette =
         tone === "submitted"
             ? {
@@ -396,44 +376,7 @@ function SummaryTile({ label, value, tone }: SummaryTileProps) {
                 fontSize={26}
                 lineHeight={28}
             >
-                {value.toString().padStart(2, "0")}
-            </Text>
-        </YStack>
-    );
-}
-
-interface InfoTileProps {
-    readonly label: string;
-    readonly value: string;
-}
-
-function InfoTile({ label, value }: InfoTileProps) {
-    return (
-        <YStack
-            flex={1}
-            rounded={designSystem.radii.md}
-            style={{ minWidth: 132 }}
-            borderWidth={1}
-            borderColor={designSystem.colors.border}
-            bg={designSystem.colors.surface}
-            p="$3"
-            gap="$1"
-        >
-            <Paragraph
-                color={designSystem.colors.mutedForeground}
-                fontFamily={designSystem.fonts.bodyMedium}
-                fontSize={11}
-                textTransform="uppercase"
-                letterSpacing={1.1}
-            >
-                {label}
-            </Paragraph>
-            <Text
-                color={designSystem.colors.foreground}
-                fontFamily={designSystem.fonts.bodyBold}
-                fontSize={14}
-            >
-                {value}
+                {value.toString()}
             </Text>
         </YStack>
     );
@@ -446,10 +389,11 @@ interface ActionButtonProps {
 }
 
 function ActionButton({ label, onPress, variant = "primary" }: ActionButtonProps) {
+    const designSystem = useDesignSystem();
     return (
         <Button
             onPress={onPress}
-            rounded={designSystem.radii.full}
+            rounded={designSystem.radii.button}
             bg={variant === "primary" ? designSystem.colors.primary : designSystem.colors.surface}
             borderWidth={1}
             borderColor={
@@ -477,6 +421,7 @@ interface EmptyStateCardProps {
 }
 
 function EmptyStateCard({ title, body }: EmptyStateCardProps) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             rounded={designSystem.radii.lg}

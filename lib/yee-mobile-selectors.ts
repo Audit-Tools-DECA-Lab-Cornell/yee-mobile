@@ -27,7 +27,7 @@ export function getSubmissionSyncLabel(audit: YeeMyAuditItem): string {
         return "Upload needs attention";
     }
 
-    return "Submitted to backend";
+    return "uploaded";
 }
 
 export function getSubmissionTimestampLabel(audit: YeeMyAuditItem): string {
@@ -57,7 +57,7 @@ export function buildPlaceViews(
                 syncLabel:
                     submission.syncState === "pending_upload"
                         ? "Queued for sync"
-                        : "Synced to backend",
+                        : "Saved on Cloud",
             } satisfies MobilePlaceView;
         }
 
@@ -194,7 +194,7 @@ function getDraftSyncLabel(syncState: YeeLocalDraft["syncState"]): string {
         return "Saved on device";
     }
 
-    return "Synced to backend";
+    return "Saved on Cloud";
 }
 
 function formatTimestamp(value: string, prefix: string): string {

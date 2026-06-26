@@ -8,13 +8,14 @@ import {
     Bell,
     FileBarChart,
     LayoutList,
-    LogOut,
     RefreshCcw,
+    Settings,
     UserRound,
     WifiOff,
 } from "components/icons";
-import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
-import { designSystem, getMetricTone, getPlaceStatusTone } from "lib/design-system";
+import { Button, Spinner, XStack, YStack } from "tamagui";
+import { ScaledParagraph as Paragraph, ScaledText as Text } from "components/ui";
+import { useDesignSystem, getMetricTone, getPlaceStatusTone } from "lib/design-system";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
 import { buildPlaceViews, getStatusLabel, summarizeMobileAudits } from "lib/yee-mobile-selectors";
@@ -26,10 +27,10 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
  * Dashboard tab for YEE mobile field operations.
  */
 export default function DashboardScreen() {
+    const designSystem = useDesignSystem();
     const router = useRouter();
     const scrollViewRef = useRef<ScrollView>(null);
     const session = useAuthStore((state) => state.session);
-    const logout = useAuthStore((state) => state.logout);
     const hasOfflineLoginCredentials = useAuthStore((state) => state.hasOfflineLoginCredentials);
     const setSelectedPlaceId = useSelectionStore((state) => state.setSelectedPlaceId);
     const {
@@ -148,7 +149,7 @@ export default function DashboardScreen() {
                             width={42}
                             height={42}
                             p={0}
-                            rounded={designSystem.radii.full}
+                            rounded={designSystem.radii.button}
                             borderWidth={1}
                             borderColor={designSystem.colors.border}
                             bg={designSystem.colors.surfaceMuted}
@@ -168,36 +169,20 @@ export default function DashboardScreen() {
                             width={42}
                             height={42}
                             p={0}
-                            rounded={designSystem.radii.full}
+                            rounded={designSystem.radii.button}
                             borderWidth={1}
                             borderColor={designSystem.colors.border}
                             bg={designSystem.colors.surfaceMuted}
                             pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                            onPress={logout}
+                            onPress={() => router.push("/settings")}
+                            accessibilityLabel="Settings"
                         >
-                            <LogOut size={16} color={designSystem.colors.foreground} />
+                            <Settings size={16} color={designSystem.colors.foreground} />
                         </Button>
                     </XStack>
                 </XStack>
 
                 <YStack gap="$1.5">
-                    <XStack
-                        rounded={designSystem.radii.full}
-                        px="$3"
-                        py="$1.5"
-                        bg={designSystem.colors.surface}
-                        borderWidth={1}
-                        borderColor={designSystem.colors.border}
-                        style={{ alignSelf: "flex-start" }}
-                    >
-                        <Paragraph
-                            color={designSystem.colors.secondaryForeground}
-                            fontFamily={designSystem.fonts.bodyMedium}
-                            fontSize={12}
-                        >
-                            Auditor view
-                        </Paragraph>
-                    </XStack>
                     <Text
                         color={designSystem.colors.foreground}
                         fontFamily={designSystem.fonts.headingBold}
@@ -205,7 +190,7 @@ export default function DashboardScreen() {
                         lineHeight={38}
                         letterSpacing={-0.8}
                     >
-                        YEE Field Dashboard
+                        Dashboard
                     </Text>
                     <Paragraph
                         color={designSystem.colors.mutedForeground}
@@ -284,48 +269,34 @@ export default function DashboardScreen() {
                         textTransform="uppercase"
                         letterSpacing={1.2}
                     >
-                        {isOfflineReady
-                            ? "Device ready for offline field work"
-                            : "Finish one online sync before going offline"}
+                        {isOfflineReady ? "Ready for offline use" : "Online sync needed"}
                     </Text>
-                    <ChecklistLine
-                        done={hasOfflineLoginCredentials}
-                        label="Offline sign-in is saved on this device"
-                    />
-                    <ChecklistLine
-                        done={hasCachedAssignedPlaces}
-                        label="Assigned places are cached locally"
-                    />
-                    <ChecklistLine
-                        done={hasCachedInstrument}
-                        label="YEE survey instrument is cached for offline audits"
-                    />
+                    {isOfflineReady ? null : (
+                        <>
+                            <ChecklistLine
+                                done={hasOfflineLoginCredentials}
+                                label="Sign-in saved"
+                            />
+                            <ChecklistLine
+                                done={hasCachedAssignedPlaces}
+                                label="Places available"
+                            />
+                            <ChecklistLine
+                                done={hasCachedInstrument}
+                                label="Survey instrument ready"
+                            />
+                        </>
+                    )}
                 </YStack>
 
                 <XStack gap="$3" flexWrap="wrap">
-                    <MetricCard
-                        label="Assigned Places"
-                        value={summary.assignedCount}
-                        tone="blue"
-                        helperText="Only places assigned to this auditor"
-                    />
-                    <MetricCard
-                        label="Draft Audits"
-                        value={summary.draftCount}
-                        tone="purple"
-                        helperText="In progress on this device or backend"
-                    />
-                    <MetricCard
-                        label="Submitted Audits"
-                        value={summary.submittedCount}
-                        tone="green"
-                        helperText="Available in mobile reports"
-                    />
+                    <MetricCard label="Places" value={summary.assignedCount} tone="blue" />
+                    <MetricCard label="Drafts" value={summary.draftCount} tone="purple" />
+                    <MetricCard label="Submitted" value={summary.submittedCount} tone="green" />
                     <MetricCard
                         label="Pending Sync"
                         value={summary.pendingSyncCount}
                         tone="orange"
-                        helperText="Drafts or submissions waiting for connectivity"
                     />
                 </XStack>
 
@@ -354,14 +325,13 @@ export default function DashboardScreen() {
                             fontSize={26}
                             lineHeight={30}
                         >
-                            Offline capture for your assigned YEE places.
+                            Your assigned places
                         </Text>
                         <Paragraph
                             color="rgba(255,255,255,0.76)"
                             fontFamily={designSystem.fonts.bodyMedium}
                         >
-                            Start a new place audit, resume saved drafts, and sync submitted work
-                            when you are back online.
+                            Start audits, resume drafts, or view submitted reports.
                         </Paragraph>
                     </YStack>
 
@@ -426,7 +396,10 @@ export default function DashboardScreen() {
                     />
                 ) : (
                     placeViews.slice(0, 3).map((view) => {
-                        const tone = getPlaceStatusTone(mapStatusToPlaceTone(view.status));
+                        const tone = getPlaceStatusTone(
+                            mapStatusToPlaceTone(view.status),
+                            designSystem.colors,
+                        );
                         return (
                             <YStack
                                 key={view.place.id}
@@ -488,7 +461,7 @@ export default function DashboardScreen() {
                                                     {view.latestActivityLabel}
                                                 </Paragraph>
                                                 <Paragraph
-                                                    color={tone.text}
+                                                    style={{ color: tone.text }}
                                                     fontFamily={designSystem.fonts.bodyBold}
                                                     fontSize={12}
                                                 >
@@ -497,7 +470,7 @@ export default function DashboardScreen() {
                                             </YStack>
                                             <Button
                                                 size="$3"
-                                                rounded={designSystem.radii.full}
+                                                rounded={designSystem.radii.button}
                                                 bg={
                                                     view.status === "submitted"
                                                         ? designSystem.colors.successSoft
@@ -562,12 +535,13 @@ export default function DashboardScreen() {
 }
 
 function ChecklistLine({ done, label }: { done: boolean; label: string }) {
+    const designSystem = useDesignSystem();
     return (
         <Paragraph
             color={designSystem.colors.secondaryForeground}
             fontFamily={designSystem.fonts.bodyMedium}
         >
-            {done ? "Done" : "Needed"}: {label}
+            {done ? "✓" : "•"} {label}
         </Paragraph>
     );
 }
@@ -592,8 +566,8 @@ function describeSync(
     const lastSync = lastAuditsSyncAt ?? lastPlacesSyncAt;
     if (lastSync === null) {
         return pendingCount > 0
-            ? `${pendingCount} item(s) are waiting to upload once connectivity is available.`
-            : "This device is ready to cache places, drafts, and submissions for offline use.";
+            ? `${pendingCount} item${pendingCount === 1 ? "" : "s"} waiting to upload.`
+            : "No sync activity yet.";
     }
 
     const formatted = new Intl.DateTimeFormat("en-US", {
@@ -604,29 +578,32 @@ function describeSync(
     }).format(new Date(lastSync));
 
     if (pendingCount > 0) {
-        return `Last sync ${formatted}. ${pendingCount} item(s) are still queued for upload.`;
+        return `Last sync ${formatted}. ${pendingCount} item${pendingCount === 1 ? "" : "s"} waiting to upload.`;
     }
 
-    return `Last sync ${formatted}. Assigned places and audit history are cached on this device.`;
+    return `Last sync ${formatted}. All data is up to date.`;
 }
 
 interface MetricCardProps {
     readonly label: string;
     readonly value: number;
     readonly tone: "blue" | "green" | "purple" | "orange";
-    readonly helperText: string;
 }
 
-function MetricCard({ label, value, tone, helperText }: MetricCardProps) {
-    const palette = getMetricTone(tone);
+function MetricCard({ label, value, tone }: MetricCardProps) {
+    const designSystem = useDesignSystem();
+    const palette = getMetricTone(tone, designSystem.colors);
     return (
         <YStack
             width="48%"
-            style={{ minWidth: 160, boxShadow: designSystem.shadows.card }}
+            style={{
+                minWidth: 160,
+                boxShadow: designSystem.shadows.card,
+                borderColor: palette.accent,
+                backgroundColor: palette.surface,
+            }}
             rounded={designSystem.radii.lg}
             borderWidth={1}
-            borderColor={palette.accent}
-            bg={palette.surface}
             p="$4"
             gap="$2"
         >
@@ -650,20 +627,13 @@ function MetricCard({ label, value, tone, helperText }: MetricCardProps) {
                 </Paragraph>
             </YStack>
             <Text
-                color={palette.text}
+                style={{ color: palette.text }}
                 fontFamily={designSystem.fonts.headingBold}
                 fontSize={30}
                 lineHeight={32}
             >
-                {value.toString().padStart(2, "0")}
+                {value.toString()}
             </Text>
-            <Paragraph
-                color={designSystem.colors.secondaryForeground}
-                fontFamily={designSystem.fonts.bodyMedium}
-                fontSize={12}
-            >
-                {helperText}
-            </Paragraph>
         </YStack>
     );
 }
@@ -676,10 +646,11 @@ interface ActionButtonProps {
 }
 
 function ActionButton({ label, onPress, icon, variant = "primary" }: ActionButtonProps) {
+    const designSystem = useDesignSystem();
     return (
         <Button
             onPress={onPress}
-            rounded={designSystem.radii.full}
+            rounded={designSystem.radii.button}
             bg={
                 variant === "primary"
                     ? designSystem.colors.primaryForeground
@@ -716,6 +687,7 @@ interface EmptyStateCardProps {
 }
 
 function EmptyStateCard({ title, body }: EmptyStateCardProps) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             rounded={designSystem.radii.lg}

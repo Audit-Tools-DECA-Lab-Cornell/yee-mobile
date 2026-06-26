@@ -1,6 +1,7 @@
-import { Paragraph, Text, XStack, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { XStack, YStack } from "tamagui";
+import { useDesignSystem } from "lib/design-system";
 import { CloudOff, RefreshCcw } from "components/icons";
+import { ScaledParagraph as Paragraph, ScaledText as Text } from "./ScaledText";
 
 export interface StatusBannerProps {
     /** Whether the device currently has a usable connection. */
@@ -19,6 +20,7 @@ export interface StatusBannerProps {
  * @returns A connectivity status banner.
  */
 export function StatusBanner({ isOnline, pendingCount = 0 }: StatusBannerProps) {
+    const designSystem = useDesignSystem();
     const hasPending = pendingCount > 0;
     const accent = isOnline ? designSystem.colors.success : designSystem.colors.warning;
     const surface = isOnline ? designSystem.colors.successSoft : designSystem.colors.warningSoft;
@@ -26,7 +28,7 @@ export function StatusBanner({ isOnline, pendingCount = 0 }: StatusBannerProps) 
     const description = isOnline
         ? hasPending
             ? `Syncing ${pendingCount} pending ${pendingCount === 1 ? "change" : "changes"}…`
-            : "All changes are synced with the YEE backend."
+            : "All changes are synced."
         : hasPending
           ? `${pendingCount} pending ${pendingCount === 1 ? "change" : "changes"} saved locally — they sync when you reconnect.`
           : "Drafts are saved locally and stay safe until you reconnect.";

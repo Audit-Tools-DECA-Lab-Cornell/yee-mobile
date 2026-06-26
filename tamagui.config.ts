@@ -31,6 +31,8 @@ const headingBoldFont = createStaticFont("SpaceGrotesk-Bold", defaultConfig.font
 const monoFont = createStaticFont("JetBrainsMono-Regular", defaultConfig.fonts.body);
 const monoMediumFont = createStaticFont("JetBrainsMono-Medium", defaultConfig.fonts.body);
 const monoBoldFont = createStaticFont("JetBrainsMono-Bold", defaultConfig.fonts.body);
+const dyslexicFont = createStaticFont("OpenDyslexic-Regular", defaultConfig.fonts.body);
+const dyslexicBoldFont = createStaticFont("OpenDyslexic-Bold", defaultConfig.fonts.body);
 
 export const config = createTamagui({
     ...defaultConfig,
@@ -46,6 +48,8 @@ export const config = createTamagui({
         mono: monoFont,
         monoMedium: monoMediumFont,
         monoBold: monoBoldFont,
+        dyslexic: dyslexicFont,
+        dyslexicBold: dyslexicBoldFont,
     },
     themes,
     media: {

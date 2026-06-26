@@ -42,13 +42,13 @@ export default function AuditSubmittedScreen() {
                     fontFamily={designSystem.fonts.bodyMedium}
                 >
                     {queued
-                        ? "This audit is saved on the device, visible in mobile reports, and queued for backend upload as soon as connectivity is available again."
-                        : "The audit was submitted through the same backend used by the website and is now locked for editing."}
+                        ? "Your audit is saved and will upload automatically when you are back online."
+                        : "Your audit has been submitted and is now locked."}
                 </Paragraph>
                 <YStack gap="$2.5">
                     {submissionId.length > 0 ? (
                         <Button
-                            rounded={designSystem.radii.full}
+                            rounded={designSystem.radii.button}
                             bg={designSystem.colors.successSoft}
                             borderWidth={1}
                             borderColor={designSystem.colors.success}
@@ -60,12 +60,12 @@ export default function AuditSubmittedScreen() {
                                 color={designSystem.colors.success}
                                 fontFamily={designSystem.fonts.bodyBold}
                             >
-                                {queued ? "Open local report" : "Open submitted report"}
+                                {queued ? "View report" : "View report"}
                             </Button.Text>
                         </Button>
                     ) : null}
                     <Button
-                        rounded={designSystem.radii.full}
+                        rounded={designSystem.radii.button}
                         bg={designSystem.colors.primary}
                         borderWidth={1}
                         borderColor={designSystem.colors.primary}
@@ -83,7 +83,7 @@ export default function AuditSubmittedScreen() {
                         </Button.Text>
                     </Button>
                     <Button
-                        rounded={designSystem.radii.full}
+                        rounded={designSystem.radii.button}
                         bg={designSystem.colors.surfaceMuted}
                         borderWidth={1}
                         borderColor={designSystem.colors.border}

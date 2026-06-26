@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
 import { Platform, ScrollView, Share } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { BarChart3, CloudOff } from "components/icons";
@@ -34,23 +35,11 @@ import type { YeeSubmissionResponse } from "lib/yee-types";
 import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
-const domainTone: Record<MobileYeeDomainKey, { accent: string; soft: string }> = {
-    access: { accent: designSystem.colors.success, soft: designSystem.colors.successSoft },
-    activitySpaces: { accent: designSystem.colors.info, soft: designSystem.colors.infoSoft },
-    amenities: { accent: designSystem.colors.warning, soft: designSystem.colors.warningSoft },
-    experienceOfSpace: {
-        accent: designSystem.colors.primary,
-        soft: designSystem.colors.primarySoft,
-    },
-    aestheticsAndCare: { accent: designSystem.colors.violet, soft: designSystem.colors.violetSoft },
-    useAndUsability: { accent: designSystem.colors.danger, soft: designSystem.colors.dangerSoft },
-};
-
-const sectionWeightingTone = {
-    accent: "#77D6A7",
-    soft: "#E7FAEE",
-    border: "#8BE0B5",
-} as const;
+// Two-series palette for the section score chart. Raw and Youth-Weighted use two
+// brand greens (deep + soft) so the whole report reads as one calm system instead
+// of a different hue per domain.
+const RAW_SERIES_COLOR = designSystem.colors.primary;
+const WEIGHTED_SERIES_COLOR = designSystem.colors.success;
 
 type DomainScoreRow = ReturnType<typeof buildDomainScoreRows>[number];
 
@@ -58,6 +47,8 @@ export default function MobileReportDetailScreen() {
     const router = useRouter();
     const params = useLocalSearchParams<{ submissionId?: string }>();
     const scrollViewRef = useRef<ScrollView>(null);
+    const insets = useSafeAreaInsets();
+    const [footerHeight, setFooterHeight] = useState(0);
     const submissionId = typeof params.submissionId === "string" ? params.submissionId : "";
     const session = useAuthStore((state) => state.session);
     const { isOnline, submittedAudits } = useYeeMobileStore(
@@ -178,19 +169,6 @@ export default function MobileReportDetailScreen() {
         }
     }
 
-    function handlePrintReport() {
-        if (Platform.OS !== "web") {
-            void shareSubmissionCsv();
-            return;
-        }
-
-        if (typeof window === "undefined") {
-            return;
-        }
-
-        window.print();
-    }
-
     function handleExportData() {
         if (Platform.OS !== "web") {
             void shareSubmissionCsv();
@@ -230,7 +208,7 @@ export default function MobileReportDetailScreen() {
                 contentContainerStyle={{
                     paddingHorizontal: designSystem.spacing.screenPaddingHorizontal,
                     paddingTop: designSystem.spacing.screenPaddingVertical,
-                    paddingBottom: 120,
+                    paddingBottom: (footerHeight > 0 ? footerHeight : 88) + 24,
                     gap: 20,
                 }}
             >
@@ -242,7 +220,7 @@ export default function MobileReportDetailScreen() {
                         textTransform="uppercase"
                         letterSpacing={1.5}
                     >
-                        Mobile submitted report
+                        Audit report
                     </Paragraph>
                     <Text
                         color={designSystem.colors.foreground}
@@ -255,16 +233,16 @@ export default function MobileReportDetailScreen() {
                     </Text>
                     <Paragraph color={designSystem.colors.mutedForeground}>
                         {submission?.syncState === "pending_upload"
-                            ? "This is the device-saved preview for one YEE audit while upload is still pending."
-                            : "Locked results for one YEE audit. This mobile report uses the same backend scoring data as the website."}
+                            ? "Results are being uploaded. Scores shown are preliminary."
+                            : "Final audit results for this place."}
                     </Paragraph>
                 </YStack>
 
                 {submission === null ? (
-                    <Card title="Report not cached yet">
+                    <Card title="Report unavailable offline">
                         <Paragraph color={designSystem.colors.mutedForeground}>
                             {errorMessage ??
-                                "This audit summary is available, but the detailed report needs one online load before it can be reopened offline."}
+                                "Open this report once while online to make it available offline."}
                         </Paragraph>
                         {submissionListItem === null ? null : (
                             <YStack gap="$1.5">
@@ -282,16 +260,16 @@ export default function MobileReportDetailScreen() {
                 ) : (
                     <>
                         {submission.syncState === "pending_upload" ? (
-                            <Card title="Offline report preview">
+                            <Card title="Pending upload">
                                 <Paragraph color={designSystem.colors.warning}>
-                                    This report was generated from the locally queued submission and
-                                    will be replaced by the backend version after sync.
+                                    Scores shown are preliminary and will update once the upload
+                                    completes.
                                 </Paragraph>
                             </Card>
                         ) : null}
                         <ReportHeroCard
-                            title="Submitted audit results"
-                            subtitle="This is a locked, read-only report for the submitted YEE audit."
+                            title="Audit results"
+                            subtitle="Scores and responses for this submitted audit."
                         />
 
                         <XStack gap="$3" flexWrap="wrap">
@@ -317,7 +295,6 @@ export default function MobileReportDetailScreen() {
                                         },
                                     )}
                                 />
-                                <MetricRow label="Submission ID" value={submission.id} />
                                 <MetricRow
                                     label="Status"
                                     value={getSubmissionSyncLabel(
@@ -382,26 +359,11 @@ export default function MobileReportDetailScreen() {
                             </InfoPanel>
                         </XStack>
 
-                        <WeightingSummaryCard rows={rows} />
+                        <SectionScoreChart rows={rows} />
 
                         <ScoreResultsTable rows={rows} preview={preview} />
 
-                        <RangeGuideCard />
-
-                        <SectionScoreCard
-                            title="Raw score by section"
-                            rows={rows}
-                            valueKey="raw"
-                            surface={designSystem.colors.surface}
-                        />
-
-                        <SectionScoreCard
-                            title="Youth-Weighted average by section"
-                            rows={rows}
-                            valueKey="weighted"
-                            surface={sectionWeightingTone.soft}
-                            accent={sectionWeightingTone.border}
-                        />
+                        <WeightingSummaryCard rows={rows} />
 
                         <HighlightsRow rows={rows} />
 
@@ -444,85 +406,56 @@ export default function MobileReportDetailScreen() {
                 )}
             </ScrollView>
 
-            <XStack
+            <YStack
                 position="absolute"
-                gap="$2.5"
-                flexWrap="wrap"
+                onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
                 style={{
-                    left: designSystem.spacing.screenPaddingHorizontal,
-                    right: designSystem.spacing.screenPaddingHorizontal,
-                    bottom: 20,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: designSystem.colors.background,
+                    borderTopWidth: 1,
+                    borderTopColor: designSystem.colors.border,
+                    paddingHorizontal: designSystem.spacing.screenPaddingHorizontal,
+                    paddingTop: 12,
+                    paddingBottom: insets.bottom + 12,
                 }}
             >
-                <Button
-                    flex={1}
-                    rounded={designSystem.radii.full}
-                    bg={designSystem.colors.surfaceMuted}
-                    borderWidth={1}
-                    borderColor={designSystem.colors.border}
-                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                    onPress={handlePrintReport}
-                    style={{ minWidth: 150 }}
-                >
-                    <Button.Text
-                        color={designSystem.colors.foreground}
-                        fontFamily={designSystem.fonts.bodyBold}
+                <XStack gap="$3">
+                    <Button
+                        flex={1}
+                        rounded={designSystem.radii.button}
+                        bg={designSystem.colors.surfaceMuted}
+                        borderWidth={1}
+                        borderColor={designSystem.colors.border}
+                        pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                        onPress={handleExportData}
                     >
-                        Print report
-                    </Button.Text>
-                </Button>
-                <Button
-                    flex={1}
-                    rounded={designSystem.radii.full}
-                    bg={designSystem.colors.surfaceMuted}
-                    borderWidth={1}
-                    borderColor={designSystem.colors.border}
-                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                    onPress={handleExportData}
-                    style={{ minWidth: 150 }}
-                >
-                    <Button.Text
-                        color={designSystem.colors.foreground}
-                        fontFamily={designSystem.fonts.bodyBold}
+                        <Button.Text
+                            color={designSystem.colors.foreground}
+                            fontFamily={designSystem.fonts.bodyBold}
+                        >
+                            Share
+                        </Button.Text>
+                    </Button>
+                    <Button
+                        flex={1}
+                        rounded={designSystem.radii.button}
+                        bg={designSystem.colors.primary}
+                        borderWidth={1}
+                        borderColor={designSystem.colors.primary}
+                        pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                        onPress={() => router.replace("/(tabs)/places")}
                     >
-                        Export data
-                    </Button.Text>
-                </Button>
-                <Button
-                    flex={1}
-                    rounded={designSystem.radii.full}
-                    bg={designSystem.colors.primary}
-                    borderWidth={1}
-                    borderColor={designSystem.colors.primary}
-                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                    onPress={() => router.replace("/(tabs)/places")}
-                    style={{ minWidth: 150 }}
-                >
-                    <Button.Text
-                        color={designSystem.colors.primaryForeground}
-                        fontFamily={designSystem.fonts.bodyBold}
-                    >
-                        Back to My Audits
-                    </Button.Text>
-                </Button>
-                <Button
-                    flex={1}
-                    rounded={designSystem.radii.full}
-                    bg={designSystem.colors.surface}
-                    borderWidth={1}
-                    borderColor={designSystem.colors.border}
-                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                    onPress={() => router.replace("/(tabs)")}
-                    style={{ minWidth: 150 }}
-                >
-                    <Button.Text
-                        color={designSystem.colors.foreground}
-                        fontFamily={designSystem.fonts.bodyBold}
-                    >
-                        Back to Dashboard
-                    </Button.Text>
-                </Button>
-            </XStack>
+                        <Button.Text
+                            color={designSystem.colors.primaryForeground}
+                            fontFamily={designSystem.fonts.bodyBold}
+                        >
+                            Back to My Audits
+                        </Button.Text>
+                    </Button>
+                </XStack>
+            </YStack>
         </YStack>
     );
 }
@@ -581,67 +514,76 @@ function InfoPanel({ title, children }: PropsWithChildren<{ title: string }>) {
 
 function WeightingSummaryCard({ rows }: { rows: readonly DomainScoreRow[] }) {
     return (
-        <YStack
-            rounded={designSystem.radii.xl}
-            borderWidth={1}
-            p="$4"
-            gap="$3"
-            style={{
-                backgroundColor: sectionWeightingTone.soft,
-                borderColor: sectionWeightingTone.border,
-                boxShadow: designSystem.shadows.card,
-            }}
-        >
-            <YStack gap="$1">
-                <Text
-                    color={designSystem.colors.foreground}
-                    fontFamily={designSystem.fonts.headingBold}
-                    fontSize={20}
-                >
-                    Section weighting used in this audit
-                </Text>
-                <Paragraph color={designSystem.colors.mutedForeground}>
-                    Youth Weighted values are calculated by normalizing the participant&apos;s
-                    section weights, computing the average score within each section, and then
-                    applying the normalized weight to that section average.
-                </Paragraph>
-            </YStack>
-
-            <XStack gap="$3" flexWrap="wrap">
-                {rows.map((row) => {
-                    const tone = domainTone[row.domain];
-                    return (
-                        <YStack
-                            key={row.domain}
-                            flex={1}
-                            rounded={designSystem.radii.lg}
-                            borderWidth={1}
-                            p="$3.5"
-                            gap="$1"
-                            style={{
-                                minWidth: 170,
-                                backgroundColor: tone.soft,
-                                borderColor: tone.accent,
-                            }}
-                        >
+        <Card title="Section weighting">
+            <Paragraph color={designSystem.colors.mutedForeground}>
+                How important each domain was rated by the auditor (1 = lowest, 3 = highest). The
+                weight scales that section&apos;s Youth-Weighted average.
+            </Paragraph>
+            <YStack gap="$0">
+                {rows.map((row, index) => (
+                    <XStack
+                        key={row.domain}
+                        items="center"
+                        gap="$3"
+                        py="$2.5"
+                        borderTopWidth={index === 0 ? 0 : 1}
+                        borderColor={designSystem.colors.border}
+                    >
+                        <YStack flex={1} gap="$0.5">
                             <Text
                                 color={designSystem.colors.foreground}
-                                fontFamily={designSystem.fonts.headingBold}
-                                fontSize={16}
+                                fontFamily={designSystem.fonts.bodyBold}
+                                fontSize={15}
                             >
                                 {row.label}
                             </Text>
-                            <Paragraph color={designSystem.colors.secondaryForeground}>
+                            <Paragraph
+                                color={designSystem.colors.mutedForeground}
+                                fontFamily={designSystem.fonts.bodyMedium}
+                                fontSize={12}
+                            >
                                 {getWeightLabel(row.weightValue)}
                             </Paragraph>
-                            <Paragraph color={designSystem.colors.mutedForeground} fontSize={12}>
-                                Weight value: {row.weightValue}
-                            </Paragraph>
                         </YStack>
-                    );
-                })}
+                        <ImportanceMeter value={row.weightValue} />
+                    </XStack>
+                ))}
+            </YStack>
+        </Card>
+    );
+}
+
+/** Three-segment importance indicator (1-3). Filled segments use the brand green. */
+function ImportanceMeter({ value }: { value: number }) {
+    const filled = Math.max(0, Math.min(3, Math.round(value)));
+    return (
+        <XStack items="center" gap="$2">
+            <XStack gap={4}>
+                {[1, 2, 3].map((segment) => (
+                    <YStack
+                        key={segment}
+                        width={22}
+                        height={8}
+                        rounded={designSystem.radii.full}
+                        style={{
+                            backgroundColor:
+                                segment <= filled
+                                    ? designSystem.colors.primary
+                                    : designSystem.colors.mutedSurface,
+                        }}
+                    />
+                ))}
             </XStack>
-        </YStack>
+            <Text
+                color={designSystem.colors.foreground}
+                fontFamily={designSystem.fonts.bodyBold}
+                fontSize={13}
+                width={20}
+                style={{ textAlign: "right" }}
+            >
+                {filled}
+            </Text>
+        </XStack>
     );
 }
 
@@ -655,8 +597,7 @@ function ScoreResultsTable({
     return (
         <Card title="Score results">
             <Paragraph color={designSystem.colors.mutedForeground}>
-                Read-only raw scores and Youth Weighted averages computed from the submitted
-                responses.
+                Raw scores and Youth-Weighted averages by section.
             </Paragraph>
 
             <YStack gap="$0">
@@ -668,15 +609,15 @@ function ScoreResultsTable({
 
             <XStack gap="$3" flexWrap="wrap" mt="$2">
                 <MetricCard
-                    label="Total Enabling Environment Raw Score"
+                    label="Total raw score"
                     value={`${preview?.totalRawScore ?? 0} / ${totalRawScoreMaximum} (${Math.round(((preview?.totalRawScore ?? 0) / totalRawScoreMaximum || 0) * 100)}%)`}
-                    helperText="This percentage shows how much of the available raw score was achieved across the full audit."
+                    helperText="Sum of all section raw scores."
                     accentColor={designSystem.colors.primary}
                 />
                 <MetricCard
-                    label="Total Enabling Environment Youth Weighted Average"
+                    label="Total Youth-Weighted average"
                     value={`${preview?.totalWeightedScore ?? 0} / ${preview ? getYouthWeightedScoreMaximum(preview.selectedWeights) : 0} (${Math.round(((preview?.totalWeightedScore ?? 0) / (preview ? getYouthWeightedScoreMaximum(preview.selectedWeights) : 1) || 0) * 100)}%)`}
-                    helperText="This Youth Weighted maximum is based on normalized domain weights and each domain's maximum average value."
+                    helperText="Weighted by domain importance ratings."
                     accentColor={designSystem.colors.success}
                 />
             </XStack>
@@ -693,16 +634,10 @@ function ScoreTableHeader() {
             borderColor={designSystem.colors.border}
             gap="$2"
         >
-            {[
-                "Section",
-                "Raw Section Score",
-                "Raw %",
-                "Youth-Weighted Section Average",
-                "Youth-Weighted %",
-            ].map((label, index) => (
+            {["Section", "Raw", "Weighted"].map((label, index) => (
                 <Text
                     key={label}
-                    flex={index === 0 ? 1.4 : 1}
+                    flex={index === 0 ? 1.5 : 1}
                     color={designSystem.colors.secondaryForeground}
                     fontFamily={designSystem.fonts.bodyBold}
                     fontSize={13}
@@ -724,191 +659,125 @@ function ScoreTableRow({ row }: { row: DomainScoreRow }) {
             gap="$2"
         >
             <Text
-                flex={1.4}
+                flex={1.5}
                 color={designSystem.colors.foreground}
                 fontFamily={designSystem.fonts.bodyBold}
             >
                 {row.label}
             </Text>
             <Paragraph flex={1} color={designSystem.colors.secondaryForeground}>
-                {row.rawScore} / {row.rawMax}
+                {row.rawScore}/{row.rawMax} ({Math.round(row.rawPercentage)}%)
             </Paragraph>
             <Paragraph flex={1} color={designSystem.colors.secondaryForeground}>
-                {Math.round(row.rawPercentage)}% ({row.rawScore}/{row.rawMax})
-            </Paragraph>
-            <Paragraph flex={1} color={designSystem.colors.secondaryForeground}>
-                {row.weightedScore} / {row.weightedMax}
-            </Paragraph>
-            <Paragraph flex={1} color={designSystem.colors.secondaryForeground}>
-                {Math.round(row.weightedPercentage)}% ({row.weightedScore}/{row.weightedMax})
+                {row.weightedScore}/{row.weightedMax} ({Math.round(row.weightedPercentage)}%)
             </Paragraph>
         </XStack>
     );
 }
 
-function RangeGuideCard() {
+/**
+ * Single grouped horizontal bar chart for all six domains. Each domain shows two
+ * bars — raw score and Youth-Weighted average — sharing a 0–100% scale, with one
+ * legend describing the two series. Replaces the previous per-domain meter cards.
+ */
+function SectionScoreChart({ rows }: { rows: readonly DomainScoreRow[] }) {
     return (
-        <Card title="How to read these graphs">
+        <Card title="Score by section">
             <Paragraph color={designSystem.colors.mutedForeground}>
-                Each bar represents 100% of the available score for that section. The colored fill
-                shows how much of that available score was reached. Raw and Youth Weighted
-                percentages are shown separately because they answer slightly different questions
-                about the same audit.
+                Every domain on one scale: the raw section score and the Youth-Weighted average,
+                each as a percentage of the available score.
             </Paragraph>
-            <XStack gap="$3" flexWrap="wrap">
-                <LegendPill
-                    color="#EF6B81"
-                    title="Lower range"
-                    detail="0% to 33% of the available score"
-                />
-                <LegendPill
-                    color="#F1B433"
-                    title="Middle range"
-                    detail="34% to 66% of the available score"
-                />
-                <LegendPill
-                    color="#56BF84"
-                    title="Upper range"
-                    detail="67% to 100% of the available score"
-                />
+            <XStack gap="$4" flexWrap="wrap">
+                <ChartLegendItem color={RAW_SERIES_COLOR} label="Raw score" />
+                <ChartLegendItem color={WEIGHTED_SERIES_COLOR} label="Youth-Weighted" />
             </XStack>
-        </Card>
-    );
-}
-
-function LegendPill({ color, title, detail }: { color: string; title: string; detail: string }) {
-    return (
-        <YStack
-            flex={1}
-            rounded={designSystem.radii.lg}
-            borderWidth={1}
-            p="$3"
-            gap="$1"
-            style={{
-                minWidth: 170,
-                backgroundColor: designSystem.colors.surface,
-                borderColor: designSystem.colors.border,
-            }}
-        >
-            <XStack items="center" gap="$2">
-                <YStack
-                    width={14}
-                    height={14}
-                    rounded={designSystem.radii.full}
-                    style={{ backgroundColor: color }}
-                />
-                <Text
-                    color={designSystem.colors.foreground}
-                    fontFamily={designSystem.fonts.bodyBold}
-                >
-                    {title}
-                </Text>
-            </XStack>
-            <Paragraph color={designSystem.colors.secondaryForeground}>{detail}</Paragraph>
-        </YStack>
-    );
-}
-
-function SectionScoreCard({
-    title,
-    rows,
-    valueKey,
-    surface,
-    accent,
-}: {
-    title: string;
-    rows: readonly DomainScoreRow[];
-    valueKey: "raw" | "weighted";
-    surface: string;
-    accent?: string;
-}) {
-    return (
-        <Card title={title} soft={surface} {...(accent ? { accent } : {})}>
-            <XStack gap="$3" flexWrap="wrap">
+            <YStack gap="$3.5" mt="$1">
                 {rows.map((row) => (
-                    <DomainScoreStatCard
-                        key={`${valueKey}-${row.domain}`}
-                        row={row}
-                        valueKey={valueKey}
-                    />
+                    <YStack key={row.domain} gap="$2">
+                        <Text
+                            color={designSystem.colors.foreground}
+                            fontFamily={designSystem.fonts.bodyBold}
+                            fontSize={14}
+                        >
+                            {row.label}
+                        </Text>
+                        <ChartBar
+                            color={RAW_SERIES_COLOR}
+                            percentage={row.rawPercentage}
+                            accessibilityLabel={`${row.label} raw score ${Math.round(row.rawPercentage)} percent`}
+                        />
+                        <ChartBar
+                            color={WEIGHTED_SERIES_COLOR}
+                            percentage={row.weightedPercentage}
+                            accessibilityLabel={`${row.label} Youth-Weighted average ${Math.round(row.weightedPercentage)} percent`}
+                        />
+                    </YStack>
                 ))}
-            </XStack>
+            </YStack>
         </Card>
     );
 }
 
-function DomainScoreStatCard({
-    row,
-    valueKey,
-}: {
-    row: DomainScoreRow;
-    valueKey: "raw" | "weighted";
-}) {
-    const tone = domainTone[row.domain];
-    const numerator = valueKey === "raw" ? row.rawScore : row.weightedScore;
-    const denominator = valueKey === "raw" ? row.rawMax : row.weightedMax;
-    const percentage = valueKey === "raw" ? row.rawPercentage : row.weightedPercentage;
-    const fillColor = getRangeColor(percentage);
-
+function ChartLegendItem({ color, label }: { color: string; label: string }) {
     return (
-        <YStack
-            flex={1}
-            rounded={designSystem.radii.lg}
-            borderWidth={1}
-            p="$3.5"
-            gap="$1.5"
-            style={{
-                minWidth: 145,
-                backgroundColor: tone.soft,
-                borderColor: tone.accent,
-            }}
-        >
+        <XStack items="center" gap="$2">
+            <YStack
+                width={12}
+                height={12}
+                rounded={designSystem.radii.sm}
+                style={{ backgroundColor: color }}
+            />
             <Text
-                color={designSystem.colors.foreground}
-                fontFamily={designSystem.fonts.headingBold}
-                fontSize={16}
+                color={designSystem.colors.secondaryForeground}
+                fontFamily={designSystem.fonts.bodyBold}
+                fontSize={12}
             >
-                {row.label}
+                {label}
             </Text>
-            <Paragraph color={designSystem.colors.secondaryForeground}>
-                {valueKey === "raw" ? "Raw score" : "Youth-Weighted average"}
-            </Paragraph>
-            <Text
-                color={designSystem.colors.foreground}
-                fontFamily={designSystem.fonts.headingBold}
-                fontSize={18}
-            >
-                {numerator} / {denominator} ({Math.round(percentage)}%)
-            </Text>
-            <VerticalMeter percentage={percentage} fillColor={fillColor} />
-        </YStack>
+        </XStack>
     );
 }
 
-function VerticalMeter({ percentage, fillColor }: { percentage: number; fillColor: string }) {
+function ChartBar({
+    color,
+    percentage,
+    accessibilityLabel,
+}: {
+    color: string;
+    percentage: number;
+    accessibilityLabel: string;
+}) {
+    const clamped = Math.max(0, Math.min(100, percentage));
     return (
-        <YStack
-            width={42}
-            height={150}
-            rounded={designSystem.radii.full}
-            borderWidth={1}
-            borderColor={designSystem.colors.border}
-            bg={designSystem.colors.surface}
-            justify="flex-end"
-            overflow="hidden"
-            self="center"
-            mt="$1"
+        <XStack
+            items="center"
+            gap="$2.5"
+            accessibilityRole="progressbar"
+            accessibilityLabel={accessibilityLabel}
         >
             <YStack
+                flex={1}
+                height={14}
                 rounded={designSystem.radii.full}
-                mx={6}
-                mb={6}
-                style={{
-                    height: `${Math.max(8, Math.min(100, percentage))}%`,
-                    backgroundColor: fillColor,
-                }}
-            />
-        </YStack>
+                overflow="hidden"
+                style={{ backgroundColor: designSystem.colors.mutedSurface }}
+            >
+                <YStack
+                    height={14}
+                    rounded={designSystem.radii.full}
+                    style={{ width: `${Math.max(2, clamped)}%`, backgroundColor: color }}
+                />
+            </YStack>
+            <Text
+                color={designSystem.colors.foreground}
+                fontFamily={designSystem.fonts.bodyBold}
+                fontSize={13}
+                width={40}
+                style={{ textAlign: "right" }}
+            >
+                {Math.round(percentage)}%
+            </Text>
+        </XStack>
     );
 }
 
@@ -1083,14 +952,4 @@ function CommentBlock({ title, body }: { title: string; body: string }) {
             </Paragraph>
         </YStack>
     );
-}
-
-function getRangeColor(percentage: number): string {
-    if (percentage <= 33) {
-        return "#EF6B81";
-    }
-    if (percentage <= 66) {
-        return "#F1B433";
-    }
-    return "#56BF84";
 }

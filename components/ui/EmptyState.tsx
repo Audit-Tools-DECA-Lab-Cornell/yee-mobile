@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { Paragraph, Text, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { YStack } from "tamagui";
+import { useDesignSystem } from "lib/design-system";
 import { Card } from "./Card";
+import { ScaledParagraph as Paragraph, ScaledText as Text } from "./ScaledText";
 
 export interface EmptyStateProps {
     readonly title: string;
@@ -21,6 +22,7 @@ export interface EmptyStateProps {
  * @returns A centered empty-state surface.
  */
 export function EmptyState({ title, description, icon, action }: EmptyStateProps) {
+    const designSystem = useDesignSystem();
     return (
         <Card gap="$3" items="center" accessibilityRole="summary">
             {icon === undefined ? null : (

@@ -2,13 +2,15 @@ import { TamaguiProvider, type TamaguiProviderProps } from "tamagui";
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
 import { CurrentToast } from "./CurrentToast";
 import { config as tamaguiConfig } from "../tamagui.config";
+import { usePreferencesStore } from "stores/preferences-store";
 
 export function Provider({
     children,
     ...rest
 }: Readonly<Omit<TamaguiProviderProps, "config" | "defaultTheme">>) {
+    const resolvedTheme = usePreferencesStore((state) => state.resolvedTheme);
     return (
-        <TamaguiProvider config={tamaguiConfig} defaultTheme="light" {...rest}>
+        <TamaguiProvider config={tamaguiConfig} defaultTheme={resolvedTheme} {...rest}>
             <ToastProvider
                 swipeDirection="horizontal"
                 duration={6000}
