@@ -4,7 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
-const DEFAULT_SCHEME = "audit-tools-yee-mobile";
+const DEFAULT_SCHEME = "yee-mobile";
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
 const DEFAULT_WAIT_MS = 20000;
 const DEFAULT_LOGIN_WAIT_MS = 20000;

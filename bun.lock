@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "audit-tools-yee-mobile",
+      "name": "yee-mobile",
       "dependencies": {
         "@expo-google-fonts/geist": "^0.4.1",
         "@expo-google-fonts/jetbrains-mono": "^0.4.1",

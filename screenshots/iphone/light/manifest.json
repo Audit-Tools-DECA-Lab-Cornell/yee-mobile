@@ -5,7 +5,7 @@
     "simulator_udid": "9C945184-1077-419C-B864-A6B1000334BC",
     "appearance": "light",
     "api_base_url": "http://127.0.0.1:8000",
-    "output_directory": "/Users/praty/Desktop/StudentJob.nosync/yee/audit-tools-yee-mobile/screenshots/iphone/light",
+    "output_directory": "/Users/praty/Desktop/StudentJob.nosync/yee/yee-mobile/screenshots/iphone/light",
     "total_targets": 19,
     "success_count": 19,
     "failure_count": 0,

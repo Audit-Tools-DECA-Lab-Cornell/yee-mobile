@@ -5,7 +5,7 @@ export default {
         version: "1.0.0",
         orientation: "portrait",
         icon: "./assets/images/icon.png",
-        scheme: "audit-tools-yee-mobile",
+        scheme: "yee-mobile",
         userInterfaceStyle: "automatic",
         splash: {
             image: "./assets/images/splash.png",
@@ -15,7 +15,7 @@ export default {
         assetBundlePatterns: ["**/*"],
         ios: {
             supportsTablet: true,
-            bundleIdentifier: "com.andisha2004.audit-tools-yee-mobile",
+            bundleIdentifier: "com.andisha2004.yee-mobile",
             appleTeamId: "ZD947U862S",
             infoPlist: {
                 ITSAppUsesNonExemptEncryption: false,
@@ -65,7 +65,7 @@ export default {
         runtimeVersion: {
             policy: "appVersion",
         },
-        // owner: "yee-audit-tool",
-        // githubUrl: "https://github.com/audit-tools-deca-lab-cornell/audit-tools-yee-mobile",
+        // owner: "audit-tools-deca-lab-cornell",
+        // githubUrl: "https://github.com/audit-tools-deca-lab-cornell/yee-mobile",
     },
 };
