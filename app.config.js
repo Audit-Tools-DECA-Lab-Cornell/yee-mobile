@@ -15,7 +15,7 @@ export default {
         assetBundlePatterns: ["**/*"],
         ios: {
             supportsTablet: true,
-            bundleIdentifier: "com.andisha2004.yee-mobile",
+            bundleIdentifier: "com.andisha2004.audit-tools-yee-mobile",
             appleTeamId: "ZD947U862S",
             infoPlist: {
                 ITSAppUsesNonExemptEncryption: false,
