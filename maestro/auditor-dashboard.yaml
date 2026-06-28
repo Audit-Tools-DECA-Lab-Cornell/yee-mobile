@@ -1,0 +1,11 @@
+# Auditor dashboard tab bar smoke. Confirms the four (tabs) routes render.
+# Tab labels from app/(tabs)/_layout.tsx: Home, Places, Execute, Reports.
+# Android appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.yee-mobile
+appId: com.andisha2004.audittoolsyeemobile
+---
+- runFlow: login.yaml
+- assertVisible: "Home"
+- assertVisible: "Places"
+- assertVisible: "Execute"
+- assertVisible: "Reports"

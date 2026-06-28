@@ -1,0 +1,23 @@
+# SCAFFOLD — full auditor execute → review → submit journey.
+#
+# Keep this OUT of smoke CI until the per-question survey controls carry stable
+# accessibility labels / testIDs. The YEE audit is 9 steps / 71 items
+# (app/audit/[placeId]/[step].tsx) with no testIDs, so a full executable submit
+# is too brittle to assert step-by-step today (see maestro/README.md "testID gap").
+#
+# When expanded into a full flow, the terminal assertions should verify, in order:
+#   - "Next"             (advance through steps 1..8)
+#   - "Review Audit"     (forward button on the final step → app/audit/[placeId]/review.tsx)
+#   - "Submit audit?"    (the destructive confirm dialog)
+#   - tapOn "Submit"     (confirm)
+#   - "Audit submitted"  (app/audit/[placeId]/submitted.tsx, online branch)
+#
+# Android appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.yee-mobile
+appId: com.andisha2004.audittoolsyeemobile
+---
+- runFlow: login.yaml
+- tapOn: "Execute"
+- extendedWaitUntil:
+      visible: ".*Select a place to begin.*|.*Start survey.*|.*Continue survey.*|.*Resume audit.*|.*Open audit.*"
+      timeout: 30000

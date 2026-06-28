@@ -1,0 +1,15 @@
+# Assigned-places visibility. The seeded auditor (auditor-demo-1 = AUD001) has
+# place assignments, so the Places tab must surface at least one place-action
+# affordance. Source: app/(tabs)/places.tsx.
+# Android appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.yee-mobile
+appId: com.andisha2004.audittoolsyeemobile
+---
+- runFlow: login.yaml
+- tapOn: "Places"
+- extendedWaitUntil:
+      visible: ".*Drafts.*|.*Submitted.*|.*Start audit.*|.*Continue draft.*|.*View report.*"
+      timeout: 30000
+# Meaningful assertion: a per-place action must be present (NOT the empty state).
+- assertVisible:
+      text: ".*Start audit.*|.*Continue draft.*|.*View report.*"

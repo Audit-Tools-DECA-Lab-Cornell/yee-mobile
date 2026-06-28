@@ -1,0 +1,25 @@
+# Auditor-only native E2E flow for the YEE Expo development build.
+# Android appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.yee-mobile
+#
+# Selectors are matched by visible text / placeholder text (the YEE mobile
+# screens carry zero testID props — see maestro/README.md "testID gap").
+# Login screen source: app/(auth)/login.tsx.
+appId: com.andisha2004.audittoolsyeemobile
+---
+- launchApp:
+      clearState: true
+- extendedWaitUntil:
+      visible: "Log in to the YEE workspace."
+      timeout: 30000
+# Email field — placeholder is visible while empty, so Maestro can tap it by text.
+- tapOn: "auditor@example.com"
+- inputText: "auditor-demo-1@yee.local"
+- tapOn: "Enter password"
+- inputText: "DemoPass123!"
+- hideKeyboard
+- tapOn: "Log in"
+# Landing = the (tabs) group: Dashboard/Home with the "Active auditor" badge.
+- extendedWaitUntil:
+      visible: ".*Active auditor.*|.*Places available.*|.*Dashboard.*"
+      timeout: 30000

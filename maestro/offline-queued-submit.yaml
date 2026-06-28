@@ -1,0 +1,23 @@
+# SCAFFOLD — offline submit → queued-sync verification.
+#
+# MANUAL PRECONDITION (cannot be automated in Maestro): enable airplane mode on
+# the device/simulator BEFORE submitting a completed audit, so the submit lands
+# in the offline queue (stores/yee-mobile-store.ts + lib/yee-sync-logic.ts)
+# instead of reaching the server. Keep OUT of smoke CI (needs manual airplane
+# mode + a completed audit).
+#
+# The light path below only confirms the dashboard sync card renders post-login.
+# When expanded with a real offline submit, assert:
+#   - "Audit saved and queued"  (app/audit/[placeId]/submitted.tsx, offline branch)
+#   - "Pending Sync"            (app/(tabs)/index.tsx sync card, count > 0)
+#   - then restore connectivity and confirm the queue drains (count → 0).
+#
+# Android appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.yee-mobile
+appId: com.andisha2004.audittoolsyeemobile
+---
+- runFlow: login.yaml
+- tapOn: "Home"
+- extendedWaitUntil:
+      visible: ".*Online and ready to sync.*|.*Offline mode active.*|.*Pending Sync.*|.*Ready for offline use.*"
+      timeout: 30000
