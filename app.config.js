@@ -23,6 +23,7 @@ export default {
         },
         android: {
             icon: "./assets/icon.png",
+            softwareKeyboardLayoutMode: "pan",
             adaptiveIcon: {
                 foregroundImage: "./assets/images/adaptive-icon.png",
                 backgroundColor: "#F7F1EB",
@@ -32,6 +33,7 @@ export default {
         },
         plugins: [
             "./plugins/withCustomPodfilePatches",
+            ["expo-navigation-bar", { hidden: true }],
             "expo-router",
             "expo-font",
             [

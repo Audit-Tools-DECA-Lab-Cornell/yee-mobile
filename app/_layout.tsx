@@ -1,10 +1,5 @@
 import "../tamagui.generated.css";
 
-import { useEffect, useMemo, useState } from "react";
-import { Appearance } from "react-native";
-import NetInfo from "@react-native-community/netinfo";
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
-import { useFonts } from "expo-font";
 import {
     Geist_400Regular,
     Geist_500Medium,
@@ -17,17 +12,23 @@ import {
     JetBrainsMono_600SemiBold,
     JetBrainsMono_700Bold,
 } from "@expo-google-fonts/jetbrains-mono";
-import { Stack, useRouter, useSegments } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
 import {
     SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
     SpaceGrotesk_600SemiBold,
     SpaceGrotesk_700Bold,
 } from "@expo-google-fonts/space-grotesk";
-import { StatusBar } from "expo-status-bar";
+import NetInfo from "@react-native-community/netinfo";
+import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Provider } from "components/Provider";
+import { useFonts } from "expo-font";
+import NavigationBar from "expo-navigation-bar";
+import { Stack, useRouter, useSegments } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
 import { useDesignSystem, type ColorTokens } from "lib/design-system";
+import { useEffect, useMemo, useState } from "react";
+import { Appearance, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "stores/auth-store";
 import { usePreferencesStore, type ResolvedTheme } from "stores/preferences-store";
@@ -197,6 +198,7 @@ function RootLayoutNav() {
     }, [authStatus]);
 
     useEffect(() => {
+        NavigationBar.setVisibilityAsync("hidden");
         if (authStatus === "loading") {
             return;
         }
@@ -229,41 +231,43 @@ function RootLayoutNav() {
 
     return (
         <ThemeProvider value={navigationTheme}>
-            <StatusBar
-                style={resolvedTheme === "dark" ? "light" : "dark"}
-                backgroundColor={designSystem.colors.background}
-            />
-            <SafeAreaView
-                edges={["top"]}
-                style={{ flex: 1, backgroundColor: designSystem.colors.background }}
+            <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                style={{ flex: 1 }}
             >
-                <Stack
-                    screenOptions={{
-                        contentStyle: {
-                            backgroundColor: designSystem.colors.background,
-                        },
-                    }}
+                <SafeAreaView
+                    edges={["top"]}
+                    style={{ flex: 1, backgroundColor: designSystem.colors.background }}
                 >
-                    <Stack.Screen
-                        name="(auth)"
-                        options={{
-                            headerShown: false,
+                    <Stack
+                        screenOptions={{
+                            contentStyle: {
+                                backgroundColor: designSystem.colors.background,
+                            },
                         }}
-                    />
-                    <Stack.Screen
-                        name="(tabs)"
-                        options={{
-                            headerShown: false,
-                        }}
-                    />
-                    <Stack.Screen
-                        name="settings"
-                        options={{
-                            headerShown: false,
-                        }}
-                    />
-                </Stack>
-            </SafeAreaView>
+                    >
+                        <Stack.Screen
+                            name="(auth)"
+                            options={{
+                                headerShown: false,
+                            }}
+                        />
+                        <Stack.Screen
+                            name="(tabs)"
+                            options={{
+                                headerShown: false,
+                            }}
+                        />
+                        <Stack.Screen
+                            name="settings"
+                            options={{
+                                headerShown: false,
+                            }}
+                        />
+                    </Stack>
+                </SafeAreaView>
+            </KeyboardAvoidingView>
         </ThemeProvider>
     );
 }

@@ -25,7 +25,9 @@
         "format": "prettier . --write --ignore-unknown",
         "format:check": "prettier . --check --ignore-unknown",
         "check": "bun run typecheck && bun run lint && bun run format:check",
-        "screenshots:ios": "node scripts/capture-ios-screenshots.mjs",
+        "screenshots:ios": "node scripts/capture-screenshots.mjs --platform ios",
+        "screenshots:android": "node scripts/capture-screenshots.mjs --platform android",
+        "screenshots": "bun run screenshots:ios && bun run screenshots:android",
         "ci:quality": "bun run check && bun run doctor",
         "prepare": "husky"
     },
@@ -51,6 +53,7 @@
         "expo-dev-client": "~55.0.36",
         "expo-font": "~55.0.4",
         "expo-linking": "~55.0.16",
+        "expo-navigation-bar": "~55.0.14",
         "expo-router": "~55.0.4",
         "expo-secure-store": "~55.0.15",
         "expo-splash-screen": "~55.0.22",

@@ -85,7 +85,7 @@ export default function LoginScreen() {
 
     return (
         <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
             style={{ flex: 1, backgroundColor: designSystem.colors.background }}
         >
             <ScrollView
@@ -93,8 +93,10 @@ export default function LoginScreen() {
                 contentInsetAdjustmentBehavior="automatic"
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{
+                    flexGrow: 1,
                     paddingHorizontal: designSystem.spacing.screenPaddingHorizontal,
-                    paddingVertical: 48,
+                    paddingTop: 48,
+                    paddingBottom: 64,
                     justifyContent: "center",
                 }}
             >

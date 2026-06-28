@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { execFileSync, spawnSync } from "node:child_process";
+import { writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -9,13 +10,19 @@ const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
 const DEFAULT_WAIT_MS = 20000;
 const DEFAULT_LOGIN_WAIT_MS = 20000;
 const DEFAULT_SCROLL_DELAY_MS = 450;
+const DEFAULT_PLATFORM = "ios";
 const DEFAULT_SIMULATOR = "booted";
+const DEFAULT_ANDROID_DEVICE = "connected";
 
-const TARGET_DEVICE_TYPES = ["iphone", "ipad"];
+const IOS_DEVICE_TYPES = ["iphone", "ipad"];
+const ANDROID_DEVICE_TYPES = ["android-phone", "android-tablet"];
+const TARGET_DEVICE_TYPES = [...IOS_DEVICE_TYPES, ...ANDROID_DEVICE_TYPES];
 
 const REPORT_DETAIL_SCROLLS = {
     iphone: { early: 950, end: 3600 },
     ipad: { early: 800, end: 2800 },
+    "android-phone": { early: 950, end: 3600 },
+    "android-tablet": { early: 800, end: 2800 },
 };
 
 /**
@@ -38,7 +45,9 @@ function parseArgs(argv) {
         loginWaitMs: DEFAULT_LOGIN_WAIT_MS,
         list: false,
         outputDir: null,
+        platform: DEFAULT_PLATFORM,
         target: "all",
+        androidDevice: DEFAULT_ANDROID_DEVICE,
     };
 
     for (let index = 0; index < argv.length; index += 1) {
@@ -66,8 +75,10 @@ function parseArgs(argv) {
         else if (arg === "--device") options.device = next;
         else if (arg === "--email") options.email = normalizeEmail(next);
         else if (arg === "--password") options.password = next;
+        else if (arg === "--platform") options.platform = next;
         else if (arg === "--scheme") options.scheme = next;
         else if (arg === "--simulator") options.simulator = next;
+        else if (arg === "--android-device") options.androidDevice = next;
         else if (arg === "--wait-ms") options.waitMs = parsePositiveInteger(next, "--wait-ms");
         else if (arg === "--login-wait-ms")
             options.loginWaitMs = parsePositiveInteger(next, "--login-wait-ms");
@@ -87,8 +98,30 @@ function parseArgs(argv) {
         options.password = process.env.SCREENSHOT_PASSWORD || null;
     }
 
+    if (!["ios", "android"].includes(options.platform)) {
+        throw new Error('--platform must be "ios" or "android".');
+    }
     if (options.device !== null && !TARGET_DEVICE_TYPES.includes(options.device)) {
-        throw new Error('--device must be "iphone" or "ipad".');
+        throw new Error('--device must be "iphone", "ipad", "android-phone", or "android-tablet".');
+    }
+    if (
+        options.platform === "ios" &&
+        options.device !== null &&
+        !IOS_DEVICE_TYPES.includes(options.device)
+    ) {
+        throw new Error('--device must be "iphone" or "ipad" when --platform is ios.');
+    }
+    if (
+        options.platform === "android" &&
+        options.device !== null &&
+        !ANDROID_DEVICE_TYPES.includes(options.device)
+    ) {
+        throw new Error(
+            '--device must be "android-phone" or "android-tablet" when --platform is android.',
+        );
+    }
+    if (options.platform === "android" && options.simulator !== DEFAULT_SIMULATOR) {
+        throw new Error("--simulator is only supported for iOS. Use --android-device for Android.");
     }
     if (options.appearance !== null && !["light", "dark"].includes(options.appearance)) {
         throw new Error('--appearance must be "light" or "dark".');
@@ -98,24 +131,27 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-    console.log(`Capture YEE mobile screenshots from a booted iOS simulator.
+    console.log(`Capture YEE mobile screenshots from booted iOS simulators or connected Android devices.
 
 Usage:
   bun run screenshots:ios -- --email USER --password PASS
   bun run screenshots:ios -- --device iphone --appearance light --email USER --password PASS
   bun run screenshots:ios -- --device ipad --appearance dark --email USER --password PASS
   bun run screenshots:ios -- --list
+  bun run screenshots:android -- --android-device connected --device android-tablet --email USER --password PASS
 
 Options:
   --api-base-url URL   Backend used only to resolve place/report IDs. Default: ${DEFAULT_API_BASE_URL}
   --appearance VALUE   light or dark. Omit to capture both appearances in sequence. Default: both
-  --device VALUE       iphone or ipad. Omit to capture every booted simulator. Default: all booted
+  --android-device ID  Android device serial/model target, or connected. Default: connected
+  --device VALUE       iphone, ipad, android-phone, or android-tablet. Default: one per available type
   --email VALUE        Screenshot auditor email (or set SCREENSHOT_EMAIL in .env.local / .env)
   --password VALUE     Screenshot auditor password (or set SCREENSHOT_PASSWORD in .env.local / .env)
   --login-wait-ms N    Extra wait after the first login target. Default: ${DEFAULT_LOGIN_WAIT_MS}
   --output-dir PATH    Output directory. Default: screenshots/<device>/<appearance>
+  --platform VALUE     ios or android. Default: ${DEFAULT_PLATFORM}
   --scheme VALUE       App URL scheme. Default: ${DEFAULT_SCHEME}
-  --simulator VALUE    simctl device target. Default: booted
+  --simulator VALUE    iOS simctl device target. Default: booted
   --target VALUE       all, public, protected, or a comma-separated list of PNG names
   --wait-ms VALUE      Delay after each deep link before capture. Default: ${DEFAULT_WAIT_MS}
   --no-reset           Keep the existing app auth session between targets
@@ -202,8 +238,10 @@ function listSimulators() {
                     continue;
                 }
                 simulators.push({
+                    id: device.udid,
                     udid: device.udid,
                     name: device.name,
+                    platform: "ios",
                     state: device.state,
                     isBooted: device.state === "Booted",
                     deviceType,
@@ -217,10 +255,121 @@ function listSimulators() {
 }
 
 /**
+ * List connected Android devices known to adb.
+ *
+ * @returns {Array<{ id: string, serial: string, name: string, platform: "android", state: string, isOnline: boolean, deviceType: "android-phone" | "android-tablet" }>}
+ */
+function listAndroidDevices() {
+    const result = spawnSync("adb", ["devices", "-l"], { encoding: "utf8" });
+    if (result.error || result.status !== 0) {
+        return [];
+    }
+
+    return result.stdout
+        .split("\n")
+        .slice(1)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => parseAndroidDeviceLine(line))
+        .filter((device) => device !== null);
+}
+
+function parseAndroidDeviceLine(line) {
+    const parts = line.split(/\s+/);
+    const serial = parts[0];
+    const state = parts[1] ?? "unknown";
+    if (serial.length === 0) {
+        return null;
+    }
+
+    const metadata = new Map();
+    for (const part of parts.slice(2)) {
+        const separatorIndex = part.indexOf(":");
+        if (separatorIndex === -1) {
+            continue;
+        }
+        metadata.set(part.slice(0, separatorIndex), part.slice(separatorIndex + 1));
+    }
+
+    const model = metadata.get("model") ?? serial;
+    const name = model.replace(/_/g, " ");
+    return {
+        id: serial,
+        serial,
+        name,
+        platform: "android",
+        state,
+        isOnline: state === "device",
+        deviceType: classifyAndroidDeviceType(serial, model),
+    };
+}
+
+function classifyAndroidDeviceType(serial, model) {
+    const normalizedModel = model.toLowerCase();
+    if (
+        normalizedModel.includes("tablet") ||
+        normalizedModel.includes("tab") ||
+        normalizedModel.startsWith("sm-x")
+    ) {
+        return "android-tablet";
+    }
+
+    const size = readAndroidPhysicalSize(serial);
+    const density = readAndroidDensity(serial);
+    if (size !== null && density !== null) {
+        const smallestWidthDp = (Math.min(size.width, size.height) * 160) / density;
+        if (smallestWidthDp >= 600) {
+            return "android-tablet";
+        }
+    }
+
+    return "android-phone";
+}
+
+function readAndroidPhysicalSize(serial) {
+    const result = spawnSync("adb", ["-s", serial, "shell", "wm", "size"], { encoding: "utf8" });
+    if (result.error || result.status !== 0) {
+        return null;
+    }
+    const match = result.stdout.match(/Physical size:\s*(\d+)x(\d+)/);
+    if (match === null) {
+        return null;
+    }
+    return { width: Number(match[1]), height: Number(match[2]) };
+}
+
+function readAndroidDensity(serial) {
+    const result = spawnSync("adb", ["-s", serial, "shell", "wm", "density"], {
+        encoding: "utf8",
+    });
+    if (result.error || result.status !== 0) {
+        return null;
+    }
+    const match = result.stdout.match(/Physical density:\s*(\d+)/);
+    if (match === null) {
+        return null;
+    }
+    return Number(match[1]);
+}
+
+/**
+ * Resolve the concrete devices to capture.
+ *
+ * @param {ReturnType<typeof parseArgs>} options Parsed options.
+ * @returns {Array<{ id: string, name: string, platform: "ios" | "android", deviceType: string }>} Target devices.
+ */
+function resolveTargetDevices(options) {
+    if (options.platform === "android") {
+        return resolveTargetAndroidDevices(options);
+    }
+    return resolveTargetSimulators(options);
+}
+
+/**
  * Resolve the concrete simulators to capture.
  *
  * @param {ReturnType<typeof parseArgs>} options Parsed options.
- * @returns {ReturnType<typeof listSimulators>} Target simulators.
+ * @returns {Array<{ id: string, name: string, platform: "ios", deviceType: "iphone" | "ipad", udid: string, isBooted: boolean }>} Target simulators.
  */
 function resolveTargetSimulators(options) {
     const simulators = listSimulators();
@@ -254,10 +403,59 @@ function resolveTargetSimulators(options) {
         return [match];
     }
 
+    return firstDevicePerType(booted);
+}
+
+/**
+ * Resolve the concrete Android devices to capture.
+ *
+ * @param {ReturnType<typeof parseArgs>} options Parsed options.
+ * @returns {Array<{ id: string, name: string, platform: "android", deviceType: "android-phone" | "android-tablet", serial: string }>} Target Android devices.
+ */
+function resolveTargetAndroidDevices(options) {
+    const devices = listAndroidDevices();
+    if (devices.length === 0) {
+        throw new Error(
+            "No connected Android device found. Connect a device with USB debugging enabled.",
+        );
+    }
+
+    const onlineDevices = devices.filter((device) => device.isOnline);
+    if (onlineDevices.length === 0) {
+        throw new Error("No online Android device found. Check `adb devices` for authorization.");
+    }
+
+    let candidates = onlineDevices;
+    if (options.androidDevice !== DEFAULT_ANDROID_DEVICE) {
+        const requested = options.androidDevice.toLowerCase();
+        const match = onlineDevices.find(
+            (device) =>
+                device.serial === options.androidDevice || device.name.toLowerCase() === requested,
+        );
+        if (match === undefined) {
+            throw new Error(
+                `No online Android device matches --android-device "${options.androidDevice}".`,
+            );
+        }
+        candidates = [match];
+    }
+
+    if (options.device !== null) {
+        const match = candidates.find((device) => device.deviceType === options.device);
+        if (match === undefined) {
+            throw new Error(`No connected ${options.device} device matched the Android target.`);
+        }
+        return [match];
+    }
+
+    return firstDevicePerType(candidates);
+}
+
+function firstDevicePerType(devices) {
     const byType = new Map();
-    for (const simulator of booted) {
-        if (!byType.has(simulator.deviceType)) {
-            byType.set(simulator.deviceType, simulator);
+    for (const device of devices) {
+        if (!byType.has(device.deviceType)) {
+            byType.set(device.deviceType, device);
         }
     }
     return [...byType.values()];
@@ -268,7 +466,9 @@ async function main() {
     const discovery = await discoverBackendData(options);
 
     if (options.list) {
-        const deviceTypes = options.device !== null ? [options.device] : TARGET_DEVICE_TYPES;
+        const defaultDeviceTypes =
+            options.platform === "android" ? ANDROID_DEVICE_TYPES : IOS_DEVICE_TYPES;
+        const deviceTypes = options.device !== null ? [options.device] : defaultDeviceTypes;
         for (const deviceType of deviceTypes) {
             const targets = selectTargets(buildTargets(discovery, deviceType), options.target);
             printTargetList(deviceType, targets);
@@ -276,36 +476,36 @@ async function main() {
         return;
     }
 
-    ensureXcrunAvailable();
+    ensurePlatformToolAvailable(options.platform);
 
     const appearances = options.appearance !== null ? [options.appearance] : ["light", "dark"];
-    const simulators = resolveTargetSimulators(options);
+    const devices = resolveTargetDevices(options);
 
-    if (options.outputDir !== null && simulators.length * appearances.length > 1) {
+    if (options.outputDir !== null && devices.length * appearances.length > 1) {
         throw new Error(
             "--output-dir cannot be combined with multiple devices or appearances. Narrow with --device and --appearance.",
         );
     }
 
     console.log(
-        `Capturing on: ${simulators.map((simulator) => `${simulator.deviceType} (${simulator.name})`).join(", ")}`,
+        `Capturing on: ${devices.map((device) => `${device.deviceType} (${device.name})`).join(", ")}`,
     );
 
     let anyFailures = false;
 
-    for (const simulator of simulators) {
+    for (const device of devices) {
         for (const appearance of appearances) {
             const targets = selectTargets(
-                buildTargets(discovery, simulator.deviceType),
+                buildTargets(discovery, device.deviceType),
                 options.target,
             );
             if (targets.length === 0) {
                 console.warn(
-                    `No targets matched --target "${options.target}" for ${simulator.deviceType}; skipping.`,
+                    `No targets matched --target "${options.target}" for ${device.deviceType}; skipping.`,
                 );
                 continue;
             }
-            const failed = await captureSimulatorRun({ options, simulator, appearance, targets });
+            const failed = await captureDeviceRun({ options, device, appearance, targets });
             if (failed) {
                 anyFailures = true;
             }
@@ -340,9 +540,9 @@ function printTargetList(deviceType, targets) {
  * @param {readonly ScreenshotTarget[]} input.targets Screenshot targets.
  * @returns {Promise<boolean>} True when any target failed.
  */
-async function captureSimulatorRun({ options, simulator, appearance, targets }) {
+async function captureDeviceRun({ options, device, appearance, targets }) {
     const outputDir = path.resolve(
-        options.outputDir ?? path.join("screenshots", simulator.deviceType, appearance),
+        options.outputDir ?? path.join("screenshots", device.deviceType, appearance),
     );
     await mkdir(outputDir, { recursive: true });
 
@@ -351,9 +551,10 @@ async function captureSimulatorRun({ options, simulator, appearance, targets }) 
 
     const manifest = {
         generated_at: new Date().toISOString(),
-        device: simulator.deviceType,
-        simulator_name: simulator.name,
-        simulator_udid: simulator.udid,
+        platform: device.platform,
+        device: device.deviceType,
+        device_name: device.name,
+        device_id: device.id,
         appearance,
         api_base_url: options.apiBaseUrl,
         output_directory: outputDir,
@@ -385,9 +586,9 @@ async function captureSimulatorRun({ options, simulator, appearance, targets }) 
             const waitMs = shouldReset ? options.loginWaitMs : options.waitMs;
 
             console.log(`Opening ${target.route}${shouldReset ? " (reset + login)" : ""}`);
-            run("xcrun", ["simctl", "openurl", simulator.udid, url]);
+            openDeviceUrl(device, url);
             await sleep(waitMs);
-            run("xcrun", ["simctl", "io", simulator.udid, "screenshot", outputPath]);
+            captureDeviceScreenshot(device, outputPath);
 
             manifest.successes.push({
                 file: target.file,
@@ -459,17 +660,20 @@ function buildTargets(discovery, deviceType) {
     if (deviceType === "iphone") {
         return buildIphoneTargets(discovery);
     }
-    if (deviceType === "ipad") {
-        return buildIpadTargets(discovery);
+    if (deviceType === "ipad" || deviceType === "android-tablet") {
+        return buildIpadTargets(discovery, deviceType);
+    }
+    if (deviceType === "android-phone") {
+        return buildIphoneTargets(discovery, deviceType);
     }
     throw new Error(`Unknown device type: ${deviceType}`);
 }
 
-function buildIphoneTargets(discovery) {
+function buildIphoneTargets(discovery, deviceType = "iphone") {
     const routes = buildDynamicRoutes(discovery);
     const targets = [
-        publicTarget("01-login.png", "/(auth)/login", "Login screen"),
-        publicTarget("02-signup.png", "/(auth)/signup", "Access setup screen"),
+        // publicTarget("01-login.png", "/(auth)/login", "Login screen"),
+        // publicTarget("02-signup.png", "/(auth)/signup", "Access setup screen"),
         protectedTarget("03-home.png", "/(tabs)", "Dashboard top"),
         protectedTarget(
             "04-home-assigned-places.png",
@@ -510,14 +714,14 @@ function buildIphoneTargets(discovery) {
         ),
         ...buildReportDetailTargets("iphone", "17", routes.reportDetail),
     ];
-    return assertUniqueTargetFiles("iphone", targets);
+    return assertUniqueTargetFiles(deviceType, targets);
 }
 
-function buildIpadTargets(discovery) {
+function buildIpadTargets(discovery, deviceType = "ipad") {
     const routes = buildDynamicRoutes(discovery);
     const targets = [
-        publicTarget("01-login.png", "/(auth)/login", "Login screen"),
-        publicTarget("02-signup.png", "/(auth)/signup", "Access setup screen"),
+        // publicTarget("01-login.png", "/(auth)/login", "Login screen"),
+        // publicTarget("02-signup.png", "/(auth)/signup", "Access setup screen"),
         protectedTarget("03-home.png", "/(tabs)", "Dashboard top"),
         protectedTarget("04-places.png", "/(tabs)/places", "Places list top"),
         protectedTarget("05-execute.png", "/(tabs)/execute", "Execute workspace top"),
@@ -538,7 +742,7 @@ function buildIpadTargets(discovery) {
         protectedTarget("12-reports.png", "/(tabs)/reports", "Reports top"),
         ...buildReportDetailTargets("ipad", "13", routes.reportDetail),
     ];
-    return assertUniqueTargetFiles("ipad", targets);
+    return assertUniqueTargetFiles(deviceType, targets);
 }
 
 function buildDynamicRoutes(discovery) {
@@ -592,7 +796,7 @@ function publicTarget(file, route, note) {
 }
 
 function protectedTarget(file, route, note) {
-    return { file, route, requiresAuth: true, note };
+    return { file, route, skipLogin: true, note };
 }
 
 function dynamicPlaceTarget(file, route, note) {
@@ -707,6 +911,14 @@ function extractScreenshotAutomationParams(route) {
     };
 }
 
+function ensurePlatformToolAvailable(platform) {
+    if (platform === "android") {
+        ensureAdbAvailable();
+        return;
+    }
+    ensureXcrunAvailable();
+}
+
 function ensureXcrunAvailable() {
     const result = spawnSync("xcrun", ["simctl", "help"], { stdio: "ignore" });
     if (result.error || result.status !== 0) {
@@ -714,6 +926,68 @@ function ensureXcrunAvailable() {
             "xcrun simctl is unavailable. Install Xcode command-line tools and boot an iOS simulator.",
         );
     }
+}
+
+function ensureAdbAvailable() {
+    const result = spawnSync("adb", ["version"], { stdio: "ignore" });
+    if (result.error || result.status !== 0) {
+        throw new Error(
+            "adb is unavailable. Install Android platform-tools and enable USB debugging.",
+        );
+    }
+}
+
+function setDeviceAppearance(device, appearance) {
+    if (device.platform === "ios") {
+        run("xcrun", ["simctl", "ui", device.id, "appearance", appearance]);
+        return;
+    }
+
+    const mode = appearance === "dark" ? "yes" : "no";
+    const result = spawnSync("adb", ["-s", device.id, "shell", "cmd", "uimode", "night", mode], {
+        encoding: "utf8",
+    });
+    if (result.error || result.status !== 0) {
+        console.warn(
+            `Unable to set Android ${appearance} appearance automatically; continuing with current device theme.`,
+        );
+    }
+}
+
+function openDeviceUrl(device, url) {
+    if (device.platform === "ios") {
+        run("xcrun", ["simctl", "openurl", device.id, url]);
+        return;
+    }
+
+    run("adb", [
+        "-s",
+        device.id,
+        "shell",
+        "am",
+        "start",
+        "-W",
+        "-a",
+        "android.intent.action.VIEW",
+        "-d",
+        url,
+    ]);
+}
+
+function captureDeviceScreenshot(device, outputPath) {
+    if (device.platform === "ios") {
+        run("xcrun", ["simctl", "io", device.id, "screenshot", outputPath]);
+        return;
+    }
+
+    const result = spawnSync("adb", ["-s", device.id, "exec-out", "screencap", "-p"], {
+        encoding: "buffer",
+        maxBuffer: 50 * 1024 * 1024,
+    });
+    if (result.error || result.status !== 0) {
+        throw new Error(`adb screencap failed for ${device.name}.`);
+    }
+    writeFileSync(outputPath, result.stdout);
 }
 
 function run(command, args) {

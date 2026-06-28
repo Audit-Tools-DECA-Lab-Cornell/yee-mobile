@@ -374,11 +374,13 @@ export default function AuditStepScreen() {
             <ScrollView
                 ref={scrollViewRef}
                 contentInsetAdjustmentBehavior="automatic"
+                keyboardDismissMode="on-drag"
+                keyboardShouldPersistTaps="handled"
                 style={{ backgroundColor: designSystem.colors.background }}
                 contentContainerStyle={{
                     paddingHorizontal: designSystem.spacing.screenPaddingHorizontal,
                     paddingTop: designSystem.spacing.screenPaddingVertical,
-                    paddingBottom: (footerHeight > 0 ? footerHeight : 96) + 24,
+                    paddingBottom: (footerHeight > 0 ? footerHeight : 96) + 48,
                     gap: 20,
                 }}
             >
