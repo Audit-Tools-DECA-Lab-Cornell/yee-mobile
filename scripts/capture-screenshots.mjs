@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 import { execFileSync, spawnSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { copyFileSync, rmSync, writeFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -546,8 +548,8 @@ async function captureDeviceRun({ options, device, appearance, targets }) {
     );
     await mkdir(outputDir, { recursive: true });
 
-    console.log(`\n=== ${simulator.deviceType} / ${appearance} (${simulator.name}) ===`);
-    run("xcrun", ["simctl", "ui", simulator.udid, "appearance", appearance]);
+    console.log(`\n=== ${device.deviceType} / ${appearance} (${device.name}) ===`);
+    run("xcrun", ["simctl", "ui", device.udid, "appearance", appearance]);
 
     const manifest = {
         generated_at: new Date().toISOString(),
@@ -658,18 +660,18 @@ async function fetchAuthedJson(url, token) {
 
 function buildTargets(discovery, deviceType) {
     if (deviceType === "iphone") {
-        return buildIphoneTargets(discovery);
+        return buildPhoneTargets(discovery);
     }
     if (deviceType === "ipad" || deviceType === "android-tablet") {
-        return buildIpadTargets(discovery, deviceType);
+        return buildTabletTargets(discovery, deviceType);
     }
     if (deviceType === "android-phone") {
-        return buildIphoneTargets(discovery, deviceType);
+        return buildPhoneTargets(discovery, deviceType);
     }
     throw new Error(`Unknown device type: ${deviceType}`);
 }
 
-function buildIphoneTargets(discovery, deviceType = "iphone") {
+function buildPhoneTargets(discovery, deviceType = "iphone") {
     const routes = buildDynamicRoutes(discovery);
     const targets = [
         // publicTarget("01-login.png", "/(auth)/login", "Login screen"),
@@ -712,12 +714,13 @@ function buildIphoneTargets(discovery, deviceType = "iphone") {
             withScreenshotScroll("/(tabs)/reports", 900),
             "Reports list",
         ),
-        ...buildReportDetailTargets("iphone", "17", routes.reportDetail),
+        ...buildReportDetailTargets(deviceType, "17", routes.reportDetail),
+        protectedTarget("20-settings.png", "/settings", "Settings top"),
     ];
     return assertUniqueTargetFiles(deviceType, targets);
 }
 
-function buildIpadTargets(discovery, deviceType = "ipad") {
+function buildTabletTargets(discovery, deviceType = "ipad") {
     const routes = buildDynamicRoutes(discovery);
     const targets = [
         // publicTarget("01-login.png", "/(auth)/login", "Login screen"),
@@ -740,7 +743,8 @@ function buildIpadTargets(discovery, deviceType = "ipad") {
             "Audit review sections",
         ),
         protectedTarget("12-reports.png", "/(tabs)/reports", "Reports top"),
-        ...buildReportDetailTargets("ipad", "13", routes.reportDetail),
+        ...buildReportDetailTargets(deviceType, "13", routes.reportDetail),
+        protectedTarget("16-settings.png", "/settings", "Settings top"),
     ];
     return assertUniqueTargetFiles(deviceType, targets);
 }
@@ -976,7 +980,16 @@ function openDeviceUrl(device, url) {
 
 function captureDeviceScreenshot(device, outputPath) {
     if (device.platform === "ios") {
-        run("xcrun", ["simctl", "io", device.id, "screenshot", outputPath]);
+        // CoreSimulator can't write to TCC-protected folders like ~/Desktop,
+        // ~/Documents, or ~/Downloads. Saving to the system temp directory first
+        // and then copying with Node avoids "Operation not permitted".
+        const tempPath = path.join(os.tmpdir(), `yee-screenshot-${randomUUID()}.png`);
+        try {
+            run("xcrun", ["simctl", "io", device.id, "screenshot", tempPath]);
+            copyFileSync(tempPath, outputPath);
+        } finally {
+            rmSync(tempPath, { force: true });
+        }
         return;
     }
 

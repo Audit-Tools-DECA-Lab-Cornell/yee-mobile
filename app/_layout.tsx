@@ -22,7 +22,7 @@ import NetInfo from "@react-native-community/netinfo";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Provider } from "components/Provider";
 import { useFonts } from "expo-font";
-import NavigationBar from "expo-navigation-bar";
+import { setVisibilityAsync } from "expo-navigation-bar";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -198,7 +198,7 @@ function RootLayoutNav() {
     }, [authStatus]);
 
     useEffect(() => {
-        NavigationBar.setVisibilityAsync("hidden");
+        setVisibilityAsync("hidden");
         if (authStatus === "loading") {
             return;
         }
