@@ -12,6 +12,9 @@
         "build": "expo export --platform all",
         "build:android": "expo export --platform android",
         "build:ios": "expo export --platform ios",
+        "version:show": "node scripts/bump-version.mjs --show",
+        "version:patch": "node scripts/bump-version.mjs --patch",
+        "version:minor": "node scripts/bump-version.mjs --minor",
         "doctor": "npx expo-doctor",
         "test": "npx playwright test",
         "test:unit": "vitest run",
@@ -22,7 +25,6 @@
         "format": "prettier . --write --ignore-unknown",
         "format:check": "prettier . --check --ignore-unknown",
         "check": "bun run typecheck && bun run lint && bun run format:check",
-        "perf:web:budget": "node ./scripts/check-web-bundle-size.mjs",
         "screenshots:ios": "node scripts/capture-ios-screenshots.mjs",
         "ci:quality": "bun run check && bun run doctor",
         "prepare": "husky"

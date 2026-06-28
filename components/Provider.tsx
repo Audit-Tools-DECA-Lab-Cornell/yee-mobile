@@ -1,8 +1,15 @@
 import { TamaguiProvider, type TamaguiProviderProps } from "tamagui";
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { CurrentToast } from "./CurrentToast";
 import { config as tamaguiConfig } from "../tamagui.config";
 import { usePreferencesStore } from "stores/preferences-store";
+
+function SafeToastViewport() {
+    const insets = useSafeAreaInsets();
+
+    return <ToastViewport top={insets.top + 8} left={insets.left} right={insets.right} />;
+}
 
 export function Provider({
     children,
@@ -10,21 +17,14 @@ export function Provider({
 }: Readonly<Omit<TamaguiProviderProps, "config" | "defaultTheme">>) {
     const resolvedTheme = usePreferencesStore((state) => state.resolvedTheme);
     return (
-        <TamaguiProvider config={tamaguiConfig} defaultTheme={resolvedTheme} {...rest}>
-            <ToastProvider
-                swipeDirection="horizontal"
-                duration={6000}
-                native={
-                    [
-                        // uncomment the next line to do native toasts on mobile. NOTE: it'll require you making a dev build and won't work with Expo Go
-                        // 'mobile'
-                    ]
-                }
-            >
-                {children}
-                <CurrentToast />
-                <ToastViewport top="$8" left={0} right={0} />
-            </ToastProvider>
-        </TamaguiProvider>
+        <SafeAreaProvider>
+            <TamaguiProvider config={tamaguiConfig} defaultTheme={resolvedTheme} {...rest}>
+                <ToastProvider swipeDirection="horizontal" duration={6000} native={[]}>
+                    {children}
+                    <CurrentToast />
+                    <SafeToastViewport />
+                </ToastProvider>
+            </TamaguiProvider>
+        </SafeAreaProvider>
     );
 }

@@ -28,6 +28,7 @@ import {
 import { StatusBar } from "expo-status-bar";
 import { Provider } from "components/Provider";
 import { useDesignSystem, type ColorTokens } from "lib/design-system";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "stores/auth-store";
 import { usePreferencesStore, type ResolvedTheme } from "stores/preferences-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
@@ -228,33 +229,41 @@ function RootLayoutNav() {
 
     return (
         <ThemeProvider value={navigationTheme}>
-            <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
-            <Stack
-                screenOptions={{
-                    contentStyle: {
-                        backgroundColor: designSystem.colors.background,
-                    },
-                }}
+            <StatusBar
+                style={resolvedTheme === "dark" ? "light" : "dark"}
+                backgroundColor={designSystem.colors.background}
+            />
+            <SafeAreaView
+                edges={["top"]}
+                style={{ flex: 1, backgroundColor: designSystem.colors.background }}
             >
-                <Stack.Screen
-                    name="(auth)"
-                    options={{
-                        headerShown: false,
+                <Stack
+                    screenOptions={{
+                        contentStyle: {
+                            backgroundColor: designSystem.colors.background,
+                        },
                     }}
-                />
-                <Stack.Screen
-                    name="(tabs)"
-                    options={{
-                        headerShown: false,
-                    }}
-                />
-                <Stack.Screen
-                    name="settings"
-                    options={{
-                        headerShown: false,
-                    }}
-                />
-            </Stack>
+                >
+                    <Stack.Screen
+                        name="(auth)"
+                        options={{
+                            headerShown: false,
+                        }}
+                    />
+                    <Stack.Screen
+                        name="(tabs)"
+                        options={{
+                            headerShown: false,
+                        }}
+                    />
+                    <Stack.Screen
+                        name="settings"
+                        options={{
+                            headerShown: false,
+                        }}
+                    />
+                </Stack>
+            </SafeAreaView>
         </ThemeProvider>
     );
 }
