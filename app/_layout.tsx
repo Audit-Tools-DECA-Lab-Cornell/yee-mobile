@@ -29,7 +29,6 @@ import { StatusBar } from "expo-status-bar";
 import { useDesignSystem, type ColorTokens } from "lib/design-system";
 import { useEffect, useMemo, useState } from "react";
 import { Appearance, KeyboardAvoidingView, Platform } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuthStore } from "stores/auth-store";
 import { usePreferencesStore, type ResolvedTheme } from "stores/preferences-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
@@ -198,7 +197,8 @@ function RootLayoutNav() {
     }, [authStatus]);
 
     useEffect(() => {
-        setVisibilityAsync("hidden");
+        if (Platform.OS === "android") setVisibilityAsync("hidden");
+
         if (authStatus === "loading") {
             return;
         }
@@ -236,37 +236,32 @@ function RootLayoutNav() {
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
                 style={{ flex: 1 }}
             >
-                <SafeAreaView
-                    edges={["top"]}
-                    style={{ flex: 1, backgroundColor: designSystem.colors.background }}
+                <Stack
+                    screenOptions={{
+                        contentStyle: {
+                            backgroundColor: designSystem.colors.background,
+                        },
+                    }}
                 >
-                    <Stack
-                        screenOptions={{
-                            contentStyle: {
-                                backgroundColor: designSystem.colors.background,
-                            },
+                    <Stack.Screen
+                        name="(auth)"
+                        options={{
+                            headerShown: false,
                         }}
-                    >
-                        <Stack.Screen
-                            name="(auth)"
-                            options={{
-                                headerShown: false,
-                            }}
-                        />
-                        <Stack.Screen
-                            name="(tabs)"
-                            options={{
-                                headerShown: false,
-                            }}
-                        />
-                        <Stack.Screen
-                            name="settings"
-                            options={{
-                                headerShown: false,
-                            }}
-                        />
-                    </Stack>
-                </SafeAreaView>
+                    />
+                    <Stack.Screen
+                        name="(tabs)"
+                        options={{
+                            headerShown: false,
+                        }}
+                    />
+                    <Stack.Screen
+                        name="settings"
+                        options={{
+                            headerShown: false,
+                        }}
+                    />
+                </Stack>
             </KeyboardAvoidingView>
         </ThemeProvider>
     );

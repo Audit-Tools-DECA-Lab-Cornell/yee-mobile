@@ -800,7 +800,7 @@ function publicTarget(file, route, note) {
 }
 
 function protectedTarget(file, route, note) {
-    return { file, route, skipLogin: true, note };
+    return { file, route, requiresAuth: true, note };
 }
 
 function dynamicPlaceTarget(file, route, note) {
@@ -987,6 +987,7 @@ function captureDeviceScreenshot(device, outputPath) {
         try {
             run("xcrun", ["simctl", "io", device.id, "screenshot", tempPath]);
             copyFileSync(tempPath, outputPath);
+            console.log("Screenshot copied to", outputPath);
         } finally {
             rmSync(tempPath, { force: true });
         }
@@ -1001,6 +1002,7 @@ function captureDeviceScreenshot(device, outputPath) {
         throw new Error(`adb screencap failed for ${device.name}.`);
     }
     writeFileSync(outputPath, result.stdout);
+    console.log("Screenshot copied to", outputPath);
 }
 
 function run(command, args) {

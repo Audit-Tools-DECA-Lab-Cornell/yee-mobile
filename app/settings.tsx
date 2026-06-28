@@ -68,7 +68,7 @@ export default function SettingsScreen() {
                 gap="$3"
                 px={spacing.screenPaddingHorizontal}
                 style={{
-                    paddingTop: insets.top + 8,
+                    paddingTop: insets.top,
                     paddingBottom: 12,
                     borderBottomWidth: 1,
                     borderBottomColor: colors.border,
