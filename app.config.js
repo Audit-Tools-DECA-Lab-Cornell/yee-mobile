@@ -4,7 +4,7 @@ export default {
         slug: "audit-tools-yee-mobile",
         version: "0.1.0",
         orientation: "portrait",
-        icon: "./assets/images/icon.png",
+        icon: "./assets/icon.png",
         scheme: "yee-mobile",
         userInterfaceStyle: "automatic",
         splash: {
@@ -22,6 +22,7 @@ export default {
             },
         },
         android: {
+            icon: "./assets/icon.png",
             adaptiveIcon: {
                 foregroundImage: "./assets/images/adaptive-icon.png",
                 backgroundColor: "#F7F1EB",
@@ -37,12 +38,11 @@ export default {
                 "expo-build-properties",
                 {
                     ios: {
-                        newArchEnabled: true,
+                        newArchEnabled: false,
                         deploymentTarget: "15.1",
-                        buildReactNativeFromSource: true,
                     },
                     android: {
-                        newArchEnabled: true,
+                        newArchEnabled: false,
                         compileSdkVersion: 36,
                         targetSdkVersion: 36,
                         buildToolsVersion: "36.0.0",
@@ -63,9 +63,9 @@ export default {
             },
         },
         runtimeVersion: {
-            policy: "appVersion",
+            policy: "fingerprint",
         },
-        // owner: "audit-tools-deca-lab-cornell",
-        // githubUrl: "https://github.com/audit-tools-deca-lab-cornell/yee-mobile",
+        owner: "audit-tools-deca-lab-cornell",
+        githubUrl: "https://github.com/audit-tools-deca-lab-cornell/yee-mobile",
     },
 };
