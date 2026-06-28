@@ -55,3 +55,9 @@ android
 credentials.json
 *.apps.googleusercontent.com.json
 yee-deca.json
+
+# Generated App Store / Play Store marketing screenshots (regenerate with bun run screenshots)
+screenshots/iphone/
+screenshots/ipad/
+screenshots/android-phone/
+screenshots/android-tablet/
