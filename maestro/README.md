@@ -40,6 +40,36 @@ TEST_DATABASE_URL_YEE=... yee/testing/scripts/run-mobile-e2e.sh
 It does **not** boot a simulator or install a dev build — that must already be running
 (native Maestro requires a prepared device; see CI note below).
 
+## Fast local iteration (and why the app used to restart every step)
+
+Two things made early runs slow/flaky on a **dev build**:
+
+1. `login.yaml` used `launchApp: { clearState: true }`, which wiped the session (and MMKV
+   drafts) on every launch — forcing a full re-login each time.
+2. Every flow runs `runFlow: login.yaml`, and `maestro test maestro` runs each file as an
+   independent flow (`launchApp` stops + restarts the app). On a dev build, each restart
+   reconnects to the Metro dev server and re-downloads the JS bundle (the "waiting to
+   connect to the development server" pause), which often outran the 30s waits → failures.
+
+Fixes applied:
+
+- **`login.yaml` is now idempotent and does NOT `clearState`.** It restores the persisted
+  SecureStore session and only logs in when the login screen is actually shown — so
+  repeated flows no longer re-login (and `resume-draft.yaml` now keeps its draft).
+- **`smoke.yaml` runs the whole smoke set in ONE session** — launch + login once, then tab
+  through dashboard/places/reports without relaunching. Use it for local iteration:
+
+    ```bash
+    maestro test maestro/smoke.yaml
+    ```
+
+- **To remove the Metro reconnect entirely, run against a preview/release build** (JS bundled
+  into the binary), e.g. `eas build -p ios --profile preview` (or a local release build),
+  instead of `expo start` dev mode. Launches become instant and offline-capable.
+
+To force a clean slate (fresh login / cleared drafts) when you actually want it, uninstall the
+app or temporarily add `clearState: true` back to a one-off `launchApp`.
+
 ## Smoke set vs scaffolds
 
 **Smoke (run unattended, no manual steps):**

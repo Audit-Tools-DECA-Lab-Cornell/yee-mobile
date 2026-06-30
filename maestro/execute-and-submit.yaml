@@ -13,8 +13,8 @@
 #   - "Audit submitted"  (app/audit/[placeId]/submitted.tsx, online branch)
 #
 # Android appId: com.andisha2004.audittoolsyeemobile
-# iOS bundleId:  com.andisha2004.yee-mobile
-appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
+appId: com.andisha2004.audit-tools-yee-mobile
 ---
 - runFlow: login.yaml
 - tapOn: "Execute"

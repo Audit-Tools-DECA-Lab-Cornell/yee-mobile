@@ -13,8 +13,8 @@
 #   - then restore connectivity and confirm the queue drains (count → 0).
 #
 # Android appId: com.andisha2004.audittoolsyeemobile
-# iOS bundleId:  com.andisha2004.yee-mobile
-appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
+appId: com.andisha2004.audit-tools-yee-mobile
 ---
 - runFlow: login.yaml
 - tapOn: "Home"

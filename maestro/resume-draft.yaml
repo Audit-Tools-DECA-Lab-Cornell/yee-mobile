@@ -2,30 +2,31 @@
 # lib/yee-secure-draft-storage.ts). Starts/resumes an audit, kills + relaunches
 # the app, and confirms the in-progress draft survives.
 # Android appId: com.andisha2004.audittoolsyeemobile
-# iOS bundleId:  com.andisha2004.yee-mobile
-appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
+appId: com.andisha2004.audit-tools-yee-mobile
 ---
 - runFlow: assigned-places.yaml
 # Enter the audit flow — new or resume, whichever the seeded place offers.
+# (Maestro full-matches, so .* wrappers are required around the button labels.)
 - runFlow:
       when:
-          visible: "Continue draft"
+          visible: "(?i).*continue draft.*"
       commands:
-          - tapOn: "Continue draft"
+          - tapOn: "(?i).*continue draft.*"
 - runFlow:
       when:
-          visible: "Start audit"
+          visible: "(?i).*start audit.*"
       commands:
-          - tapOn: "Start audit"
+          - tapOn: "(?i).*start audit.*"
 - extendedWaitUntil:
-      visible: ".*Assigned place.*|.*Setup and weighting.*|.*Next.*|.*Section.*"
+      visible: "(?i).*(assigned place|setup and weighting|next|section).*"
       timeout: 30000
 # Kill and relaunch — the draft must be restored from MMKV (no clearState).
 - stopApp
 - launchApp
 - extendedWaitUntil:
-      visible: ".*Active auditor.*|.*Places.*|.*Continue draft.*|.*Resume audit.*"
+      visible: "(?i).*(active auditor|dashboard|continue draft|resume audit).*"
       timeout: 30000
-- tapOn: "Places"
+- tapOn: ".*Places, tab.*"
 - assertVisible:
-      text: ".*Continue draft.*|.*Resume audit.*|.*Drafts.*"
+      text: "(?i).*(continue draft|resume audit|drafts).*"

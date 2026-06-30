@@ -1,14 +1,15 @@
 # Reports tab smoke. The Reports screen renders submitted-audit summaries (or a
 # documented empty state when none are synced). Source: app/(tabs)/reports.tsx.
 # Android appId: com.andisha2004.audittoolsyeemobile
-# iOS bundleId:  com.andisha2004.yee-mobile
-appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
+appId: com.andisha2004.audit-tools-yee-mobile
 ---
 - runFlow: login.yaml
-- tapOn: "Reports"
+# Tap the Reports TAB by its unique a11y label ("Reports, tab, 4 of 4").
+- tapOn: ".*Reports, tab.*"
 # Assert a DATA-DEPENDENT signal: either a real report control (reports.tsx:211/311/312)
 # or the genuine empty-state copy (reports.tsx:112). NOT "Average score" — that metric
 # label (reports.tsx:84) renders unconditionally and would false-green an empty tab.
 - extendedWaitUntil:
-      visible: ".*Open report.*|.*Open queued report.*|.*No submitted audits yet.*"
+      visible: "(?i).*(open report|open queued report|no submitted audits yet).*"
       timeout: 30000

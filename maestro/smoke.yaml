@@ -1,0 +1,43 @@
+# Fast single-login smoke run. Launches + logs in ONCE (via the idempotent
+# login.yaml, no clearState), then exercises every smoke check in sequence in the
+# SAME app session — no per-flow cold restart, Metro reconnect, or re-login.
+#
+# Prefer this for local dev-build iteration:
+#   maestro test maestro/smoke.yaml
+# The per-feature flow files (auditor-dashboard / assigned-places / report-access /
+# resume-draft) remain for isolated runs and CI discovery.
+#
+# Android appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
+appId: com.andisha2004.audit-tools-yee-mobile
+---
+- runFlow: login.yaml
+
+# --- Dashboard tab bar ---
+# Maestro requires the regex to FULL-MATCH an element's text, and the tab accessibility
+# labels are "Home, tab, 1 of 4" / "Places, tab, 2 of 4" / ... (confirmed from the
+# Maestro view-hierarchy dump). So wrap with .* — a bare "home" never matches the whole
+# label. These a11y labels are also unique, so they can't collide with the stat cards.
+- assertVisible: ".*Home, tab.*"
+- assertVisible: ".*Places, tab.*"
+- assertVisible: ".*Execute, tab.*"
+- assertVisible: ".*Reports, tab.*"
+
+# --- Assigned places: a real per-place action must be present (not empty state) ---
+# Tap the Places TAB by its unique a11y label (no collision with the "PLACES" stat card).
+- tapOn: ".*Places, tab.*"
+- extendedWaitUntil:
+      visible: "(?i).*(start audit|continue draft|view report).*"
+      timeout: 30000
+- assertVisible:
+      text: "(?i).*(start audit|continue draft|view report).*"
+
+# --- Reports: data-dependent control or the genuine empty-state copy ---
+- tapOn: ".*Reports, tab.*"
+- extendedWaitUntil:
+      visible: "(?i).*(open report|open queued report|no submitted audits yet).*"
+      timeout: 30000
+
+# --- Back to Home: dashboard renders ---
+- tapOn: ".*Home, tab.*"
+- assertVisible: "(?i).*(active auditor|dashboard).*"

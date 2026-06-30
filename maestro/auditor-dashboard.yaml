@@ -1,11 +1,13 @@
 # Auditor dashboard tab bar smoke. Confirms the four (tabs) routes render.
 # Tab labels from app/(tabs)/_layout.tsx: Home, Places, Execute, Reports.
 # Android appId: com.andisha2004.audittoolsyeemobile
-# iOS bundleId:  com.andisha2004.yee-mobile
-appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
+appId: com.andisha2004.audit-tools-yee-mobile
 ---
 - runFlow: login.yaml
-- assertVisible: "Home"
-- assertVisible: "Places"
-- assertVisible: "Execute"
-- assertVisible: "Reports"
+# Tab a11y labels are "Home, tab, 1 of 4" etc.; Maestro regex must full-match, so wrap
+# with .* (a bare "Home" never matches the whole label).
+- assertVisible: ".*Home, tab.*"
+- assertVisible: ".*Places, tab.*"
+- assertVisible: ".*Execute, tab.*"
+- assertVisible: ".*Reports, tab.*"

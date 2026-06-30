@@ -2,14 +2,16 @@
 # place assignments, so the Places tab must surface at least one place-action
 # affordance. Source: app/(tabs)/places.tsx.
 # Android appId: com.andisha2004.audittoolsyeemobile
-# iOS bundleId:  com.andisha2004.yee-mobile
-appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
+appId: com.andisha2004.audit-tools-yee-mobile
 ---
 - runFlow: login.yaml
-- tapOn: "Places"
+# Tap the Places TAB by its unique a11y label ("Places, tab, 2 of 4"); avoids the
+# "PLACES" stat card. Maestro full-matches, so the .* wrapper is required.
+- tapOn: ".*Places, tab.*"
 - extendedWaitUntil:
-      visible: ".*Drafts.*|.*Submitted.*|.*Start audit.*|.*Continue draft.*|.*View report.*"
+      visible: "(?i).*(start audit|continue draft|view report).*"
       timeout: 30000
 # Meaningful assertion: a per-place action must be present (NOT the empty state).
 - assertVisible:
-      text: ".*Start audit.*|.*Continue draft.*|.*View report.*"
+      text: "(?i).*(start audit|continue draft|view report).*"

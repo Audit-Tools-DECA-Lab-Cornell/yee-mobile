@@ -549,7 +549,7 @@ async function captureDeviceRun({ options, device, appearance, targets }) {
     await mkdir(outputDir, { recursive: true });
 
     console.log(`\n=== ${device.deviceType} / ${appearance} (${device.name}) ===`);
-    run("xcrun", ["simctl", "ui", device.udid, "appearance", appearance]);
+    setDeviceAppearance(device, appearance);
 
     const manifest = {
         generated_at: new Date().toISOString(),
@@ -639,7 +639,7 @@ async function discoverBackendData(options) {
 
         return {
             firstPlace: Array.isArray(places) ? (places[0] ?? null) : null,
-            firstSubmission: Array.isArray(submissions) ? (submissions[0] ?? null) : null,
+            firstSubmission: selectReportSubmission(submissions),
         };
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -856,6 +856,30 @@ function isResolvedSubmission(value) {
     return value !== null && typeof value.id === "string" && value.id.length > 0;
 }
 
+/**
+ * Choose the submission that backs the report-detail screenshots.
+ *
+ * `/yee/my-audits` returns only submitted (completed) audits, newest first, so
+ * the most recent completed submission is preferred. In-progress YEE audits are
+ * local drafts with no submission id and cannot be opened on the report screen,
+ * so when no submission exists the report targets are skipped (null).
+ *
+ * @param {unknown} submissions Raw `/yee/my-audits` payload.
+ * @returns {object | null} The chosen submission, or null when none qualifies.
+ */
+function selectReportSubmission(submissions) {
+    if (!Array.isArray(submissions)) {
+        return null;
+    }
+
+    const completedSubmission = submissions.find(
+        (submission) =>
+            typeof submission?.submitted_at === "string" && submission.submitted_at.length > 0,
+    );
+
+    return completedSubmission ?? submissions[0] ?? null;
+}
+
 function selectTargets(targets, targetFilter) {
     if (targetFilter === "all") return targets;
     if (targetFilter === "public") return targets.filter((target) => target.skipLogin);
@@ -964,17 +988,13 @@ function openDeviceUrl(device, url) {
         return;
     }
 
+    const escapedUrl = url.replace(/'/g, `'\\''`);
+
     run("adb", [
         "-s",
         device.id,
         "shell",
-        "am",
-        "start",
-        "-W",
-        "-a",
-        "android.intent.action.VIEW",
-        "-d",
-        url,
+        `am start -W -a android.intent.action.VIEW -d '${escapedUrl}'`,
     ]);
 }
 
