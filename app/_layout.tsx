@@ -22,11 +22,11 @@ import NetInfo from "@react-native-community/netinfo";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Provider } from "components/Provider";
 import { useFonts } from "expo-font";
-import { setVisibilityAsync } from "expo-navigation-bar";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useDesignSystem, type ColorTokens } from "lib/design-system";
+import { useHiddenAndroidNavBar } from "lib/system-bars";
 import { useEffect, useMemo, useState } from "react";
 import { Appearance, KeyboardAvoidingView, Platform } from "react-native";
 import { useAuthStore } from "stores/auth-store";
@@ -141,6 +141,7 @@ function Providers({ children }: ProvidersProps) {
 function RootLayoutNav() {
     const router = useRouter();
     const segments = useSegments();
+    const routeKey = segments.join("/");
     const authStatus = useAuthStore((state) => state.status);
     const session = useAuthStore((state) => state.session);
     const initializeAuth = useAuthStore((state) => state.initialize);
@@ -156,6 +157,8 @@ function RootLayoutNav() {
         () => buildNavigationTheme(designSystem.colors, resolvedTheme),
         [designSystem.colors, resolvedTheme],
     );
+
+    useHiddenAndroidNavBar(routeKey);
 
     useEffect(() => {
         void initializeAuth();
@@ -197,8 +200,6 @@ function RootLayoutNav() {
     }, [authStatus]);
 
     useEffect(() => {
-        if (Platform.OS === "android") setVisibilityAsync("hidden");
-
         if (authStatus === "loading") {
             return;
         }
@@ -240,27 +241,18 @@ function RootLayoutNav() {
                     screenOptions={{
                         contentStyle: {
                             backgroundColor: designSystem.colors.background,
+                            paddingTop: 20,
                         },
                     }}
                 >
+                    <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+                    <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                    <Stack.Screen name="audit/[placeId]" options={{ headerShown: false }} />
                     <Stack.Screen
-                        name="(auth)"
-                        options={{
-                            headerShown: false,
-                        }}
+                        name="reports/[submissionId]"
+                        options={{ headerShown: true, title: "Report" }}
                     />
-                    <Stack.Screen
-                        name="(tabs)"
-                        options={{
-                            headerShown: false,
-                        }}
-                    />
-                    <Stack.Screen
-                        name="settings"
-                        options={{
-                            headerShown: false,
-                        }}
-                    />
+                    <Stack.Screen name="settings" options={{ headerShown: false }} />
                 </Stack>
             </KeyboardAvoidingView>
         </ThemeProvider>

@@ -1,10 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Alert, KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import { Alert, ScrollView } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowRight, Check, Eye, EyeOff, KeyRound, UserRound } from "components/icons";
 import { Button, Checkbox, Input, XStack, YStack } from "tamagui";
 import { ScaledParagraph as Paragraph, ScaledText as Text } from "components/ui";
 import { useDesignSystem } from "lib/design-system";
+import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
@@ -16,6 +19,8 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 export default function LoginScreen() {
     const designSystem = useDesignSystem();
+    const layout = useResponsiveLayout();
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const scrollViewRef = useRef<ScrollView>(null);
     const login = useAuthStore((state) => state.login);
@@ -85,20 +90,21 @@ export default function LoginScreen() {
 
     return (
         <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            behavior="padding"
             style={{ flex: 1, backgroundColor: designSystem.colors.background }}
         >
             <ScrollView
                 ref={scrollViewRef}
                 contentInsetAdjustmentBehavior="automatic"
                 keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{
-                    flexGrow: 1,
-                    paddingHorizontal: designSystem.spacing.screenPaddingHorizontal,
-                    paddingTop: 48,
-                    paddingBottom: 64,
-                    justifyContent: "center",
-                }}
+                contentContainerStyle={[
+                    getResponsiveContentContainerStyle(layout, {
+                        bottomPadding: 64,
+                        maxWidth: 460,
+                        topInset: insets.top,
+                    }),
+                    { flexGrow: 1, justifyContent: "center" },
+                ]}
             >
                 <YStack gap="$5" width="100%" style={{ maxWidth: 460, alignSelf: "center" }}>
                     <YStack gap="$2" px="$1">

@@ -1,10 +1,22 @@
+# CODE CONTEXT PACK — app/reports/[submissionId].tsx
+
+_Read `review/core.md` alongside this file._
+
+design_system_components_used: (none)
+
+## Screen slice
+
+### app/reports/[submissionId].tsx
+
+```tsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
 import { Platform, ScrollView, Share } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
-import { BarChart3, ChevronLeft } from "components/icons";
+import { BarChart3, CloudOff } from "components/icons";
+import { YeeStackHeaderTitle } from "components/navigation/YeeStackHeaderTitle";
 import { useYeeStackHeaderOptions } from "components/navigation/useYeeStackHeaderOptions";
 import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { designSystem } from "lib/design-system";
@@ -33,6 +45,7 @@ import {
     mobileYeeDomainLabels,
     type MobileYeeDomainKey,
 } from "lib/yee-mobile-audit-config";
+import { readSubmissionDetail, writeSubmissionDetail } from "lib/yee-offline-storage";
 import type { YeeSubmissionResponse } from "lib/yee-types";
 import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
@@ -62,40 +75,17 @@ export default function MobileReportDetailScreen() {
         })),
     );
     const submissionSummary = submittedAudits.find((audit) => audit.id === submissionId) ?? null;
-    // A queued or failed submission has no backend record yet: its id is a local
-    // provisional id, so there is nothing to fetch and no offline report to show.
-    const isUnsyncedSubmission =
-        submissionSummary?.syncState === "pending_upload" ||
-        submissionSummary?.syncState === "sync_failed";
 
     const [submission, setSubmission] = useState<YeeSubmissionResponse | null>(null);
     const [loading, setLoading] = useState(true);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-    // Reports render backend canonical score fields only. There is no offline
-    // report cache: the submission is always fetched live from the backend, and
-    // when it cannot be fetched we show an unavailable/pending state.
     useEffect(() => {
         let cancelled = false;
 
         async function load() {
             if (submissionId.length === 0) {
-                setSubmission(null);
                 setErrorMessage("Missing submission id.");
-                setLoading(false);
-                return;
-            }
-
-            if (isUnsyncedSubmission) {
-                setSubmission(null);
-                setErrorMessage(null);
-                setLoading(false);
-                return;
-            }
-
-            if (!session || !isOnline) {
-                setSubmission(null);
-                setErrorMessage("Connect to the internet to view this report.");
                 setLoading(false);
                 return;
             }
@@ -103,14 +93,31 @@ export default function MobileReportDetailScreen() {
             setLoading(true);
             setErrorMessage(null);
 
+            const cached = await readSubmissionDetail(submissionId);
+            if (!cancelled && cached !== null) {
+                setSubmission(cached);
+            }
+
+            if (!session || !isOnline) {
+                if (!cancelled) {
+                    setLoading(false);
+                    if (cached === null) {
+                        setErrorMessage(
+                            "This report detail is available after sync or the next online refresh.",
+                        );
+                    }
+                }
+                return;
+            }
+
             try {
                 const fresh = await fetchSubmission(submissionId, session);
+                await writeSubmissionDetail(fresh);
                 if (!cancelled) {
                     setSubmission(fresh);
                 }
             } catch (error) {
-                if (!cancelled) {
-                    setSubmission(null);
+                if (!cancelled && cached === null) {
                     setErrorMessage(
                         error instanceof Error ? error.message : "Unable to load this report.",
                     );
@@ -126,7 +133,7 @@ export default function MobileReportDetailScreen() {
         return () => {
             cancelled = true;
         };
-    }, [isOnline, isUnsyncedSubmission, session, submissionId]);
+    }, [isOnline, session, submissionId]);
 
     const preview = useMemo(() => {
         if (!submission) return null;
@@ -175,7 +182,12 @@ export default function MobileReportDetailScreen() {
         <Stack.Screen
             options={{
                 ...stackHeaderOptions,
-                headerShown: false,
+                headerTitle: () => (
+                    <YeeStackHeaderTitle
+                        primary={headerLabels.primary}
+                        secondary={headerLabels.secondary}
+                    />
+                ),
             }}
         />
     );
@@ -247,85 +259,33 @@ export default function MobileReportDetailScreen() {
                     style={{ backgroundColor: designSystem.colors.background }}
                     contentContainerStyle={getResponsiveContentContainerStyle(layout, {
                         bottomPadding: (footerHeight > 0 ? footerHeight : 88) + 24,
-                        gap: 28,
+                        gap: 20,
                     })}
                 >
-                    <YStack gap="$6">
-                        <XStack justify="space-between" items="center" gap="$3">
-                            <XStack items="center" gap="$3" flex={1}>
-                                <Button
-                                    width={44}
-                                    height={44}
-                                    p={0}
-                                    rounded={designSystem.radii.button}
-                                    borderWidth={1}
-                                    borderColor={designSystem.colors.border}
-                                    bg={designSystem.colors.surfaceMuted}
-                                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                                    onPress={() => router.back()}
-                                    accessibilityLabel="Go back"
-                                >
-                                    <ChevronLeft size={18} color={designSystem.colors.foreground} />
-                                </Button>
-                                <YStack flex={1} justify="center" items="flex-start">
-                                    <Paragraph
-                                        color={designSystem.colors.mutedForeground}
-                                        fontFamily={designSystem.fonts.bodyBold}
-                                        fontSize={10}
-                                        textTransform="uppercase"
-                                        letterSpacing={1.4}
-                                    >
-                                        {headerLabels.primary}
-                                    </Paragraph>
-                                    <Text
-                                        color={designSystem.colors.foreground}
-                                        fontFamily={designSystem.fonts.bodyBold}
-                                        fontSize={15}
-                                    >
-                                        {headerLabels.secondary}
-                                    </Text>
-                                </YStack>
-                            </XStack>
-                        </XStack>
-
-                        <YStack gap="$1.5">
-                            <Text
-                                color={designSystem.colors.foreground}
-                                fontFamily={designSystem.fonts.headingBold}
-                                fontSize={34}
-                                lineHeight={38}
-                                letterSpacing={-0.8}
-                            >
-                                Report overview
-                            </Text>
-                            <Paragraph
-                                color={designSystem.colors.mutedForeground}
-                                fontFamily={designSystem.fonts.bodySemiBold}
-                            >
-                                {isPendingUpload
-                                    ? "Results are being uploaded. Scores shown are preliminary."
-                                    : `Final audit results for ${
-                                          submission?.place_name ??
-                                          submissionSummary?.place_name ??
-                                          "this place"
-                                      }.`}
-                            </Paragraph>
-                        </YStack>
+                    <YStack gap="$1.5">
+                        <Text
+                            color={designSystem.colors.foreground}
+                            fontFamily={designSystem.fonts.headingBold}
+                            fontSize={30}
+                        >
+                            Report overview
+                        </Text>
+                        <Paragraph color={designSystem.colors.mutedForeground}>
+                            {isPendingUpload
+                                ? "Results are being uploaded. Scores shown are preliminary."
+                                : `Final audit results for ${
+                                      submission?.place_name ??
+                                      submissionSummary?.place_name ??
+                                      "this place"
+                                  }.`}
+                        </Paragraph>
                     </YStack>
 
                     {submission === null ? (
-                        <Card
-                            title={
-                                isUnsyncedSubmission
-                                    ? "Report not uploaded yet"
-                                    : "Report unavailable"
-                            }
-                        >
+                        <Card title="Report unavailable offline">
                             <Paragraph color={designSystem.colors.mutedForeground}>
                                 {errorMessage ??
-                                    (isUnsyncedSubmission
-                                        ? "This audit hasn't finished uploading yet. Its full report will be available once the upload completes."
-                                        : "Connect to the internet to view this report.")}
+                                    "Open this report once while online to make it available offline."}
                             </Paragraph>
                             {submissionListItem === null ? null : (
                                 <YStack gap="$1.5">
@@ -477,6 +437,17 @@ export default function MobileReportDetailScreen() {
                                     },
                                 )}
                             </XStack>
+
+                            {!isOnline ? (
+                                <Card title="Offline note">
+                                    <XStack items="center" gap="$2.5">
+                                        <CloudOff size={15} color={designSystem.colors.warning} />
+                                        <Paragraph color={designSystem.colors.secondaryForeground}>
+                                            You are viewing a cached report copy on this device.
+                                        </Paragraph>
+                                    </XStack>
+                                </Card>
+                            ) : null}
                         </>
                     )}
                 </ScrollView>
@@ -1029,3 +1000,194 @@ function CommentBlock({ title, body }: { title: string; body: string }) {
         </YStack>
     );
 }
+```
+
+### components/icons.tsx
+
+```tsx
+import type { ComponentProps } from "react";
+import { Feather } from "@expo/vector-icons";
+
+type FeatherIconName = ComponentProps<typeof Feather>["name"];
+
+interface IconProps {
+    readonly color?: string;
+    readonly size?: number;
+}
+
+function makeIcon(name: FeatherIconName) {
+    return function Icon({ color, size = 16 }: IconProps) {
+        return <Feather name={name} size={size} color={color} />;
+    };
+}
+
+export const ArrowLeft = makeIcon("arrow-left");
+export const ArrowRight = makeIcon("arrow-right");
+export const ArrowUpRight = makeIcon("arrow-up-right");
+export const BarChart3 = makeIcon("bar-chart-2");
+export const Bell = makeIcon("bell");
+export const Check = makeIcon("check");
+export const CheckCircle2 = makeIcon("check-circle");
+export const ChevronLeft = makeIcon("chevron-left");
+export const ChevronRight = makeIcon("chevron-right");
+export const CircleCheckBig = makeIcon("check-circle");
+export const ClipboardCheck = makeIcon("clipboard");
+export const Clock3 = makeIcon("clock");
+export const CloudOff = makeIcon("cloud-off");
+export const Eye = makeIcon("eye");
+export const EyeOff = makeIcon("eye-off");
+export const FileBarChart = makeIcon("bar-chart-2");
+export const FileText = makeIcon("file-text");
+export const KeyRound = makeIcon("key");
+export const LayoutDashboard = makeIcon("grid");
+export const LayoutList = makeIcon("list");
+export const LogOut = makeIcon("log-out");
+export const MapPin = makeIcon("map-pin");
+export const MapPinned = makeIcon("map-pin");
+export const Monitor = makeIcon("monitor");
+export const Moon = makeIcon("moon");
+export const RefreshCcw = makeIcon("refresh-ccw");
+export const Save = makeIcon("save");
+export const Send = makeIcon("send");
+export const Settings = makeIcon("settings");
+export const ShieldAlert = makeIcon("shield");
+export const ShieldCheck = makeIcon("shield");
+export const Sun = makeIcon("sun");
+export const TriangleAlert = makeIcon("alert-triangle");
+export const Type = makeIcon("type");
+export const UploadCloud = makeIcon("upload-cloud");
+export const UserRound = makeIcon("user");
+export const WifiOff = makeIcon("wifi-off");
+```
+
+### components/navigation/YeeStackHeaderTitle.tsx
+
+```tsx
+import { ScrollView } from "react-native";
+import { Text, XStack, YStack } from "tamagui";
+import { useDesignSystem } from "lib/design-system";
+import { useResponsiveLayout } from "lib/responsive-layout";
+
+export interface YeeStackHeaderTitleProps {
+    readonly primary: string;
+    readonly secondary?: string | undefined;
+    readonly size?: "md" | "lg";
+}
+
+const TABLET_LIMIT = 120;
+const MOBILE_PRIMARY_LIMIT = 34;
+const MOBILE_SECONDARY_LIMIT = 52;
+
+function truncateHeaderText(text: string, limit: number): string {
+    if (text.length <= limit) {
+        return text;
+    }
+
+    return `${text.slice(0, Math.max(limit - 3, 0))}...`;
+}
+
+export function YeeStackHeaderTitle({ primary, secondary, size = "md" }: YeeStackHeaderTitleProps) {
+    const designSystem = useDesignSystem();
+    const layout = useResponsiveLayout();
+    const primarySize = Math.round((size === "lg" ? 17 : 15) * designSystem.fontScale);
+    const secondarySize = Math.round(12 * designSystem.fontScale);
+    const primaryLimit = layout.isTablet ? TABLET_LIMIT : MOBILE_PRIMARY_LIMIT;
+    const secondaryLimit = layout.isTablet ? TABLET_LIMIT : MOBILE_SECONDARY_LIMIT;
+    const displayPrimary = truncateHeaderText(primary, primaryLimit);
+    const displaySecondary =
+        secondary === undefined ? undefined : truncateHeaderText(secondary, secondaryLimit);
+
+    return (
+        <YStack justify="center" style={{ maxWidth: "100%" }}>
+            <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ alignItems: "center" }}
+            >
+                {layout.isTablet && displaySecondary !== undefined ? (
+                    <XStack items="center" gap="$2">
+                        <Text
+                            color={designSystem.colors.primary}
+                            fontFamily={designSystem.fonts.bodyBold}
+                            fontSize={primarySize}
+                            lineHeight={primarySize + 4}
+                        >
+                            {displayPrimary}
+                        </Text>
+                        <Text
+                            color={designSystem.colors.mutedForeground}
+                            fontFamily={designSystem.fonts.bodyRegular}
+                            fontSize={primarySize}
+                            lineHeight={primarySize + 4}
+                        >
+                            |
+                        </Text>
+                        <Text
+                            color={designSystem.colors.mutedForeground}
+                            fontFamily={designSystem.fonts.bodyRegular}
+                            fontSize={primarySize}
+                            lineHeight={primarySize + 4}
+                        >
+                            {displaySecondary}
+                        </Text>
+                    </XStack>
+                ) : (
+                    <YStack justify="center">
+                        <Text
+                            color={designSystem.colors.primary}
+                            fontFamily={designSystem.fonts.bodyBold}
+                            fontSize={primarySize}
+                            lineHeight={primarySize + 4}
+                        >
+                            {displayPrimary}
+                        </Text>
+                        {displaySecondary === undefined ? null : (
+                            <Text
+                                color={designSystem.colors.mutedForeground}
+                                fontFamily={designSystem.fonts.bodyMedium}
+                                fontSize={secondarySize}
+                                lineHeight={secondarySize + 4}
+                            >
+                                {displaySecondary}
+                            </Text>
+                        )}
+                    </YStack>
+                )}
+            </ScrollView>
+        </YStack>
+    );
+}
+```
+
+### components/navigation/useYeeStackHeaderOptions.ts
+
+```tsx
+import { useMemo } from "react";
+import { Platform } from "react-native";
+import type { NativeStackNavigationOptions } from "@react-navigation/native-stack";
+import { useDesignSystem } from "lib/design-system";
+
+export function useYeeStackHeaderOptions() {
+    const designSystem = useDesignSystem();
+
+    return useMemo<NativeStackNavigationOptions>(() => {
+        const headerTitleAlign: NativeStackNavigationOptions["headerTitleAlign"] =
+            Platform.OS === "ios" ? "center" : "left";
+
+        return {
+            headerShown: true,
+            headerBackButtonDisplayMode: "generic",
+            headerBackButtonMenuEnabled: true,
+            headerBackVisible: true,
+            headerShadowVisible: false,
+            headerStyle: { backgroundColor: designSystem.colors.surfaceMuted },
+            headerTintColor: designSystem.colors.primary,
+            headerTitleAlign,
+            headerTitleStyle: {
+                color: designSystem.colors.foreground,
+                fontFamily: designSystem.fonts.bodyBold,
+            },
+        };
+    }, [designSystem]);
+}
+```

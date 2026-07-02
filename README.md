@@ -65,7 +65,9 @@ The app is built with Expo + Expo Router, uses Tamagui for UI, and includes Type
 - `bun run build:android` - export the Android bundle
 - `bun run doctor` - run Expo diagnostics (`expo-doctor`)
 - `bun run perf:web:budget` - enforce web bundle size budget
-- `bun run screenshots:ios -- --list` - list automated iOS screenshot targets
+- `bun run screenshots:ios -- --list` - list automated iOS screenshot targets (booted simulators)
+- `bun run screenshots:android -- --list` - list automated Android screenshot targets (connected devices)
+- `bun run screenshots` - capture iOS then Android into `screenshots/<device>/<appearance>/`
 - `bun run ci:quality` - run the complete CI quality pipeline locally
 
 ## Code Quality
@@ -132,3 +134,7 @@ bun run ci:quality
 
 - This repository currently runs as an Expo-managed app and does not require checked-in `ios/` or `android/` folders for local development.
 - Expo Router entry point is configured via `main: "expo-router/entry"` in `package.json`.
+- Android shell behavior is edge-to-edge: `lib/system-bars.ts` hides the navigation bar after startup, route, foreground, and keyboard changes; headerless screens add `useSafeAreaInsets().top` through `lib/responsive-layout.ts`; keyboard avoidance uses `react-native-keyboard-controller`; and Android 12+ splash rendering uses the `expo-splash-screen` plugin with `assets/images/splash-icon.png`.
+- Deep audit/report routes use native stack headers with fetched place/report context; do not add manual top inset there or expose route IDs as titles.
+- The mobile tablet breakpoint lives in `lib/responsive-layout-tokens.ts` as `TABLET_BREAKPOINT = 600`; keep tab-bar sizing and screen padding on that shared responsive path.
+- Changes to keyboard-controller, splash config, Android soft-input behavior, or tablet breakpoint behavior need `expo prebuild --clean` verification and a new native build.

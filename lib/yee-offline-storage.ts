@@ -14,7 +14,6 @@ import type {
     YeeInstrumentResponse,
     YeeLocalDraft,
     YeeMyAuditItem,
-    YeeSubmissionResponse,
     YeeSyncQueueItem,
 } from "lib/yee-types";
 
@@ -30,7 +29,6 @@ import type {
 const STORAGE_KEYS = {
     places: "yee.mobile.assigned-places.v1",
     audits: "yee.mobile.submitted-audits.v1",
-    submissionDetails: "yee.mobile.submission-details.v1",
     metadata: "yee.mobile.offline-metadata.v1",
     instrument: "yee.mobile.instrument.v1",
 } as const;
@@ -63,42 +61,6 @@ export async function readSubmittedAuditsCache(): Promise<readonly YeeMyAuditIte
 
 export async function writeSubmittedAuditsCache(audits: readonly YeeMyAuditItem[]): Promise<void> {
     await writeJson(STORAGE_KEYS.audits, audits);
-}
-
-export async function readSubmissionDetailsCache(): Promise<Record<string, YeeSubmissionResponse>> {
-    return readJson(STORAGE_KEYS.submissionDetails, {} as Record<string, YeeSubmissionResponse>);
-}
-
-export async function writeSubmissionDetailsCache(
-    submissions: Record<string, YeeSubmissionResponse>,
-): Promise<void> {
-    await writeJson(STORAGE_KEYS.submissionDetails, submissions);
-}
-
-export async function readSubmissionDetail(
-    submissionId: string,
-): Promise<YeeSubmissionResponse | null> {
-    const submissions = await readSubmissionDetailsCache();
-    return submissions[submissionId] ?? null;
-}
-
-export async function writeSubmissionDetail(submission: YeeSubmissionResponse): Promise<void> {
-    const submissions = await readSubmissionDetailsCache();
-    await writeSubmissionDetailsCache({
-        ...submissions,
-        [submission.id]: submission,
-    });
-}
-
-export async function deleteSubmissionDetail(submissionId: string): Promise<void> {
-    const submissions = await readSubmissionDetailsCache();
-    if (!(submissionId in submissions)) {
-        return;
-    }
-
-    const nextSubmissions = { ...submissions };
-    delete nextSubmissions[submissionId];
-    await writeSubmissionDetailsCache(nextSubmissions);
 }
 
 /**

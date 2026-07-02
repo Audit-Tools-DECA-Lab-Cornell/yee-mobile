@@ -7,11 +7,6 @@ export default {
         icon: "./assets/icon.png",
         scheme: "yee-mobile",
         userInterfaceStyle: "automatic",
-        splash: {
-            image: "./assets/images/splash.png",
-            resizeMode: "contain",
-            backgroundColor: "#F7F1EB",
-        },
         assetBundlePatterns: ["**/*"],
         ios: {
             supportsTablet: true,
@@ -23,7 +18,7 @@ export default {
         },
         android: {
             icon: "./assets/icon.png",
-            softwareKeyboardLayoutMode: "pan",
+            softwareKeyboardLayoutMode: "resize",
             adaptiveIcon: {
                 foregroundImage: "./assets/images/adaptive-icon.png",
                 backgroundColor: "#F7F1EB",
@@ -33,6 +28,8 @@ export default {
         },
         plugins: [
             "./plugins/withCustomPodfilePatches",
+            ["expo-navigation-bar", { hidden: true }],
+            "./plugins/withImmersiveNavBar",
             ["expo-navigation-bar", { hidden: true }],
             "expo-router",
             "expo-font",
@@ -53,6 +50,18 @@ export default {
             ],
             "expo-web-browser",
             "expo-secure-store",
+            [
+                "expo-splash-screen",
+                {
+                    backgroundColor: "#F7F1EB",
+                    image: "./assets/images/splash-icon.png",
+                    imageWidth: 200,
+                    dark: {
+                        backgroundColor: "#0E0E0E",
+                        image: "./assets/images/splash-icon.png",
+                    },
+                },
+            ],
         ],
         experiments: {
             typedRoutes: true,

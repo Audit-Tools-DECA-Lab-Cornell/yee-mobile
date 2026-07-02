@@ -1,5 +1,6 @@
 import { TamaguiProvider, type TamaguiProviderProps } from "tamagui";
 import { ToastProvider, ToastViewport } from "@tamagui/toast";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { CurrentToast } from "./CurrentToast";
 import { config as tamaguiConfig } from "../tamagui.config";
@@ -17,14 +18,16 @@ export function Provider({
 }: Readonly<Omit<TamaguiProviderProps, "config" | "defaultTheme">>) {
     const resolvedTheme = usePreferencesStore((state) => state.resolvedTheme);
     return (
-        <SafeAreaProvider>
-            <TamaguiProvider config={tamaguiConfig} defaultTheme={resolvedTheme} {...rest}>
-                <ToastProvider swipeDirection="horizontal" duration={6000} native={[]}>
-                    {children}
-                    <CurrentToast />
-                    <SafeToastViewport />
-                </ToastProvider>
-            </TamaguiProvider>
-        </SafeAreaProvider>
+        <KeyboardProvider>
+            <SafeAreaProvider>
+                <TamaguiProvider config={tamaguiConfig} defaultTheme={resolvedTheme} {...rest}>
+                    <ToastProvider swipeDirection="horizontal" duration={6000} native={[]}>
+                        {children}
+                        <CurrentToast />
+                        <SafeToastViewport />
+                    </ToastProvider>
+                </TamaguiProvider>
+            </SafeAreaProvider>
+        </KeyboardProvider>
     );
 }

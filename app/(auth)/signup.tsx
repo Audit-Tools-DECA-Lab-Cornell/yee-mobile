@@ -1,10 +1,12 @@
 import { useCallback, useRef } from "react";
 import { ScrollView } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, ShieldAlert } from "components/icons";
 import { Button, XStack, YStack } from "tamagui";
 import { ScaledParagraph as Paragraph, ScaledText as Text } from "components/ui";
 import { useDesignSystem } from "lib/design-system";
+import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 
 /**
@@ -12,6 +14,8 @@ import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
  */
 export default function SignupScreen() {
     const designSystem = useDesignSystem();
+    const layout = useResponsiveLayout();
+    const insets = useSafeAreaInsets();
     const router = useRouter();
     const scrollViewRef = useRef<ScrollView>(null);
     const scrollToOffset = useCallback((offset: number) => {
@@ -27,13 +31,18 @@ export default function SignupScreen() {
         <ScrollView
             ref={scrollViewRef}
             contentInsetAdjustmentBehavior="automatic"
-            contentContainerStyle={{
-                flexGrow: 1,
-                paddingHorizontal: designSystem.spacing.screenPaddingHorizontal,
-                paddingVertical: 32,
-                justifyContent: "center",
-                backgroundColor: designSystem.colors.background,
-            }}
+            contentContainerStyle={[
+                getResponsiveContentContainerStyle(layout, {
+                    bottomPadding: 32,
+                    maxWidth: 440,
+                    topInset: insets.top,
+                }),
+                {
+                    flexGrow: 1,
+                    justifyContent: "center",
+                    backgroundColor: designSystem.colors.background,
+                },
+            ]}
         >
             <YStack gap="$6" width="100%" style={{ maxWidth: 440, alignSelf: "center" }}>
                 <YStack items="center" gap="$4">

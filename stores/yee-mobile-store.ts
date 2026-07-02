@@ -14,7 +14,6 @@ import { buildIdempotencyKey } from "lib/yee-id";
 import { classifyError, decideNextQueueState, selectDrainableItems } from "lib/yee-sync-logic";
 import {
     deleteDraft,
-    deleteSubmissionDetail,
     readAssignedPlacesCache,
     readDraft,
     readDraftMap,
@@ -22,7 +21,6 @@ import {
     readOfflineMetadata,
     readSubmittedAuditsCache,
     readSyncQueue,
-    writeSubmissionDetail,
     removeSyncQueueItem,
     upsertSyncQueueItem,
     writeAssignedPlacesCache,
@@ -348,14 +346,9 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                 get().syncQueue.find(
                     (item) => item.kind === "submission" && item.placeId === placeId,
                 ) ?? null;
-            const provisionalSubmissionId =
-                queuedSubmission?.payload.provisional_submission_id ?? null;
 
             if (queuedSubmission !== null) {
                 await removeSyncQueueItem(queuedSubmission.id);
-            }
-            if (provisionalSubmissionId !== null) {
-                await deleteSubmissionDetail(provisionalSubmissionId);
             }
             await deleteDraft(placeId);
 
@@ -527,9 +520,6 @@ async function queueSubmissionInternal(
         ...draft,
         syncState: "pending_upload",
     });
-    if (provisionalSubmission !== null) {
-        await writeSubmissionDetail(provisionalSubmission);
-    }
 
     const nextLocalSummary =
         provisionalSubmission === null
@@ -741,10 +731,6 @@ async function drainSubmission(
         responses: item.payload.responses,
         ...(item.payload.idempotency_key ? { idempotency_key: item.payload.idempotency_key } : {}),
     });
-    await writeSubmissionDetail(submission);
-    if (item.payload.provisional_submission_id) {
-        await deleteSubmissionDetail(item.payload.provisional_submission_id);
-    }
 
     // Deletion-race guard: only delete the local draft if it has not been edited
     // since this submission was enqueued. `draft_version` is the version at
