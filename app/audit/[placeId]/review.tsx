@@ -11,7 +11,7 @@ import { useShallow } from "zustand/react/shallow";
 import { ArrowLeft, ChevronLeft, Send } from "components/icons";
 import { useYeeStackHeaderOptions } from "components/navigation/useYeeStackHeaderOptions";
 import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { useDesignSystem, type ColorTokens } from "lib/design-system";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { buildAuditReviewHeaderLabels } from "lib/yee-navigation-labels";
@@ -78,6 +78,7 @@ type ScorePreviewState =
     | { readonly status: "ready"; readonly totalScore: number };
 
 export default function AuditReviewScreen() {
+    const designSystem = useDesignSystem();
     const router = useRouter();
     const params = useLocalSearchParams<{ placeId?: string }>();
     const layout = useResponsiveLayout();
@@ -620,7 +621,7 @@ export default function AuditReviewScreen() {
                         <YStack gap="$3">
                             {(Object.keys(mobileYeeDomainLabels) as MobileYeeDomainKey[]).map(
                                 (domain) => {
-                                    const theme = getReviewTheme(domain);
+                                    const theme = getReviewTheme(domain, designSystem.colors);
                                     return (
                                         <YStack
                                             key={domain}
@@ -674,7 +675,7 @@ export default function AuditReviewScreen() {
                     </SectionCard>
 
                     {reviewSections.map((section) => {
-                        const theme = getReviewTheme(section.domain);
+                        const theme = getReviewTheme(section.domain, designSystem.colors);
                         return (
                             <SectionCard
                                 key={section.domain}
@@ -958,30 +959,33 @@ function submitStatusCopy(status: SubmitUiStatus): SubmitStatusCopy | null {
     }
 }
 
-function submitStatusToneColors(tone: SubmitStatusCopy["tone"]): {
+function submitStatusToneColors(
+    tone: SubmitStatusCopy["tone"],
+    colors: ColorTokens,
+): {
     readonly accent: string;
     readonly soft: string;
 } {
     switch (tone) {
         case "warning":
             return {
-                accent: designSystem.colors.warning,
-                soft: designSystem.colors.warningSoft,
+                accent: colors.warning,
+                soft: colors.warningSoft,
             };
         case "danger":
             return {
-                accent: designSystem.colors.danger,
-                soft: designSystem.colors.dangerSoft,
+                accent: colors.danger,
+                soft: colors.dangerSoft,
             };
         case "success":
             return {
-                accent: designSystem.colors.success,
-                soft: designSystem.colors.successSoft,
+                accent: colors.success,
+                soft: colors.successSoft,
             };
         default:
             return {
-                accent: designSystem.colors.primary,
-                soft: designSystem.colors.surfaceMuted,
+                accent: colors.primary,
+                soft: colors.surfaceMuted,
             };
     }
 }
@@ -989,11 +993,12 @@ function submitStatusToneColors(tone: SubmitStatusCopy["tone"]): {
 /** Single, clear status line for the final-submit lifecycle. Renders nothing
  * when there is no persisted submission state to report (idle). */
 function SubmitStatusBanner({ status }: { status: SubmitUiStatus }) {
+    const designSystem = useDesignSystem();
     const copy = submitStatusCopy(status);
     if (copy === null) {
         return null;
     }
-    const { accent, soft } = submitStatusToneColors(copy.tone);
+    const { accent, soft } = submitStatusToneColors(copy.tone, designSystem.colors);
     return (
         <YStack
             rounded={designSystem.radii.lg}
@@ -1022,6 +1027,7 @@ function SectionCard({
     soft?: string;
     border?: string;
 }>) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             rounded={designSystem.radii.lg}
@@ -1051,6 +1057,7 @@ function SummaryGrid({ children }: PropsWithChildren) {
 }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
+    const designSystem = useDesignSystem();
     return (
         <YStack gap="$0.5">
             <Paragraph
@@ -1080,6 +1087,7 @@ function AnswerPill({
     accent: string;
     soft: string;
 }) {
+    const designSystem = useDesignSystem();
     return (
         <YStack gap="$1">
             <Paragraph
@@ -1107,6 +1115,7 @@ function AnswerPill({
 }
 
 function Chip({ children }: PropsWithChildren) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             rounded={designSystem.radii.full}
@@ -1132,7 +1141,8 @@ function StepJumpButton({
     label: string;
     onPress: () => void;
 }) {
-    const theme = getReviewThemeByStep(step);
+    const designSystem = useDesignSystem();
+    const theme = getReviewThemeByStep(step, designSystem.colors);
     return (
         <Button
             rounded={designSystem.radii.button}
@@ -1165,6 +1175,7 @@ function ActionButton({
     tone: "primary" | "neutral";
     disabled?: boolean;
 }) {
+    const designSystem = useDesignSystem();
     const primary = tone === "primary";
     return (
         <Button
@@ -1274,14 +1285,14 @@ function getStepForDomain(domain: MobileYeeDomainKey): MobileYeeStepNumber {
 // Unified brand theme for every review section. Sections are differentiated by
 // their heading and order, not by a unique colour, so the page reads as one calm
 // green/cream system instead of a rainbow of section tints.
-function getReviewThemeByStep(_step: MobileYeeStepNumber) {
+function getReviewThemeByStep(_step: MobileYeeStepNumber, colors: ColorTokens) {
     return {
-        accent: designSystem.colors.primary,
-        soft: designSystem.colors.primarySoft,
-        border: designSystem.colors.border,
+        accent: colors.primary,
+        soft: colors.primarySoft,
+        border: colors.border,
     };
 }
 
-function getReviewTheme(domain: MobileYeeDomainKey) {
-    return getReviewThemeByStep(getStepForDomain(domain));
+function getReviewTheme(domain: MobileYeeDomainKey, colors: ColorTokens) {
+    return getReviewThemeByStep(getStepForDomain(domain), colors);
 }

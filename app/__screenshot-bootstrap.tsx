@@ -3,7 +3,7 @@ import { ActivityIndicator } from "react-native";
 import { Stack, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import { Paragraph, Text, YStack } from "tamagui";
 
-import { designSystem } from "lib/design-system";
+import { useDesignSystem } from "lib/design-system";
 import { useAuthStore } from "stores/auth-store";
 
 interface ScreenshotBootstrapParams {
@@ -34,6 +34,7 @@ export default function ScreenshotBootstrapScreen() {
  * Screenshot bootstrap implementation used only in development builds.
  */
 function EnabledScreenshotBootstrapScreen() {
+    const designSystem = useDesignSystem();
     const router = useRouter();
     const params = useLocalSearchParams() as ScreenshotBootstrapParams;
 
@@ -236,6 +237,7 @@ function EnabledScreenshotBootstrapScreen() {
  * non-development builds.
  */
 function ScreenshotBootstrapUnavailableScreen() {
+    const designSystem = useDesignSystem();
     return (
         <>
             <Stack.Screen options={{ headerShown: false }} />

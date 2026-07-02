@@ -4,12 +4,13 @@ import { CheckCircle2, LayoutList, RefreshCcw } from "components/icons";
 import { YeeStackHeaderTitle } from "components/navigation/YeeStackHeaderTitle";
 import { useYeeStackHeaderOptions } from "components/navigation/useYeeStackHeaderOptions";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { useDesignSystem } from "lib/design-system";
 import { useResponsiveLayout } from "lib/responsive-layout";
 import { buildAuditSubmittedHeaderLabels } from "lib/yee-navigation-labels";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 export default function AuditSubmittedScreen() {
+    const designSystem = useDesignSystem();
     const router = useRouter();
     const params = useLocalSearchParams<{
         placeId?: string;

@@ -11,7 +11,7 @@ import { useShallow } from "zustand/react/shallow";
 import { ArrowLeft, ArrowRight, ChevronLeft, Save } from "components/icons";
 import { useYeeStackHeaderOptions } from "components/navigation/useYeeStackHeaderOptions";
 import { Button, Input, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { useDesignSystem, type ColorTokens } from "lib/design-system";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { buildAuditStepHeaderLabels } from "lib/yee-navigation-labels";
@@ -71,6 +71,7 @@ type SurveyPalette = {
 };
 
 export default function AuditStepScreen() {
+    const designSystem = useDesignSystem();
     const router = useRouter();
     const params = useLocalSearchParams<{ placeId?: string; step?: string }>();
     const layout = useResponsiveLayout();
@@ -197,7 +198,7 @@ export default function AuditStepScreen() {
     }, [isOnline, loadPlaceAuditState, place?.name, placeId, session]);
 
     const domain = getDomainForStep(step);
-    const stepPalette = useMemo(() => getSurveyPalette(step), [step]);
+    const stepPalette = useMemo(() => getSurveyPalette(designSystem.colors), [designSystem.colors]);
     const section = useMemo(() => {
         return instrument === null ? null : getSectionForStep(instrument, step);
     }, [instrument, step]);
@@ -532,6 +533,7 @@ export default function AuditStepScreen() {
 }
 
 function LoadingScreen() {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             flex={1}
@@ -557,6 +559,7 @@ function BlockedAuditScreen({
     body: string;
     onBack: () => void;
 }) {
+    const designSystem = useDesignSystem();
     return (
         <YStack flex={1} bg={designSystem.colors.background} px="$4" py="$6" justify="center">
             <YStack
@@ -608,9 +611,10 @@ function StepHeader({
     step: MobileYeeStepNumber;
     onStepPress: (step: MobileYeeStepNumber) => void;
 }) {
+    const designSystem = useDesignSystem();
     const progressLabel =
         step <= 2 ? "Setup and weighting" : step === 9 ? "Final comments" : "Domain section";
-    const chipTone = getStepTone(step);
+    const chipTone = getStepTone(designSystem.colors);
     return (
         <YStack gap="$3.5">
             <YStack gap="$1">
@@ -695,7 +699,7 @@ function StepHeader({
             <XStack gap="$2" flexWrap="wrap">
                 {mobileYeeSteps.map((entry) => {
                     const active = entry.step === step;
-                    const tone = getStepTone(entry.step);
+                    const tone = getStepTone(designSystem.colors);
                     return (
                         <Button
                             key={entry.step}
@@ -945,6 +949,7 @@ function DomainStep({
     domain: MobileYeeDomainKey;
     palette: SurveyPalette;
 }) {
+    const designSystem = useDesignSystem();
     return (
         <YStack gap="$4">
             <SectionIntroCard
@@ -1101,6 +1106,7 @@ function Card({
     children,
     palette,
 }: PropsWithChildren<{ title: string; description: string; palette: SurveyPalette }>) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             rounded={designSystem.radii.xl}
@@ -1142,6 +1148,7 @@ function SectionIntroCard({
     description: string;
     palette: SurveyPalette;
 }) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             rounded={designSystem.radii.lg}
@@ -1177,6 +1184,7 @@ function QuestionCard({
     children,
     palette,
 }: PropsWithChildren<{ label: string; palette: SurveyPalette }>) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             rounded={designSystem.radii.lg}
@@ -1219,6 +1227,7 @@ function ChoiceQuestion({
     promptOverride?: string;
     palette: SurveyPalette;
 }) {
+    const designSystem = useDesignSystem();
     return (
         <QuestionCard label={promptOverride ?? label} palette={palette}>
             {helperText ? (
@@ -1307,6 +1316,7 @@ function SelectionButton({
     onPress: () => void;
     palette: SurveyPalette;
 }) {
+    const designSystem = useDesignSystem();
     // Built from a pressable XStack rather than Tamagui's Button so the label can
     // wrap onto multiple lines and the row grows with it. The Button component
     // pins a fixed size-token height, which clipped longer option labels.
@@ -1354,6 +1364,7 @@ function CommentField({
     onChange: (value: string) => void;
     palette: SurveyPalette;
 }) {
+    const designSystem = useDesignSystem();
     return (
         <YStack gap="$2">
             <Paragraph
@@ -1400,6 +1411,7 @@ function SectionProgressCard({
     totalCount: number;
     palette: SurveyPalette;
 }) {
+    const designSystem = useDesignSystem();
     const percentage = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
     return (
         <YStack
@@ -1462,6 +1474,7 @@ function SectionProgressCard({
 }
 
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
+    const designSystem = useDesignSystem();
     return (
         <YStack gap="$1.5">
             <Paragraph
@@ -1500,6 +1513,7 @@ function NoticeCard({
     title: string;
     body: string;
 }) {
+    const designSystem = useDesignSystem();
     const color = tone === "danger" ? designSystem.colors.danger : designSystem.colors.warning;
     const surface =
         tone === "danger" ? designSystem.colors.dangerSoft : designSystem.colors.warningSoft;
@@ -1690,6 +1704,7 @@ function FooterNav({
     extraActionLabel?: string;
     onExtraAction?: () => void;
 }) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             position="absolute"
@@ -1797,36 +1812,36 @@ function FooterNav({
 // Unified brand tone for the step pills and progress chip. The active step reads
 // as a soft green chip; inactive steps stay neutral so the wizard no longer uses
 // a different hue per section.
-function getStepTone(_step: MobileYeeStepNumber) {
+function getStepTone(colors: ColorTokens) {
     return {
-        surface: designSystem.colors.primarySoft,
-        border: "rgba(16, 35, 31, 0.16)",
-        softSurface: designSystem.colors.surfaceMuted,
-        softBorder: designSystem.colors.border,
-        text: designSystem.colors.primary,
+        surface: colors.primarySoft,
+        border: colors.border,
+        softSurface: colors.surfaceMuted,
+        softBorder: colors.border,
+        text: colors.primary,
     };
 }
 
 // Single brand survey palette shared by every step. Domain colour is expressed
 // through structure (cards, the active step pill, progress) rather than a unique
 // hue per section, keeping the wizard calm and on-brand (green on cream).
-function getSurveyPalette(_step: MobileYeeStepNumber): SurveyPalette {
+function getSurveyPalette(colors: ColorTokens): SurveyPalette {
     return {
-        card: designSystem.colors.surface,
-        cardBorder: designSystem.colors.border,
-        inner: designSystem.colors.input,
-        innerBorder: designSystem.colors.border,
-        selected: designSystem.colors.primary,
-        selectedBorder: designSystem.colors.primary,
-        intro: designSystem.colors.successSoft,
-        introBorder: designSystem.colors.border,
-        accent: designSystem.colors.primary,
-        mutedAccent: designSystem.colors.secondaryForeground,
-        progress: designSystem.colors.surfaceMuted,
-        progressTrack: designSystem.colors.mutedSurface,
-        stepSurface: designSystem.colors.primarySoft,
-        stepBorder: designSystem.colors.border,
-        stepText: designSystem.colors.primary,
+        card: colors.surface,
+        cardBorder: colors.border,
+        inner: colors.input,
+        innerBorder: colors.border,
+        selected: colors.primary,
+        selectedBorder: colors.primary,
+        intro: colors.successSoft,
+        introBorder: colors.border,
+        accent: colors.primary,
+        mutedAccent: colors.secondaryForeground,
+        progress: colors.surfaceMuted,
+        progressTrack: colors.mutedSurface,
+        stepSurface: colors.primarySoft,
+        stepBorder: colors.border,
+        stepText: colors.primary,
     };
 }
 

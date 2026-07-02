@@ -7,7 +7,7 @@ import { useShallow } from "zustand/react/shallow";
 import { BarChart3, ChevronLeft } from "components/icons";
 import { useYeeStackHeaderOptions } from "components/navigation/useYeeStackHeaderOptions";
 import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { useDesignSystem } from "lib/design-system";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { fetchSubmission } from "lib/yee-api";
@@ -37,15 +37,10 @@ import type { YeeSubmissionResponse } from "lib/yee-types";
 import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
-// Two-series palette for the section score chart. Raw and Youth-Weighted use two
-// brand greens (deep + soft) so the whole report reads as one calm system instead
-// of a different hue per domain.
-const RAW_SERIES_COLOR = designSystem.colors.primary;
-const WEIGHTED_SERIES_COLOR = designSystem.colors.success;
-
 type DomainScoreRow = ReturnType<typeof buildDomainScoreRows>[number];
 
 export default function MobileReportDetailScreen() {
+    const designSystem = useDesignSystem();
     const router = useRouter();
     const params = useLocalSearchParams<{ submissionId?: string }>();
     const layout = useResponsiveLayout();
@@ -537,6 +532,7 @@ export default function MobileReportDetailScreen() {
 }
 
 function ReportHeroCard({ title, subtitle }: { title: string; subtitle: string }) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             rounded={designSystem.radii.xl}
@@ -562,6 +558,7 @@ function ReportHeroCard({ title, subtitle }: { title: string; subtitle: string }
 }
 
 function InfoPanel({ title, children }: PropsWithChildren<{ title: string }>) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             flex={1}
@@ -589,6 +586,7 @@ function InfoPanel({ title, children }: PropsWithChildren<{ title: string }>) {
 }
 
 function WeightingSummaryCard({ rows }: { rows: readonly DomainScoreRow[] }) {
+    const designSystem = useDesignSystem();
     return (
         <Card title="Section weighting">
             <Paragraph color={designSystem.colors.mutedForeground}>
@@ -631,6 +629,7 @@ function WeightingSummaryCard({ rows }: { rows: readonly DomainScoreRow[] }) {
 
 /** Three-segment importance indicator (1-3). Filled segments use the brand green. */
 function ImportanceMeter({ value }: { value: number }) {
+    const designSystem = useDesignSystem();
     const filled = Math.max(0, Math.min(3, Math.round(value)));
     return (
         <XStack items="center" gap="$2">
@@ -670,6 +669,7 @@ function ScoreResultsTable({
     rows: readonly DomainScoreRow[];
     preview: ReturnType<typeof buildMobileSubmissionScorePreview> | null;
 }) {
+    const designSystem = useDesignSystem();
     return (
         <Card title="Score results">
             <Paragraph color={designSystem.colors.mutedForeground}>
@@ -702,6 +702,7 @@ function ScoreResultsTable({
 }
 
 function ScoreTableHeader() {
+    const designSystem = useDesignSystem();
     return (
         <XStack
             px="$2"
@@ -726,6 +727,7 @@ function ScoreTableHeader() {
 }
 
 function ScoreTableRow({ row }: { row: DomainScoreRow }) {
+    const designSystem = useDesignSystem();
     return (
         <XStack
             px="$2"
@@ -757,6 +759,12 @@ function ScoreTableRow({ row }: { row: DomainScoreRow }) {
  * legend describing the two series. Replaces the previous per-domain meter cards.
  */
 function SectionScoreChart({ rows }: { rows: readonly DomainScoreRow[] }) {
+    const designSystem = useDesignSystem();
+    // Two-series palette for the section score chart. Raw and Youth-Weighted use
+    // two brand greens (deep + soft) so the whole report reads as one calm system
+    // instead of a different hue per domain.
+    const rawSeriesColor = designSystem.colors.primary;
+    const weightedSeriesColor = designSystem.colors.success;
     return (
         <Card title="Score by section">
             <Paragraph color={designSystem.colors.mutedForeground}>
@@ -764,8 +772,8 @@ function SectionScoreChart({ rows }: { rows: readonly DomainScoreRow[] }) {
                 each as a percentage of the available score.
             </Paragraph>
             <XStack gap="$4" flexWrap="wrap">
-                <ChartLegendItem color={RAW_SERIES_COLOR} label="Raw score" />
-                <ChartLegendItem color={WEIGHTED_SERIES_COLOR} label="Youth-Weighted" />
+                <ChartLegendItem color={rawSeriesColor} label="Raw score" />
+                <ChartLegendItem color={weightedSeriesColor} label="Youth-Weighted" />
             </XStack>
             <YStack gap="$3.5" mt="$1">
                 {rows.map((row) => (
@@ -778,12 +786,12 @@ function SectionScoreChart({ rows }: { rows: readonly DomainScoreRow[] }) {
                             {row.label}
                         </Text>
                         <ChartBar
-                            color={RAW_SERIES_COLOR}
+                            color={rawSeriesColor}
                             percentage={row.rawPercentage}
                             accessibilityLabel={`${row.label} raw score ${Math.round(row.rawPercentage)} percent`}
                         />
                         <ChartBar
-                            color={WEIGHTED_SERIES_COLOR}
+                            color={weightedSeriesColor}
                             percentage={row.weightedPercentage}
                             accessibilityLabel={`${row.label} Youth-Weighted average ${Math.round(row.weightedPercentage)} percent`}
                         />
@@ -795,6 +803,7 @@ function SectionScoreChart({ rows }: { rows: readonly DomainScoreRow[] }) {
 }
 
 function ChartLegendItem({ color, label }: { color: string; label: string }) {
+    const designSystem = useDesignSystem();
     return (
         <XStack items="center" gap="$2">
             <YStack
@@ -823,6 +832,7 @@ function ChartBar({
     percentage: number;
     accessibilityLabel: string;
 }) {
+    const designSystem = useDesignSystem();
     const clamped = Math.max(0, Math.min(100, percentage));
     return (
         <XStack
@@ -902,6 +912,7 @@ function Card({
     accent?: string | undefined;
     soft?: string | undefined;
 }) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             rounded={designSystem.radii.lg}
@@ -942,6 +953,7 @@ function MetricCard({
     helperText: string;
     accentColor: string;
 }) {
+    const designSystem = useDesignSystem();
     return (
         <YStack
             flex={1}
@@ -979,6 +991,7 @@ function MetricCard({
 }
 
 function MetricRow({ label, value }: { label: string; value: string }) {
+    const designSystem = useDesignSystem();
     return (
         <XStack justify="space-between" items="center" gap="$3">
             <Paragraph
@@ -1001,6 +1014,7 @@ function MetricRow({ label, value }: { label: string; value: string }) {
 }
 
 function CommentBlock({ title, body }: { title: string; body: string }) {
+    const designSystem = useDesignSystem();
     const trimmed = body.trim();
     return (
         <YStack

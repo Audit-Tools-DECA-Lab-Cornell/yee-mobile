@@ -1,6 +1,6 @@
 import { Stack, useRouter } from "expo-router";
 import { YStack } from "tamagui";
-import { designSystem } from "lib/design-system";
+import { useDesignSystem } from "lib/design-system";
 import { AppButton, EmptyState } from "components/ui";
 import { ArrowRight, MapPin } from "components/icons";
 
@@ -8,6 +8,7 @@ import { ArrowRight, MapPin } from "components/icons";
  * Fallback screen shown for unmatched routes, styled with the YEE design system.
  */
 export default function NotFoundScreen() {
+    const designSystem = useDesignSystem();
     const router = useRouter();
 
     return (
