@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useWindowDimensions, type ViewStyle } from "react-native";
 import {
     createResponsiveLayoutTokens,
+    TABLET_TYPOGRAPHY_BASE_SCALE,
     type ResponsiveLayoutTokens,
 } from "lib/responsive-layout-tokens";
 
@@ -11,6 +12,7 @@ export {
     NARROW_TABLET_FORM_MAX_WIDTH,
     PHONE_CONTENT_MAX_WIDTH,
     PHONE_FORM_MAX_WIDTH,
+    TABLET_READABLE_MAX_WIDTH,
     TABLET_BREAKPOINT,
     TABLET_TYPOGRAPHY_BASE_SCALE,
     WIDE_TABLET_BREAKPOINT,
@@ -105,14 +107,30 @@ export function createResponsiveLayout(width: number): ResponsiveLayout {
     return createResponsiveLayoutTokens(width);
 }
 
+/**
+ * Compose the auditor's text-size preference with the tablet baseline type
+ * scale.
+ *
+ * Tablets multiply the stored preference by
+ * {@link TABLET_TYPOGRAPHY_BASE_SCALE} so default-preference text is legible at
+ * tablet viewing distance; phones return the preference unchanged.
+ *
+ * @param fontScale Stored font-scale preference multiplier.
+ * @param isTablet Whether the active viewport uses the tablet layout tier.
+ * @returns Effective multiplier for numeric font sizes and line heights.
+ */
+export function getEffectiveFontScale(fontScale: number, isTablet: boolean): number {
+    return fontScale * (isTablet ? TABLET_TYPOGRAPHY_BASE_SCALE : 1);
+}
+
 export function getResponsiveTabBarLayout(
-    layout: Pick<ResponsiveLayout, "buttonHeight" | "isTablet">,
+    layout: ResponsiveLayout,
     bottomInset: number,
 ): ResponsiveTabBarLayout {
     const safeBottomInset = Number.isFinite(bottomInset) && bottomInset > 0 ? bottomInset : 0;
     const contentHeight = layout.isTablet ? layout.buttonHeight : 26;
-    const paddingTop = layout.isTablet ? 10 : 8;
-    const paddingBottom = 8 + safeBottomInset;
+    const paddingTop = layout.isWideTablet ? 18 : layout.isTablet ? 10 : 16;
+    const paddingBottom = layout.isWideTablet ? safeBottomInset - 8 : 6 + safeBottomInset;
 
     return {
         contentHeight,

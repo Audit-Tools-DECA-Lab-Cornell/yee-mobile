@@ -18,3 +18,8 @@ export { ListRow, type ListRowProps } from "./ListRow";
 export { ProgressBar, type ProgressBarProps } from "./ProgressBar";
 export { StatusBanner, type StatusBannerProps } from "./StatusBanner";
 export { ScaledText, ScaledParagraph } from "./ScaledText";
+export {
+    TwoPaneLayout,
+    type TwoPaneLayoutProps,
+    type TwoPaneRailVisibility,
+} from "./TwoPaneLayout";

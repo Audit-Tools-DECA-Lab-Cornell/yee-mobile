@@ -15,6 +15,7 @@ import {
     deriveSubmitStatus,
     findFirstIncompleteStep,
     findPendingSubmission,
+    getCompletedSteps,
     type SubmitGuardDraft,
 } from "lib/yee-submit-guard";
 import {
@@ -251,6 +252,56 @@ describe("findFirstIncompleteStep — Steps 3–8 (Domain sections)", () => {
 describe("findFirstIncompleteStep — null instrument", () => {
     it("skips domain-section checks when instrument is null", () => {
         expect(findFirstIncompleteStep(makeDraft(), null)).toBeNull();
+    });
+});
+
+// ===========================================================================
+// getCompletedSteps — per-step progress for the tablet step rail
+// ===========================================================================
+describe("getCompletedSteps", () => {
+    it("marks steps 1 and 2 complete for a full context + weighting draft", () => {
+        const completed = getCompletedSteps(makeDraft(), null);
+        expect([...completed].sort()).toEqual([1, 2]);
+    });
+
+    it("omits step 1 when a context field is missing", () => {
+        const completed = getCompletedSteps(makeDraft({ season: "" }), null);
+        expect(completed.has(1)).toBe(false);
+        expect(completed.has(2)).toBe(true);
+    });
+
+    it("omits step 2 when a weight is missing without hiding later progress", () => {
+        const weights: Record<MobileYeeDomainKey, string> = { ...FULL_WEIGHTS, access: "" };
+        const instrument = makeInstrument([makeSection(3, "Access", [makeRow("item-1", "ch-1")])]);
+        const responses = { "item-1": { "ch-1": "ans1" } };
+        const completed = getCompletedSteps(makeDraft({ weights, responses }), instrument);
+        expect(completed.has(2)).toBe(false);
+        expect(completed.has(3)).toBe(true);
+    });
+
+    it("marks only fully answered domain sections complete", () => {
+        const instrument = makeInstrument([
+            makeSection(3, "Access", [makeRow("item-a", "ch-a")]),
+            makeSection(4, "Activity Spaces", [makeRow("item-b", "ch-b")]),
+        ]);
+        const responses = { "item-a": { "ch-a": "ans" } };
+        const completed = getCompletedSteps(makeDraft({ responses }), instrument);
+        expect(completed.has(3)).toBe(true);
+        expect(completed.has(4)).toBe(false);
+    });
+
+    it("never includes optional step 9 and skips domain steps without an instrument", () => {
+        const completed = getCompletedSteps(makeDraft(), null);
+        expect(completed.has(9)).toBe(false);
+        expect([3, 4, 5, 6, 7, 8].some((step) => completed.has(step as 3))).toBe(false);
+    });
+
+    it("agrees with findFirstIncompleteStep on a fully complete audit", () => {
+        const instrument = makeInstrument([makeSection(3, "Access", [makeRow("item-a", "ch-a")])]);
+        const responses = { "item-a": { "ch-a": "ans" } };
+        const draft = makeDraft({ responses });
+        expect(findFirstIncompleteStep(draft, instrument)).toBeNull();
+        expect([...getCompletedSteps(draft, instrument)].sort()).toEqual([1, 2, 3]);
     });
 });
 

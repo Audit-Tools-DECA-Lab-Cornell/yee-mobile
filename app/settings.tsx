@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, XStack, YStack } from "tamagui";
 import { ChevronLeft, LogOut, Monitor, Moon, ShieldCheck, Sun } from "components/icons";
-import { ScaledParagraph, ScaledText } from "components/ui";
+import { ScaledParagraph, ScaledText, ScreenHeader } from "components/ui";
 import { useDesignSystem } from "lib/design-system";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useAuthStore } from "stores/auth-store";
@@ -69,15 +69,15 @@ export default function SettingsScreen() {
             style={{ backgroundColor: colors.background }}
             contentContainerStyle={getResponsiveContentContainerStyle(layout, {
                 bottomPadding: insets.bottom + 32,
-                gap: 28,
+                gap: layout.sectionGap,
             })}
         >
             <YStack gap="$6">
                 <XStack justify="space-between" items="center" gap="$3">
                     <XStack items="center" gap="$3" flex={1}>
                         <Button
-                            width={44}
-                            height={44}
+                            width={48}
+                            height={48}
                             p={0}
                             rounded={radii.button}
                             borderWidth={1}
@@ -87,7 +87,7 @@ export default function SettingsScreen() {
                             onPress={() => router.back()}
                             accessibilityLabel="Go back"
                         >
-                            <ChevronLeft size={18} color={colors.foreground} />
+                            <ChevronLeft size={24} color={colors.foreground} />
                         </Button>
                         <YStack flex={1} justify="center" items="flex-start">
                             <ScaledParagraph
@@ -110,7 +110,7 @@ export default function SettingsScreen() {
                     </XStack>
                 </XStack>
 
-                <YStack gap="$1.5">
+                {/* <YStack gap="$1.5">
                     <ScaledText
                         color={colors.foreground}
                         fontFamily={fonts.headingBold}
@@ -123,7 +123,11 @@ export default function SettingsScreen() {
                     <ScaledParagraph color={colors.mutedForeground} fontFamily={fonts.bodySemiBold}>
                         Appearance, readability, and account controls.
                     </ScaledParagraph>
-                </YStack>
+                </YStack> */}
+                <ScreenHeader
+                    title="Settings"
+                    subtitle="Appearance, readability, and account controls."
+                />
             </YStack>
 
             <YStack gap="$7">
@@ -155,14 +159,14 @@ export default function SettingsScreen() {
                                                 size={20}
                                                 color={
                                                     selected
-                                                        ? colors.primary
+                                                        ? colors.primaryText
                                                         : colors.mutedForeground
                                                 }
                                             />
                                             <ScaledText
                                                 style={{
                                                     color: selected
-                                                        ? colors.primary
+                                                        ? colors.primaryText
                                                         : colors.secondaryForeground,
                                                 }}
                                                 fontFamily={fonts.bodyBold}
@@ -205,7 +209,7 @@ export default function SettingsScreen() {
                                             <ScaledText
                                                 style={{
                                                     color: selected
-                                                        ? colors.primary
+                                                        ? colors.primaryText
                                                         : colors.foreground,
                                                 }}
                                                 fontFamily={fonts.headingBold}
@@ -216,7 +220,7 @@ export default function SettingsScreen() {
                                             <ScaledText
                                                 style={{
                                                     color: selected
-                                                        ? colors.primary
+                                                        ? colors.primaryText
                                                         : colors.secondaryForeground,
                                                 }}
                                                 fontFamily={fonts.bodyMedium}
@@ -242,6 +246,7 @@ export default function SettingsScreen() {
                                 value={dyslexicFont}
                                 onValueChange={setDyslexicFont}
                                 trackColor={{ false: colors.mutedSurface, true: colors.primary }}
+                                ios_backgroundColor={colors.mutedSurface}
                                 thumbColor={colors.surface}
                             />
                         }
@@ -280,9 +285,9 @@ export default function SettingsScreen() {
                     accessibilityLabel="Sign out"
                 >
                     <XStack items="center" gap="$2">
-                        <LogOut size={16} color={colors.danger} />
+                        <LogOut size={16} color={colors.dangerText} />
                         <ScaledText
-                            style={{ color: colors.danger }}
+                            style={{ color: colors.dangerText }}
                             fontFamily={fonts.bodyBold}
                             fontSize={15}
                         >

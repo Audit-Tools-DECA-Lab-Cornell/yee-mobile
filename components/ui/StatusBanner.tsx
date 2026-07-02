@@ -23,6 +23,7 @@ export function StatusBanner({ isOnline, pendingCount = 0 }: StatusBannerProps) 
     const designSystem = useDesignSystem();
     const hasPending = pendingCount > 0;
     const accent = isOnline ? designSystem.colors.success : designSystem.colors.warning;
+    const textColor = isOnline ? designSystem.colors.successText : designSystem.colors.warningText;
     const surface = isOnline ? designSystem.colors.successSoft : designSystem.colors.warningSoft;
     const title = isOnline ? "Online" : "Offline";
     const description = isOnline
@@ -53,7 +54,7 @@ export function StatusBanner({ isOnline, pendingCount = 0 }: StatusBannerProps) 
             )}
             <YStack flex={1} gap="$1">
                 <Text
-                    style={{ color: accent }}
+                    style={{ color: textColor }}
                     fontFamily={designSystem.fonts.bodyBold}
                     fontSize={13}
                     textTransform="uppercase"

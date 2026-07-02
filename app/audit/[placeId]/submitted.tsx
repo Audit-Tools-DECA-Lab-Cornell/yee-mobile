@@ -73,7 +73,6 @@ export default function AuditSubmittedScreen() {
                     style={{
                         alignSelf: "center",
                         boxShadow: designSystem.shadows.card,
-                        maxWidth: layout.formMaxWidth,
                         width: "100%",
                     }}
                 >
@@ -81,7 +80,9 @@ export default function AuditSubmittedScreen() {
                         <CheckCircle2
                             size={24}
                             color={
-                                queued ? designSystem.colors.warning : designSystem.colors.success
+                                queued
+                                    ? designSystem.colors.warningText
+                                    : designSystem.colors.successText
                             }
                         />
                         <Text
@@ -109,10 +110,12 @@ export default function AuditSubmittedScreen() {
                                 borderColor={designSystem.colors.success}
                                 pressStyle={{ opacity: 0.92, scale: 0.985 }}
                                 onPress={() => router.replace(`/reports/${submissionId}`)}
-                                icon={<RefreshCcw size={16} color={designSystem.colors.success} />}
+                                icon={
+                                    <RefreshCcw size={16} color={designSystem.colors.successText} />
+                                }
                             >
                                 <Button.Text
-                                    color={designSystem.colors.success}
+                                    color={designSystem.colors.successText}
                                     fontFamily={designSystem.fonts.bodyBold}
                                 >
                                     View report

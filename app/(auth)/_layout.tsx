@@ -8,11 +8,5 @@ export const unstable_settings = {
  * Auth route group layout.
  */
 export default function AuthLayout() {
-    return (
-        <Stack
-            screenOptions={{
-                headerShown: false,
-            }}
-        />
-    );
+    return <Stack screenOptions={{ headerShown: false }} />;
 }

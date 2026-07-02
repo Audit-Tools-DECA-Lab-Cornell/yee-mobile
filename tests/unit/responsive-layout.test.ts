@@ -19,7 +19,7 @@ describe("createResponsiveLayout", () => {
 
         // Then: YEE switches to the same tablet behavior as COPA.
         expect(layout.isTablet).toBe(true);
-        expect(layout.screenPaddingHorizontal).toBeGreaterThan(15);
+        expect(layout.screenPaddingHorizontal).toBeGreaterThan(16);
         expect(layout.buttonHeight).toBeGreaterThan(52);
     });
 
@@ -33,7 +33,7 @@ describe("createResponsiveLayout", () => {
         // Then: phone surfaces keep the established compact spacing.
         expect(layout.isTablet).toBe(false);
         expect(layout.contentMaxWidth).toBe(560);
-        expect(layout.screenPaddingHorizontal).toBe(15);
+        expect(layout.screenPaddingHorizontal).toBe(16);
     });
 
     it("adds top safe-area inset to helper-managed screen padding", () => {

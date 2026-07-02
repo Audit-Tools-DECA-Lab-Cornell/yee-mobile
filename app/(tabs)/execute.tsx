@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef } from "react";
 import { Alert, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
-import { CloudOff, Save, Send } from "components/icons";
+import { CloudOff, FileBarChart, Save, Send } from "components/icons";
 import { XStack, YStack } from "tamagui";
 import {
     AppButton,
@@ -15,7 +15,12 @@ import {
     StatusBanner,
 } from "components/ui";
 import { useDesignSystem, getPlaceStatusTone } from "lib/design-system";
-import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
+import { toScorePercentage } from "lib/yee-mobile-reporting";
+import {
+    getContentTrackInnerWidth,
+    getResponsiveContentContainerStyle,
+    useResponsiveLayout,
+} from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
 import { buildPlaceViews, getStatusLabel } from "lib/yee-mobile-selectors";
@@ -111,11 +116,11 @@ export default function ExecuteScreen() {
                 contentInsetAdjustmentBehavior="automatic"
                 style={{ backgroundColor: designSystem.colors.background }}
                 contentContainerStyle={getResponsiveContentContainerStyle(layout, {
-                    gap: 20,
-                    bottomPadding: 92,
+                    bottomPadding: 132,
+                    gap: layout.sectionGap,
                 })}
             >
-                <StatusBanner isOnline={isOnline} pendingCount={pendingForPlace} />
+                <ScreenHeader title="Execute" subtitle="Continue or review the selected place." />
 
                 <Card gap="$3">
                     <ScreenHeader
@@ -147,13 +152,19 @@ export default function ExecuteScreen() {
                     <MetricCard label="Pending" value={pendingForPlace.toString()} />
                     <MetricCard
                         label="Score"
-                        value={placeScore === null ? "—" : `${placeScore}%`}
+                        value={placeScore === null ? "—" : `${toScorePercentage(placeScore)}%`}
                     />
                 </XStack>
 
+                <StatusBanner isOnline={isOnline} pendingCount={pendingForPlace} />
+
                 <Card gap="$3">
                     <XStack items="center" gap="$2.5">
-                        <CloudOff size={15} color={designSystem.colors.primary} />
+                        {isSubmitted ? (
+                            <FileBarChart size={15} color={designSystem.colors.primary} />
+                        ) : (
+                            <CloudOff size={15} color={designSystem.colors.primary} />
+                        )}
                         <Paragraph
                             color={designSystem.colors.foreground}
                             fontFamily={designSystem.fonts.bodyBold}
@@ -173,45 +184,57 @@ export default function ExecuteScreen() {
                 </Card>
             </ScrollView>
 
-            <XStack
+            <YStack
                 position="absolute"
-                gap="$3"
                 style={{
-                    left: layout.screenPaddingHorizontal,
-                    right: layout.screenPaddingHorizontal,
+                    left: 0,
+                    right: 0,
                     bottom: 16,
                 }}
             >
-                <AppButton
-                    flex={1}
-                    variant="secondary"
-                    label={activePlaceView.status === "draft" ? "Continue survey" : "Start survey"}
-                    leadingIcon={<Save size={16} color={designSystem.colors.foreground} />}
-                    onPress={() => {
-                        openAuditForPlace(activePlaceView.place.id);
+                <XStack
+                    gap="$3"
+                    style={{
+                        alignSelf: "center",
+                        maxWidth: "100%",
+                        width: getContentTrackInnerWidth(layout, layout.readableMaxWidth),
                     }}
-                />
-                <AppButton
-                    flex={1}
-                    variant="primary"
-                    label={
-                        isSubmitted
-                            ? "Open report"
-                            : activePlaceView.status === "draft"
-                              ? "Resume audit"
-                              : "Open audit"
-                    }
-                    leadingIcon={<Send size={16} color={designSystem.colors.primaryForeground} />}
-                    onPress={() => {
-                        if (isSubmitted && activePlaceView.submission !== null) {
-                            router.push(`/reports/${activePlaceView.submission.id}`);
-                            return;
+                >
+                    <AppButton
+                        flex={1}
+                        variant="secondary"
+                        label={
+                            activePlaceView.status === "draft" ? "Continue survey" : "Start survey"
                         }
+                        leadingIcon={<Save size={16} color={designSystem.colors.foreground} />}
+                        onPress={() => {
+                            openAuditForPlace(activePlaceView.place.id);
+                        }}
+                    />
+                    <AppButton
+                        flex={1}
+                        variant="primary"
+                        label={
+                            isSubmitted
+                                ? "Open report"
+                                : activePlaceView.status === "draft"
+                                  ? "Resume audit"
+                                  : "Open audit"
+                        }
+                        leadingIcon={
+                            <Send size={16} color={designSystem.colors.primaryForeground} />
+                        }
+                        onPress={() => {
+                            if (isSubmitted && activePlaceView.submission !== null) {
+                                router.push(`/reports/${activePlaceView.submission.id}`);
+                                return;
+                            }
 
-                        openAuditForPlace(activePlaceView.place.id);
-                    }}
-                />
-            </XStack>
+                            openAuditForPlace(activePlaceView.place.id);
+                        }}
+                    />
+                </XStack>
+            </YStack>
         </YStack>
     );
 

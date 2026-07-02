@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { Clock3, MapPin, UploadCloud } from "components/icons";
 import { Button, XStack, YStack } from "tamagui";
-import { ScaledParagraph as Paragraph, ScaledText as Text } from "components/ui";
+import { ScaledParagraph as Paragraph, ScaledText as Text, ScreenHeader } from "components/ui";
 import { useDesignSystem, getPlaceStatusTone } from "lib/design-system";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
@@ -65,27 +65,14 @@ export default function PlacesScreen() {
             style={{ backgroundColor: designSystem.colors.background }}
             contentContainerStyle={getResponsiveContentContainerStyle(layout, {
                 bottomPadding: 132,
-                gap: 28,
+                gap: layout.sectionGap,
             })}
         >
             <YStack gap="$6">
-                <YStack gap="$1.5">
-                    <Text
-                        color={designSystem.colors.foreground}
-                        fontFamily={designSystem.fonts.headingBold}
-                        fontSize={34}
-                        lineHeight={38}
-                        letterSpacing={-0.8}
-                    >
-                        My Audits
-                    </Text>
-                    <Paragraph
-                        color={designSystem.colors.mutedForeground}
-                        fontFamily={designSystem.fonts.bodySemiBold}
-                    >
-                        Your assigned places and their audit status.
-                    </Paragraph>
-                </YStack>
+                <ScreenHeader
+                    title="My Audits"
+                    subtitle="Your assigned places and their audit status."
+                />
 
                 <XStack gap="$3" flexWrap="wrap">
                     <SummaryTile label="Drafts" value={summary.draftCount} tone="draft" />

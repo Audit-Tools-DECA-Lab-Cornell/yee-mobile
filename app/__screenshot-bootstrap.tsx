@@ -220,7 +220,7 @@ function EnabledScreenshotBootstrapScreen() {
                 </Paragraph>
                 {errorMessage === null ? null : (
                     <Paragraph
-                        color={designSystem.colors.danger}
+                        color={designSystem.colors.dangerText}
                         fontFamily={designSystem.fonts.bodyMedium}
                         style={{ textAlign: "center" }}
                     >

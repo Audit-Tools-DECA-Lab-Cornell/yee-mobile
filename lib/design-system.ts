@@ -3,21 +3,25 @@ import { usePreferencesStore, type ResolvedTheme } from "stores/preferences-stor
 import type { MetricTone, PlaceStatus, PreAuditStatus } from "./yee-demo-data";
 
 /**
- * Calm, warm light palette used as the product's default appearance.
+ * Cool near-white light palette used as the product's default appearance.
+ * Derived from the web app's brand tokens (`yee-frontend/globals.css`); see
+ * `review/DESIGN_SYNC.md` §1. Semantic accents (`success`/`warning`/…) are
+ * fills only — text uses the AA-verified `*Text` tokens.
  */
 export const lightColors = {
-    background: "#FBFAF6",
-    backgroundAccent: "#F6F3EC",
-    foreground: "#0F1720",
-    primary: "#10231F",
-    primaryForeground: "#FFFFFF",
+    background: "#F5F7F9",
+    backgroundAccent: "#F0F7F2",
+    foreground: "#07090B",
+    primary: "#001F10",
+    primaryForeground: "#F8F8F8",
     surface: "#FFFFFF",
-    surfaceMuted: "#F8F4EE",
-    mutedSurface: "#F0EBE2",
+    surfaceMuted: "#F1F4F6",
+    mutedSurface: "#EDF1F4",
     input: "#FBFCFE",
-    border: "#DDD6CB",
-    mutedForeground: "#6B706F",
+    border: "#D4D8DB",
+    mutedForeground: "#636A6F",
     secondaryForeground: "#4D5966",
+    ring: "#224C37",
     success: "#5E9C83",
     warning: "#C89A57",
     danger: "#B5483D",
@@ -27,8 +31,14 @@ export const lightColors = {
     amber: "#F8E6BE",
     rose: "#F6DADF",
     violet: "#C6B6EE",
-    overlay: "rgba(251, 250, 246, 0.92)",
-    primarySoft: "rgba(16, 35, 31, 0.06)",
+    successText: "#35735C",
+    warningText: "#8A5F16",
+    dangerText: "#B2453A",
+    infoText: "#4969A0",
+    violetText: "#726395",
+    primaryText: "#001F10",
+    overlay: "rgba(245, 247, 249, 0.92)",
+    primarySoft: "rgba(0, 31, 16, 0.06)",
     successSoft: "rgba(94, 156, 131, 0.14)",
     warningSoft: "rgba(200, 154, 87, 0.18)",
     dangerSoft: "rgba(181, 72, 61, 0.10)",
@@ -63,6 +73,7 @@ export const darkColors = {
     border: "#34362E",
     mutedForeground: "#A7A99F",
     secondaryForeground: "#C9C8BF",
+    ring: "#558F6E",
     success: "#7FBFA3",
     warning: "#E0B873",
     danger: "#E08379",
@@ -72,6 +83,12 @@ export const darkColors = {
     amber: "#E0B873",
     rose: "#E08379",
     violet: "#C6B6EE",
+    successText: "#7FBFA3",
+    warningText: "#E0B873",
+    dangerText: "#E08379",
+    infoText: "#9DB8E6",
+    violetText: "#C6B6EE",
+    primaryText: "#7FBFA3",
     overlay: "rgba(20, 21, 19, 0.92)",
     primarySoft: "rgba(127, 191, 163, 0.16)",
     successSoft: "rgba(127, 191, 163, 0.16)",
@@ -85,7 +102,7 @@ export const darkColors = {
     violetSoft: "rgba(198, 182, 238, 0.16)",
 } as const satisfies ColorTokens;
 
-/** Default typeface tokens (Geist body, Space Grotesk headings). */
+/** Default typeface tokens (Geist body and headings). */
 const defaultFonts = {
     bodyRegular: "$body",
     bodyMedium: "$bodyMedium",
@@ -123,11 +140,15 @@ const fontWeights = {
     bold: "700",
 } as const;
 
+/**
+ * Web-synced radius scale (`review/DESIGN_SYNC.md` §4). Cards cap at `lg`;
+ * `full` is reserved for pill badges and status dots only.
+ */
 const radii = {
-    sm: 4,
-    md: 8,
-    lg: 12,
-    xl: 16,
+    sm: 6,
+    md: 10,
+    lg: 14,
+    xl: 20,
     /**
      * Shared corner radius for interactive buttons (option rows, primary/secondary
      * actions, nav pills). Kept deliberately tight so buttons read as a polished,
@@ -140,19 +161,33 @@ const radii = {
 } as const;
 
 const spacing = {
-    screenPaddingHorizontal: 15,
+    screenPaddingHorizontal: 16,
     screenPaddingVertical: 16,
 } as const;
 
+/**
+ * Web-synced three-tier elevation scale (`review/DESIGN_SYNC.md` §5):
+ * `card` for resting cards, `elevated` for dropdowns/toasts/CTA emphasis,
+ * `panel` for sheets and modals.
+ */
 const lightShadows = {
-    card: "0 12px 34px rgba(46, 56, 52, 0.08)",
-    accent: "0 10px 24px rgba(86, 108, 98, 0.12)",
+    card: "0 1px 3px rgba(7, 9, 11, 0.08), 0 1px 2px rgba(7, 9, 11, 0.06)",
+    elevated: "0 4px 12px rgba(7, 9, 11, 0.10), 0 2px 6px rgba(7, 9, 11, 0.06)",
+    panel: "0 8px 24px rgba(7, 9, 11, 0.12), 0 4px 10px rgba(7, 9, 11, 0.08)",
+    /** @deprecated Use elevated. */
+    accent: "0 4px 12px rgba(7, 9, 11, 0.10), 0 2px 6px rgba(7, 9, 11, 0.06)",
 } as const;
 
+/** Shadow tier names shared by every theme. */
+export type ShadowTokens = Record<keyof typeof lightShadows, string>;
+
 const darkShadows = {
-    card: "0 14px 34px rgba(0, 0, 0, 0.45)",
-    accent: "0 10px 24px rgba(0, 0, 0, 0.4)",
-} as const;
+    card: "0 1px 3px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.40)",
+    elevated: "0 4px 12px rgba(0, 0, 0, 0.40), 0 2px 6px rgba(0, 0, 0, 0.35)",
+    panel: "0 8px 24px rgba(0, 0, 0, 0.50), 0 4px 10px rgba(0, 0, 0, 0.40)",
+    /** @deprecated Use elevated. */
+    accent: "0 4px 12px rgba(0, 0, 0, 0.40), 0 2px 6px rgba(0, 0, 0, 0.35)",
+} as const satisfies ShadowTokens;
 
 /**
  * Static light token set.
@@ -222,6 +257,9 @@ export function useDesignSystem(): DesignSystem {
 
 /**
  * Shared tone model for chips, badges, and accent surfaces.
+ *
+ * `accent` is a fill/border color and `surface` its soft backdrop; `text` is
+ * the AA-verified `*Text` token and is the only member safe to use as type.
  */
 export interface DesignTone {
     readonly accent: string;
@@ -238,18 +276,18 @@ export interface DesignTone {
  */
 export function getMetricTone(tone: MetricTone, colors: ColorTokens = lightColors): DesignTone {
     if (tone === "green") {
-        return { accent: colors.success, surface: colors.successSoft, text: colors.success };
+        return { accent: colors.success, surface: colors.successSoft, text: colors.successText };
     }
 
     if (tone === "purple") {
-        return { accent: colors.violet, surface: colors.violetSoft, text: colors.violet };
+        return { accent: colors.violet, surface: colors.violetSoft, text: colors.violetText };
     }
 
     if (tone === "orange") {
-        return { accent: colors.warning, surface: colors.warningSoft, text: colors.warning };
+        return { accent: colors.warning, surface: colors.warningSoft, text: colors.warningText };
     }
 
-    return { accent: colors.primary, surface: colors.primarySoft, text: colors.primary };
+    return { accent: colors.primary, surface: colors.primarySoft, text: colors.primaryText };
 }
 
 /**
@@ -264,18 +302,18 @@ export function getPlaceStatusTone(
     colors: ColorTokens = lightColors,
 ): DesignTone {
     if (status === "submitted") {
-        return { accent: colors.success, surface: colors.successSoft, text: colors.success };
+        return { accent: colors.success, surface: colors.successSoft, text: colors.successText };
     }
 
     if (status === "ready_for_review") {
-        return { accent: colors.violet, surface: colors.violetSoft, text: colors.violet };
+        return { accent: colors.violet, surface: colors.violetSoft, text: colors.violetText };
     }
 
     if (status === "in_progress") {
-        return { accent: colors.primary, surface: colors.primarySoft, text: colors.primary };
+        return { accent: colors.primary, surface: colors.primarySoft, text: colors.primaryText };
     }
 
-    return { accent: colors.warning, surface: colors.warningSoft, text: colors.warning };
+    return { accent: colors.warning, surface: colors.warningSoft, text: colors.warningText };
 }
 
 /**
@@ -290,12 +328,12 @@ export function getPreAuditTone(
     colors: ColorTokens = lightColors,
 ): DesignTone {
     if (status === "completed") {
-        return { accent: colors.success, surface: colors.successSoft, text: colors.success };
+        return { accent: colors.success, surface: colors.successSoft, text: colors.successText };
     }
 
     if (status === "in_progress") {
-        return { accent: colors.primary, surface: colors.primarySoft, text: colors.primary };
+        return { accent: colors.primary, surface: colors.primarySoft, text: colors.primaryText };
     }
 
-    return { accent: colors.warning, surface: colors.warningSoft, text: colors.warning };
+    return { accent: colors.warning, surface: colors.warningSoft, text: colors.warningText };
 }

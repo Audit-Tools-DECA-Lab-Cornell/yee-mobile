@@ -7,6 +7,13 @@ export const WIDE_TABLET_CONTENT_MAX_WIDTH = 1200;
 export const PHONE_FORM_MAX_WIDTH = 560;
 export const NARROW_TABLET_FORM_MAX_WIDTH = 600;
 export const WIDE_TABLET_FORM_MAX_WIDTH = 600;
+/**
+ * Comfortable reading column for content-light detail screens (Execute,
+ * Reports, Settings). Wider than a form column so the screen doesn't read like
+ * a stretched phone, but capped well short of `contentMaxWidth` so short content
+ * stays a composed, centered document instead of sprawling edge-to-edge.
+ */
+export const TABLET_READABLE_MAX_WIDTH = 760;
 
 /**
  * Baseline typography multiplier applied on tablet screens on top of the
@@ -18,10 +25,11 @@ export const WIDE_TABLET_FORM_MAX_WIDTH = 600;
 export const TABLET_TYPOGRAPHY_BASE_SCALE = 1.3;
 
 const PHONE_LAYOUT_TOKENS = {
-    screenPaddingHorizontal: 15,
+    screenPaddingHorizontal: 16,
     screenPaddingVertical: 16,
     contentMaxWidth: PHONE_CONTENT_MAX_WIDTH,
     formMaxWidth: PHONE_FORM_MAX_WIDTH,
+    readableMaxWidth: PHONE_CONTENT_MAX_WIDTH,
     twoPaneGap: 20,
     homePageSupportRailWidth: 0,
     supportRailWidth: 0,
@@ -40,6 +48,7 @@ const TABLET_LAYOUT_TOKENS_MIN = {
     screenPaddingVertical: 24,
     contentMaxWidth: NARROW_TABLET_CONTENT_MAX_WIDTH,
     formMaxWidth: NARROW_TABLET_FORM_MAX_WIDTH,
+    readableMaxWidth: TABLET_READABLE_MAX_WIDTH,
     twoPaneGap: 24,
     homePageSupportRailWidth: 250,
     supportRailWidth: 240,
@@ -58,6 +67,7 @@ const TABLET_LAYOUT_TOKENS_MAX = {
     screenPaddingVertical: 28,
     contentMaxWidth: WIDE_TABLET_CONTENT_MAX_WIDTH,
     formMaxWidth: WIDE_TABLET_FORM_MAX_WIDTH,
+    readableMaxWidth: TABLET_READABLE_MAX_WIDTH,
     twoPaneGap: 32,
     homePageSupportRailWidth: 290,
     supportRailWidth: 300,
@@ -89,6 +99,7 @@ export interface ResponsiveLayoutTokens {
     readonly screenPaddingVertical: number;
     readonly contentMaxWidth: number;
     readonly formMaxWidth: number;
+    readonly readableMaxWidth: number;
     readonly twoPaneGap: number;
     readonly homePageSupportRailWidth: number;
     readonly supportRailWidth: number;
@@ -197,6 +208,9 @@ export function createResponsiveLayoutTokens(width: number): ResponsiveLayoutTok
               )
             : PHONE_LAYOUT_TOKENS.contentMaxWidth,
         formMaxWidth: isTablet ? NARROW_TABLET_FORM_MAX_WIDTH : PHONE_LAYOUT_TOKENS.formMaxWidth,
+        readableMaxWidth: isTablet
+            ? TABLET_READABLE_MAX_WIDTH
+            : PHONE_LAYOUT_TOKENS.readableMaxWidth,
         twoPaneGap: isTablet
             ? interpolateLayoutValue(
                   TABLET_LAYOUT_TOKENS_MIN.twoPaneGap,

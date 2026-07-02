@@ -2,6 +2,17 @@ const { defineConfig } = require("eslint/config");
 const expoConfig = require("eslint-config-expo/flat");
 const prettierConfig = require("eslint-config-prettier/flat");
 
+/**
+ * Screens and components must consume tokens via useDesignSystem(); the static
+ * designSystem export is reserved for module-level constants inside lib/.
+ */
+const restrictedDesignSystemImport = {
+    name: "lib/design-system",
+    importNames: ["designSystem"],
+    message:
+        "Use useDesignSystem(); the static export is only for module-level constants inside lib/.",
+};
+
 module.exports = defineConfig([
     expoConfig,
     prettierConfig,
@@ -47,6 +58,7 @@ module.exports = defineConfig([
             "no-restricted-imports": [
                 "error",
                 {
+                    paths: [restrictedDesignSystemImport],
                     patterns: ["app/*", "components/*"],
                 },
             ],
@@ -58,7 +70,19 @@ module.exports = defineConfig([
             "no-restricted-imports": [
                 "error",
                 {
+                    paths: [restrictedDesignSystemImport],
                     patterns: ["app/*"],
+                },
+            ],
+        },
+    },
+    {
+        files: ["app/**/*.{ts,tsx}"],
+        rules: {
+            "no-restricted-imports": [
+                "error",
+                {
+                    paths: [restrictedDesignSystemImport],
                 },
             ],
         },

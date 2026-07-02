@@ -38,9 +38,11 @@ export function Field({ label, labelAccessory, hint, hasError = false, children 
             {hint === undefined ? null : (
                 <Paragraph
                     px="$1"
+                    accessibilityRole={hasError ? "alert" : undefined}
+                    aria-live={hasError ? "polite" : undefined}
                     style={{
                         color: hasError
-                            ? designSystem.colors.danger
+                            ? designSystem.colors.dangerText
                             : designSystem.colors.mutedForeground,
                     }}
                     fontFamily={designSystem.fonts.bodyMedium}

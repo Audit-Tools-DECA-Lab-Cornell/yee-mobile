@@ -12,12 +12,6 @@ import {
     JetBrainsMono_600SemiBold,
     JetBrainsMono_700Bold,
 } from "@expo-google-fonts/jetbrains-mono";
-import {
-    SpaceGrotesk_400Regular,
-    SpaceGrotesk_500Medium,
-    SpaceGrotesk_600SemiBold,
-    SpaceGrotesk_700Bold,
-} from "@expo-google-fonts/space-grotesk";
 import NetInfo from "@react-native-community/netinfo";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Provider } from "components/Provider";
@@ -85,10 +79,6 @@ export default function RootLayout() {
         "Geist-Medium": Geist_500Medium,
         "Geist-SemiBold": Geist_600SemiBold,
         "Geist-Bold": Geist_700Bold,
-        "SpaceGrotesk-Regular": SpaceGrotesk_400Regular,
-        "SpaceGrotesk-Medium": SpaceGrotesk_500Medium,
-        "SpaceGrotesk-SemiBold": SpaceGrotesk_600SemiBold,
-        "SpaceGrotesk-Bold": SpaceGrotesk_700Bold,
         "JetBrainsMono-Regular": JetBrainsMono_400Regular,
         "JetBrainsMono-Medium": JetBrainsMono_500Medium,
         "JetBrainsMono-SemiBold": JetBrainsMono_600SemiBold,

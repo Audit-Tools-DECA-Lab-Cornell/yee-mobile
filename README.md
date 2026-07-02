@@ -64,7 +64,6 @@ The app is built with Expo + Expo Router, uses Tamagui for UI, and includes Type
 - `bun run build:ios` - export the iOS bundle
 - `bun run build:android` - export the Android bundle
 - `bun run doctor` - run Expo diagnostics (`expo-doctor`)
-- `bun run perf:web:budget` - enforce web bundle size budget
 - `bun run screenshots:ios -- --list` - list automated iOS screenshot targets (booted simulators)
 - `bun run screenshots:android -- --list` - list automated Android screenshot targets (connected devices)
 - `bun run screenshots` - capture iOS then Android into `screenshots/<device>/<appearance>/`

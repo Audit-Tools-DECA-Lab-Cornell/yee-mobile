@@ -8,3 +8,4 @@ bun.lock
 tsconfig.tsbuildinfo
 tamagui.generated.css
 tamagui-web.css
+AGENT_SESSION-*.md

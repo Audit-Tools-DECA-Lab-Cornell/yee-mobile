@@ -8,8 +8,9 @@ import { useDesignSystem } from "lib/design-system";
  * - `raised`: elevated surface with the standard card shadow.
  * - `flat`: bordered surface without a shadow, for nested groupings.
  * - `muted`: tinted inset surface used inside a raised card.
+ * - `panel`: stronger framed panel for tablet rails and dense support regions.
  */
-export type CardVariant = "raised" | "flat" | "muted";
+export type CardVariant = "raised" | "flat" | "muted" | "panel";
 
 export interface CardProps extends YStackProps {
     /** Visual emphasis for the surface. Defaults to `raised`. */
@@ -30,6 +31,12 @@ export function Card({ variant = "raised", children, ...rest }: CardProps) {
     const designSystem = useDesignSystem();
     const backgroundColor =
         variant === "muted" ? designSystem.colors.input : designSystem.colors.surface;
+    const shadow =
+        variant === "panel"
+            ? designSystem.shadows.panel
+            : variant === "raised"
+              ? designSystem.shadows.card
+              : undefined;
 
     return (
         <YStack
@@ -39,7 +46,7 @@ export function Card({ variant = "raised", children, ...rest }: CardProps) {
             bg={backgroundColor}
             p="$4"
             gap="$3"
-            {...(variant === "raised" ? { style: { boxShadow: designSystem.shadows.card } } : null)}
+            {...(shadow === undefined ? null : { style: { boxShadow: shadow } })}
             {...rest}
         >
             {children}

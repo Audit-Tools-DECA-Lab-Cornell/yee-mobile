@@ -1,116 +1,140 @@
 # YEE Mobile Design System
 
-This document is the reference for the YEE mobile app's visual language. It mirrors
-the YEE frontend's green/cream identity, adapted to Expo + Tamagui and the
-offline-first field-work constraint.
+This is the reference for the YEE mobile app's visual language. The app follows
+the YEE web app's cool near-white/green system, adapted for Expo, Tamagui,
+offline field work, and phone/tablet layouts.
 
-## Single token source
+## Single Token Source
 
-`lib/design-system.ts` is the **single source of design tokens** for the app.
-Every screen and component consumes its `designSystem` object rather than raw hex
-values or ad-hoc palettes. The previously competing systems have been reconciled:
+`lib/design-system.ts` is the canonical source for colors, fonts, radii,
+spacing, shadows, and tone helpers. Screens and shared components should read it
+through `useDesignSystem()` so theme changes, dyslexia-friendly fonts, and
+contrast tokens stay aligned.
 
-- **`lib/design-system.ts` (canonical)** — colors, fonts, radii, spacing, shadows,
-  and the tone helpers (`getMetricTone`, `getPlaceStatusTone`, `getPreAuditTone`).
-- **`themes.ts` / `tamagui.config.ts`** — provide the Tamagui runtime theme and the
-  loaded font families. `components/Provider.tsx` mounts the **light** theme to match
-  what the screens actually render (the prior `defaultTheme="dark"` mismatch is fixed).
-- **Per-step wizard palettes** — being migrated onto the shared tone helpers so domain
-  color is expressed as a border/accent on option cards, not a solid fill.
+Use `tamagui.config.ts` only for runtime font/theme registration, and use
+`lib/responsive-layout.ts` for responsive content widths, tablet breakpoints,
+footer track widths, and tablet typography scaling.
 
-When you need a color, font, radius, or shadow, import it from `lib/design-system`.
-Do not introduce new raw hex values in screens or components.
+## Color Tokens
 
-## Tokens
+| Token                 | Light value | Usage                                     |
+| --------------------- | ----------- | ----------------------------------------- |
+| `background`          | `#F5F7F9`   | App background                            |
+| `backgroundAccent`    | `#F0F7F2`   | Secondary background washes               |
+| `foreground`          | `#07090B`   | Primary text                              |
+| `primary`             | `#001F10`   | Brand fills, primary actions              |
+| `primaryForeground`   | `#F8F8F8`   | Text/icons on `primary`                   |
+| `surface`             | `#FFFFFF`   | Cards and raised surfaces                 |
+| `surfaceMuted`        | `#F1F4F6`   | Secondary buttons and muted cards         |
+| `mutedSurface`        | `#EDF1F4`   | Progress tracks and inert fills           |
+| `input`               | `#FBFCFE`   | Input and nested inset surfaces           |
+| `border`              | `#D4D8DB`   | Hairline borders                          |
+| `mutedForeground`     | `#636A6F`   | Captions and secondary labels             |
+| `secondaryForeground` | `#4D5966`   | Body text on muted surfaces               |
+| `ring`                | `#224C37`   | Focus/current-step indicators             |
+| `success`             | `#5E9C83`   | Positive fills and borders                |
+| `warning`             | `#C89A57`   | Caution fills and borders                 |
+| `danger`              | `#B5483D`   | Error/destructive fills and borders       |
+| `info`                | `#7B9ED9`   | Informational fills and borders           |
+| `successText`         | `#35735C`   | Positive text on light/soft surfaces      |
+| `warningText`         | `#8A5F16`   | Warning text on light/soft surfaces       |
+| `dangerText`          | `#B2453A`   | Error text on light/soft surfaces         |
+| `infoText`            | `#4969A0`   | Informational text on light/soft surfaces |
+| `violetText`          | `#726395`   | Violet accent text                        |
+| `primaryText`         | `#001F10`   | Brand text on light/soft surfaces         |
 
-### Color
+Each semantic fill has a `*Soft` companion for tinted surfaces. Do not use fill
+tokens as text on soft backgrounds; use `tone.text` or the matching `*Text`
+token.
 
-| Token                 | Value     | Usage                                          |
-| --------------------- | --------- | ---------------------------------------------- |
-| `background`          | `#FBFAF6` | App background (cream)                         |
-| `backgroundAccent`    | `#F6F3EC` | Secondary background washes                    |
-| `foreground`          | `#0F1720` | Primary text                                   |
-| `primary`             | `#10231F` | YEE green — primary actions, brand             |
-| `primaryForeground`   | `#FFFFFF` | Text/icons on `primary`                        |
-| `surface`             | `#FFFFFF` | Card surfaces                                  |
-| `surfaceMuted`        | `#F8F4EE` | Secondary buttons, subtle chips                |
-| `mutedSurface`        | `#F0EBE2` | Progress track, inert fills                    |
-| `input`               | `#FBFCFE` | Input fields, nested inset surfaces            |
-| `border`              | `#DDD6CB` | Hairline borders                               |
-| `mutedForeground`     | `#6B706F` | Secondary/caption text                         |
-| `secondaryForeground` | `#4D5966` | Body text on muted surfaces                    |
-| `success`             | `#5E9C83` | Positive status (online, submitted, completed) |
-| `warning`             | `#C89A57` | Caution status (offline, pending, not started) |
-| `danger`              | `#B5483D` | Errors, destructive states                     |
-| `info`                | `#7B9ED9` | Informational accents                          |
+## Typography
 
-Each semantic color has a `*Soft` companion (e.g. `successSoft`) for tinted badge and
-banner surfaces. Decorative accents (`mint`, `sky`, `amber`, `rose`, `violet`) and their
-soft variants back the domain tones used by the dashboard and wizard.
+Fonts are loaded in `app/_layout.tsx` and registered in `tamagui.config.ts`.
 
-### Typography
+- **Geist** (`bodyRegular`, `bodyMedium`, `bodySemiBold`, `bodyBold`,
+  `headingMedium`, `headingBold`) is used for body, UI, and headings.
+- **JetBrains Mono** (`monoMedium`, `monoBold`) is used for code-like numeric
+  emphasis only.
+- **OpenDyslexic** replaces the body and heading families when the readability
+  setting is enabled.
 
-Fonts are loaded in `app/_layout.tsx` and registered in `tamagui.config.ts`:
+Use `ScaledText` and `ScaledParagraph` from `components/ui` for text that should
+respect the saved text-size preference. Tablets apply a `1.3` base multiplier on
+top of the user's setting.
 
-- **Geist** (`bodyRegular` / `bodyMedium` / `bodySemiBold` / `bodyBold`) — body and UI text.
-- **Space Grotesk** (`headingMedium` / `headingBold`) — display headings.
-- **JetBrains Mono** (`monoMedium` / `monoBold`) — eyebrows, labels, numeric emphasis.
+## Shape, Space, And Elevation
 
-Reference families through `designSystem.fonts.*`. Prefer Tamagui `$font` sizing tokens
-for any text that should scale with the device's accessibility text size.
+- `radii`: `sm 6`, `md 10`, `lg 14`, `xl 20`, `button 10`, `full 999`.
+- Phone screen padding starts at `16`; tablet padding and content tracks come
+  from `lib/responsive-layout-tokens.ts`.
+- Form-like screens use `layout.formMaxWidth`; dashboard/report layouts use
+  `layout.contentMaxWidth`.
+- Fixed footer button rows use `getContentTrackInnerWidth()` so tablet footers
+  align with the same track as the scroll content.
+- `shadows`: `card` for resting cards, `elevated` for selected/primary
+  emphasis, and `panel` for stronger framed panels.
 
-### Radii, spacing, shadows
+## Responsive Layout
 
-- `radii`: `sm 8`, `md 12`, `lg 16`, `xl 20`, `full 999`.
-- `spacing`: `screenPaddingHorizontal 15`, `screenPaddingVertical 16`.
-- `shadows`: `card` (resting elevation) and `accent` (primary CTA elevation).
+Tablets use the width intentionally instead of stretching a phone column:
 
-### Tones
+- **Widths.** `formMaxWidth` (600) caps survey forms; `readableMaxWidth` (760)
+  centers content-light detail screens (Execute, Reports, Settings) so they read
+  as composed documents, not edge-to-edge stretches; `contentMaxWidth`
+  (1040–1200) is for grid screens. Fixed footers align to their screen's track
+  via `getContentTrackInnerWidth()`.
+- **Home** fills `contentMaxWidth` with real grids: status cards two-up, metric
+  cards four-up on wide tablets, assigned places two-up.
+- **Reports** is a single centered `readableMaxWidth` column (metrics two-up,
+  then the current report and list) — no sparse side rail.
+- **Audit wizard** shows a **persistent step sidebar** on tablets (fixed on the
+  left, always visible) with the form centered at `formMaxWidth` in the
+  remaining column and the footer aligned under the form. Phones keep the single
+  scrolling column with horizontal step pills.
 
-A `DesignTone` is `{ accent, surface, text }`. Use the helpers instead of hand-picking
-colors per status:
+`TwoPaneLayout` remains available for genuine master/detail cases, but tab
+screens fill the width with grids rather than a rail that leaves voids when the
+secondary content is thin.
 
-- `getMetricTone(tone)` — dashboard metric accents.
-- `getPlaceStatusTone(status)` — place workflow status badges.
-- `getPreAuditTone(status)` — pre-audit readiness.
+## Component Library
 
-## Component library (`components/ui/`)
+Import shared primitives from `components/ui`.
 
-Import shared primitives from `components/ui` instead of re-declaring inline cards,
-buttons, and badges. All consume `designSystem` tokens.
+| Component                        | Purpose                                                                                                    |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `AppButton`                      | Token-backed action button with `primary`, `secondary`, `ghost`, and `danger` variants plus loading state. |
+| `Badge`                          | Pill status indicator driven by a `DesignTone`; optional dot indicator.                                    |
+| `Card` / `SectionCard`           | Bordered surfaces with `raised`, `flat`, `muted`, and `panel` variants.                                    |
+| `Field` / `FieldInput`           | Labelled form field with token-backed input frame and accessible inline error.                             |
+| `EmptyState`                     | Centered empty-state surface with optional icon/action.                                                    |
+| `LoadingState`                   | Centered spinner with accessible status copy.                                                              |
+| `ErrorState`                     | Danger-tinted recoverable-error surface.                                                                   |
+| `ScreenHeader`                   | Eyebrow/title/subtitle block with trailing slot.                                                           |
+| `MetricCard`                     | Compact metric tile for grids and summaries.                                                               |
+| `ListRow`                        | Tappable list row with leading/trailing slots.                                                             |
+| `ProgressBar`                    | Slim clamped progress track with progressbar semantics.                                                    |
+| `StatusBanner`                   | Online/offline connectivity banner with pending-sync summary.                                              |
+| `ScaledText` / `ScaledParagraph` | Text primitives that compose user text size with tablet scale.                                             |
+| `TwoPaneLayout`                  | Tablet support-rail shell with phone fallback.                                                             |
 
-| Component              | Purpose                                                         |
-| ---------------------- | --------------------------------------------------------------- |
-| `Card` / `SectionCard` | Bordered surface (`raised` \| `flat` \| `muted`).               |
-| `AppButton`            | Action button (`primary` \| `secondary` \| `ghost`), 52pt tall. |
-| `Badge`                | Pill status indicator driven by a `DesignTone`.                 |
-| `Field` / `FieldInput` | Labelled form field and bordered input frame.                   |
-| `EmptyState`           | Centered empty-state card with optional icon and action.        |
-| `LoadingState`         | Centered spinner with an accessible status region.              |
-| `ErrorState`           | Danger-tinted recoverable-error surface.                        |
-| `ScreenHeader`         | Title block with eyebrow, subtitle, and trailing slot.          |
-| `MetricCard`           | Compact metric tile for grids and summaries.                    |
-| `ListRow`              | Tappable list row with leading/trailing slots.                  |
-| `ProgressBar`          | Slim, clamped progress track with progressbar semantics.        |
-| `StatusBanner`         | Online/offline connectivity banner with pending-sync summary.   |
+## Usage Rules
 
-## Usage rules
-
-- **Tokens only.** No raw hex in screens; pull from `designSystem`. For computed/variable
-  colors, apply them via the `style` prop (e.g. `style={{ color: tone.text }}`), matching
-  Tamagui's typed color-token constraint.
-- **Safe areas.** Wrap screen roots with `useSafeAreaInsets()` padding; form screens use
-  `KeyboardAvoidingView`.
-- **Touch targets.** Interactive elements are at least 44pt; `AppButton` defaults to 52pt.
-  Use `hitSlop` when a control is visually smaller.
-- **Thumb zones.** Primary actions (Start/Resume audit, Submit) sit in the bottom third of
-  the screen.
-- **Accessibility.** Provide `accessibilityRole`/labels on status and async regions; use
-  `aria-live` on connectivity and error surfaces; prefer the ellipsis character `…`.
-- **Offline-first.** Drafts stay local and secure until final submission. Surface
-  connectivity and pending-sync state with `StatusBanner` rather than re-deriving copy.
+- Pull colors, fonts, radii, and shadows from `useDesignSystem()`.
+- Do not import the static `designSystem` object from screens or components
+  outside `lib/`.
+- Keep interactive controls at least 44pt tall; `AppButton` defaults to the
+  layout button height.
+- Use `radii.button` for buttons and step pills; reserve `radii.full` for badges
+  and circular indicators.
+- Primary field-work actions belong near the bottom of the screen and aligned to
+  the active content track.
+- Use `StatusBanner` or submit-status copy for offline/sync state instead of
+  re-deriving status language on each screen.
+- Keep raw color literals out of screens unless a platform API requires a
+  computed value that cannot be represented as a token.
 
 ## Motion
 
-Match the frontend: exponential ease-out, under 300ms for state changes and 500ms for
-entrance transitions, with reduced-motion alternatives where animation conveys meaning.
+Use short state transitions under 300ms and entrance transitions under 500ms.
+When motion conveys state, honor reduced-motion settings and use an exponential
+ease-out curve consistent with the web app.

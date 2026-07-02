@@ -8,13 +8,18 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
-import { ArrowLeft, ArrowRight, ChevronLeft, Save } from "components/icons";
+import { ArrowLeft, ArrowRight, ChevronLeft, LayoutDashboard, Save } from "components/icons";
 import { useYeeStackHeaderOptions } from "components/navigation/useYeeStackHeaderOptions";
 import { Button, Input, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { useDesignSystem, type ColorTokens } from "lib/design-system";
-import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
+import {
+    getContentTrackInnerWidth,
+    getResponsiveContentContainerStyle,
+    useResponsiveLayout,
+} from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { buildAuditStepHeaderLabels } from "lib/yee-navigation-labels";
+import { findFirstIncompleteStep } from "lib/yee-submit-guard";
 import {
     buildParticipantInfo,
     buildStoredDraft,
@@ -62,9 +67,12 @@ type SurveyPalette = {
     readonly intro: string;
     readonly introBorder: string;
     readonly accent: string;
+    readonly accentText: string;
     readonly mutedAccent: string;
+    readonly mutedAccentText: string;
     readonly progress: string;
     readonly progressTrack: string;
+    readonly stepFill: string;
     readonly stepSurface: string;
     readonly stepBorder: string;
     readonly stepText: string;
@@ -362,6 +370,10 @@ export default function AuditStepScreen() {
 
     const currentDraft = draft;
     const auditIsComplete = findFirstIncompleteStep(currentDraft, instrument) === null;
+    // The step stepper renders full-width at the top; below it the form uses a
+    // comfortable readable column on tablets. The footer aligns to that track.
+    const formTrackMaxWidth = layout.isTablet ? layout.readableMaxWidth : layout.formMaxWidth;
+    const footerContentWidth = getContentTrackInnerWidth(layout, formTrackMaxWidth);
 
     async function goNext() {
         const canProceed = await confirmStepProgress(step, currentDraft, section);
@@ -407,6 +419,41 @@ export default function AuditStepScreen() {
         };
     }
 
+    const stepContent = (
+        <YStack gap="$4">
+            {errorMessage === null ? null : (
+                <NoticeCard tone="danger" title="Sync note" body={errorMessage} />
+            )}
+
+            {step === 1 ? (
+                <ContextStep draft={draft} onChange={setDraft} palette={stepPalette} />
+            ) : step === 2 ? (
+                <WeightingStep
+                    draft={draft}
+                    onChange={setDraft}
+                    placeName={draft.placeName || place?.name || "this place"}
+                    palette={stepPalette}
+                />
+            ) : step === 9 ? (
+                <FinalCommentsStep draft={draft} onChange={setDraft} palette={stepPalette} />
+            ) : section !== null && domain !== null ? (
+                <DomainStep
+                    section={section}
+                    draft={draft}
+                    onChange={setDraft}
+                    domain={domain}
+                    palette={stepPalette}
+                />
+            ) : (
+                <NoticeCard
+                    tone="warning"
+                    title="Section unavailable"
+                    body="This domain could not be loaded from the cached YEE instrument yet."
+                />
+            )}
+        </YStack>
+    );
+
     return (
         <>
             {stackHeader}
@@ -420,7 +467,7 @@ export default function AuditStepScreen() {
                     style={{ backgroundColor: designSystem.colors.background }}
                     contentContainerStyle={getResponsiveContentContainerStyle(layout, {
                         bottomPadding: (footerHeight > 0 ? footerHeight : 96) + 48,
-                        gap: 28,
+                        gap: layout.sectionGap,
                     })}
                 >
                     <YStack gap="$6">
@@ -459,6 +506,20 @@ export default function AuditStepScreen() {
                                     </Text>
                                 </YStack>
                             </XStack>
+                            <Button
+                                width={44}
+                                height={44}
+                                p={0}
+                                rounded={designSystem.radii.button}
+                                borderWidth={1}
+                                borderColor={designSystem.colors.border}
+                                bg={designSystem.colors.surfaceMuted}
+                                pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                                onPress={() => router.replace("/(tabs)")}
+                                accessibilityLabel="Go to home"
+                            >
+                                <LayoutDashboard size={18} color={designSystem.colors.foreground} />
+                            </Button>
                         </XStack>
 
                         <StepHeader
@@ -467,46 +528,14 @@ export default function AuditStepScreen() {
                         />
                     </YStack>
 
-                    {errorMessage === null ? null : (
-                        <NoticeCard tone="danger" title="Sync note" body={errorMessage} />
-                    )}
-
-                    {step === 1 ? (
-                        <ContextStep draft={draft} onChange={setDraft} palette={stepPalette} />
-                    ) : step === 2 ? (
-                        <WeightingStep
-                            draft={draft}
-                            onChange={setDraft}
-                            placeName={draft.placeName || place?.name || "this place"}
-                            palette={stepPalette}
-                        />
-                    ) : step === 9 ? (
-                        <FinalCommentsStep
-                            draft={draft}
-                            onChange={setDraft}
-                            palette={stepPalette}
-                        />
-                    ) : section !== null && domain !== null ? (
-                        <DomainStep
-                            section={section}
-                            draft={draft}
-                            onChange={setDraft}
-                            domain={domain}
-                            palette={stepPalette}
-                        />
-                    ) : (
-                        <NoticeCard
-                            tone="warning"
-                            title="Section unavailable"
-                            body="This domain could not be loaded from the cached YEE instrument yet."
-                        />
-                    )}
+                    {stepContent}
                 </KeyboardAwareScrollView>
 
                 <FooterNav
                     isSaving={isSaving}
                     bottomInset={insets.bottom}
-                    horizontalPadding={layout.screenPaddingHorizontal}
+                    leftInset={0}
+                    contentWidth={footerContentWidth}
                     onMeasure={setFooterHeight}
                     onBack={() => {
                         const previousStep = getPreviousStep(step);
@@ -543,7 +572,11 @@ function LoadingScreen() {
             gap="$3"
         >
             <Spinner size="large" color={designSystem.colors.primary} />
-            <Text color={designSystem.colors.foreground} fontFamily={designSystem.fonts.bodyBold}>
+            <Text
+                fontSize={24}
+                color={designSystem.colors.foreground}
+                fontFamily={designSystem.fonts.bodyBold}
+            >
                 Loading mobile audit step...
             </Text>
         </YStack>
@@ -563,7 +596,7 @@ function BlockedAuditScreen({
     return (
         <YStack flex={1} bg={designSystem.colors.background} px="$4" py="$6" justify="center">
             <YStack
-                rounded={designSystem.radii.xl}
+                rounded={designSystem.radii.lg}
                 borderWidth={1}
                 borderColor={designSystem.colors.warning}
                 bg={designSystem.colors.surface}
@@ -606,9 +639,11 @@ function BlockedAuditScreen({
 
 function StepHeader({
     step,
+    showStepPills = true,
     onStepPress,
 }: {
     step: MobileYeeStepNumber;
+    showStepPills?: boolean;
     onStepPress: (step: MobileYeeStepNumber) => void;
 }) {
     const designSystem = useDesignSystem();
@@ -639,21 +674,21 @@ function StepHeader({
                 <Text
                     color={designSystem.colors.foreground}
                     fontFamily={designSystem.fonts.headingBold}
-                    fontSize={34}
-                    lineHeight={38}
-                    letterSpacing={-0.8}
+                    fontSize={30}
+                    lineHeight={36}
+                    letterSpacing={-0.6}
                 >
                     {getStepTitle(step)}
                 </Text>
                 <Paragraph
-                    color={designSystem.colors.mutedForeground}
+                    color={designSystem.colors.primary}
                     fontFamily={designSystem.fonts.bodySemiBold}
                 >
                     {mobileYeeSteps.find((entry) => entry.step === step)?.description}
                 </Paragraph>
             </YStack>
             <XStack
-                rounded={designSystem.radii.lg}
+                rounded={designSystem.radii.md}
                 borderWidth={1}
                 bg={designSystem.colors.surface}
                 px="$3.5"
@@ -696,41 +731,47 @@ function StepHeader({
                     </Text>
                 </YStack>
             </XStack>
-            <XStack gap="$2" flexWrap="wrap">
-                {mobileYeeSteps.map((entry) => {
-                    const active = entry.step === step;
-                    const tone = getStepTone(designSystem.colors);
-                    return (
-                        <Button
-                            key={entry.step}
-                            type="button"
-                            rounded={designSystem.radii.button}
-                            borderWidth={1}
-                            px="$3"
-                            py="$2"
-                            onPress={() => onStepPress(entry.step)}
-                            disabled={active}
-                            hoverStyle={{ opacity: 0.96 }}
-                            pressStyle={{ opacity: 0.94, scale: 0.985 }}
-                            style={{
-                                minWidth: 108,
-                                borderColor: active ? tone.border : tone.softBorder,
-                                backgroundColor: active ? tone.surface : tone.softSurface,
-                            }}
-                        >
-                            <Button.Text
+            {showStepPills ? (
+                <XStack gap="$2" flexWrap="wrap" items="center">
+                    {mobileYeeSteps.map((entry) => {
+                        const active = entry.step === step;
+                        const tone = getStepTone(designSystem.colors);
+                        return (
+                            <Button
+                                key={entry.step}
+                                type="button"
+                                rounded={designSystem.radii.button}
+                                borderWidth={1}
+                                px="$3"
+                                py="$2"
+                                flex={1}
+                                onPress={() => onStepPress(entry.step)}
+                                disabled={active}
+                                hoverStyle={{ opacity: 0.96 }}
+                                pressStyle={{ opacity: 0.94, scale: 0.985 }}
                                 style={{
-                                    color: active ? tone.text : designSystem.colors.mutedForeground,
+                                    minHeight: 44,
+                                    minWidth: 108,
+                                    borderColor: active ? tone.border : tone.softBorder,
+                                    backgroundColor: active ? tone.surface : tone.softSurface,
                                 }}
-                                fontFamily={designSystem.fonts.bodyBold}
-                                fontSize={11}
                             >
-                                {entry.title}
-                            </Button.Text>
-                        </Button>
-                    );
-                })}
-            </XStack>
+                                <Button.Text
+                                    style={{
+                                        color: active
+                                            ? tone.text
+                                            : designSystem.colors.mutedForeground,
+                                    }}
+                                    fontFamily={designSystem.fonts.bodyBold}
+                                    fontSize={11}
+                                >
+                                    {entry.title}
+                                </Button.Text>
+                            </Button>
+                        );
+                    })}
+                </XStack>
+            ) : null}
         </YStack>
     );
 }
@@ -1027,7 +1068,7 @@ function DomainStep({
                                     {showCondition && row.conditionItemId !== null ? (
                                         <YStack
                                             gap="$2.5"
-                                            rounded={designSystem.radii.md}
+                                            rounded={designSystem.radii.sm}
                                             p="$3"
                                             borderWidth={1}
                                             style={{
@@ -1036,7 +1077,7 @@ function DomainStep({
                                             }}
                                         >
                                             <Paragraph
-                                                style={{ color: designSystem.colors.primary }}
+                                                style={{ color: designSystem.colors.primaryText }}
                                                 fontFamily={designSystem.fonts.bodyBold}
                                             >
                                                 If yes, please rate the condition.
@@ -1109,7 +1150,7 @@ function Card({
     const designSystem = useDesignSystem();
     return (
         <YStack
-            rounded={designSystem.radii.xl}
+            rounded={designSystem.radii.lg}
             borderWidth={1}
             p="$4"
             gap="$3.5"
@@ -1151,7 +1192,7 @@ function SectionIntroCard({
     const designSystem = useDesignSystem();
     return (
         <YStack
-            rounded={designSystem.radii.lg}
+            rounded={designSystem.radii.md}
             borderWidth={1}
             p="$4"
             gap="$2.5"
@@ -1162,14 +1203,14 @@ function SectionIntroCard({
             }}
         >
             <Text
-                style={{ color: palette.accent }}
+                style={{ color: palette.accentText }}
                 fontFamily={designSystem.fonts.headingBold}
                 fontSize={23}
             >
                 {title}
             </Text>
             <Paragraph
-                style={{ color: palette.mutedAccent }}
+                style={{ color: palette.mutedAccentText }}
                 fontFamily={designSystem.fonts.bodyMedium}
                 lineHeight={21}
             >
@@ -1187,7 +1228,7 @@ function QuestionCard({
     const designSystem = useDesignSystem();
     return (
         <YStack
-            rounded={designSystem.radii.lg}
+            rounded={designSystem.radii.md}
             borderWidth={1}
             p="$4"
             gap="$3"
@@ -1336,13 +1377,13 @@ function SelectionButton({
             style={{
                 backgroundColor: selected ? palette.selected : palette.inner,
                 borderColor: selected ? palette.selectedBorder : palette.innerBorder,
-                boxShadow: selected ? designSystem.shadows.accent : "none",
+                boxShadow: selected ? designSystem.shadows.elevated : "none",
             }}
         >
             <Text
                 fontFamily={designSystem.fonts.bodyBold}
                 style={{
-                    color: selected ? designSystem.colors.primaryForeground : palette.accent,
+                    color: selected ? designSystem.colors.primaryForeground : palette.accentText,
                     flexShrink: 1,
                     textAlign: "left",
                 }}
@@ -1383,7 +1424,7 @@ function CommentField({
                 // multiline field fought the minHeight, so content spilled past the
                 // frame and the next card overlapped it. minHeight + top alignment +
                 // padding now keep the box sized to its content and text inside it.
-                rounded={designSystem.radii.lg}
+                rounded={designSystem.radii.md}
                 borderWidth={1}
                 px="$3"
                 py="$3"
@@ -1415,7 +1456,7 @@ function SectionProgressCard({
     const percentage = totalCount === 0 ? 0 : Math.round((completedCount / totalCount) * 100);
     return (
         <YStack
-            rounded={designSystem.radii.lg}
+            rounded={designSystem.radii.md}
             borderWidth={1}
             p="$3.5"
             gap="$2.5"
@@ -1441,7 +1482,7 @@ function SectionProgressCard({
                     </Paragraph>
                 </YStack>
                 <Text
-                    style={{ color: palette.accent }}
+                    style={{ color: palette.accentText }}
                     fontFamily={designSystem.fonts.headingBold}
                     fontSize={20}
                 >
@@ -1487,7 +1528,7 @@ function ReadOnlyField({ label, value }: { label: string; value: string }) {
                 {label}
             </Paragraph>
             <YStack
-                rounded={designSystem.radii.md}
+                rounded={designSystem.radii.sm}
                 borderWidth={1}
                 borderColor={designSystem.colors.border}
                 p="$3"
@@ -1515,18 +1556,20 @@ function NoticeCard({
 }) {
     const designSystem = useDesignSystem();
     const color = tone === "danger" ? designSystem.colors.danger : designSystem.colors.warning;
+    const textColor =
+        tone === "danger" ? designSystem.colors.dangerText : designSystem.colors.warningText;
     const surface =
         tone === "danger" ? designSystem.colors.dangerSoft : designSystem.colors.warningSoft;
     return (
         <YStack
-            rounded={designSystem.radii.lg}
+            rounded={designSystem.radii.md}
             borderWidth={1}
             borderColor={color}
             bg={surface}
             p="$4"
             gap="$1.5"
         >
-            <Text style={{ color }} fontFamily={designSystem.fonts.bodyBold}>
+            <Text style={{ color: textColor }} fontFamily={designSystem.fonts.bodyBold}>
                 {title}
             </Text>
             <Paragraph color={designSystem.colors.secondaryForeground}>{body}</Paragraph>
@@ -1624,43 +1667,6 @@ function getStepIncompleteMessage(
     return null;
 }
 
-function findFirstIncompleteStep(
-    draft: MobileAuditFormState,
-    instrument: NormalizedInstrument | null,
-): { step: MobileYeeStepNumber; label: string } | null {
-    if (
-        draft.visitFrequency.length === 0 ||
-        draft.publicAccess.length === 0 ||
-        draft.openHoursAccess.length === 0 ||
-        draft.season.length === 0 ||
-        draft.weather.length === 0
-    ) {
-        return { step: 1, label: "Context" };
-    }
-
-    if (Object.values(draft.weights).some((value) => value.length === 0)) {
-        return { step: 2, label: "Weighting" };
-    }
-
-    if (instrument !== null) {
-        const domainSteps: readonly MobileYeeStepNumber[] = [3, 4, 5, 6, 7, 8];
-        for (const domainStep of domainSteps) {
-            const nextSection = getSectionForStep(instrument, domainStep);
-            if (nextSection === null) {
-                continue;
-            }
-
-            const completedCount = countAnsweredRows(nextSection, draft);
-            const totalCount = countTotalRows(nextSection);
-            if (completedCount < totalCount) {
-                return { step: domainStep, label: nextSection.title };
-            }
-        }
-    }
-
-    return null;
-}
-
 async function confirmChoice(
     title: string,
     message: string,
@@ -1682,7 +1688,8 @@ async function confirmChoice(
 function FooterNav({
     isSaving,
     bottomInset,
-    horizontalPadding,
+    leftInset,
+    contentWidth,
     onMeasure,
     onBack,
     onSaveExit,
@@ -1694,7 +1701,10 @@ function FooterNav({
 }: {
     isSaving: boolean;
     bottomInset: number;
-    horizontalPadding: number;
+    /** Left offset so the bar clears the persistent step sidebar on tablets. */
+    leftInset: number;
+    /** Width of the centered button row (matches the form column). */
+    contentWidth: number;
     onMeasure: (height: number) => void;
     onBack: () => void;
     onSaveExit: () => void;
@@ -1710,18 +1720,26 @@ function FooterNav({
             position="absolute"
             onLayout={(event) => onMeasure(event.nativeEvent.layout.height)}
             style={{
-                left: 0,
+                left: leftInset,
                 right: 0,
                 bottom: 0,
                 backgroundColor: designSystem.colors.background,
                 borderTopWidth: 1,
                 borderTopColor: designSystem.colors.border,
-                paddingHorizontal: horizontalPadding,
                 paddingTop: 12,
                 paddingBottom: bottomInset + 12,
+                paddingHorizontal: 16,
             }}
         >
-            <XStack gap="$2.5" flexWrap="wrap">
+            <XStack
+                gap="$2.5"
+                flexWrap="wrap"
+                style={{
+                    alignSelf: "center",
+                    width: "100%",
+                    maxWidth: contentWidth,
+                }}
+            >
                 <Button
                     flex={1}
                     rounded={designSystem.radii.button}
@@ -1765,8 +1783,8 @@ function FooterNav({
                     onPress={onNext}
                     disabled={isSaving}
                     style={{
-                        backgroundColor: nextTone.stepText,
-                        borderColor: nextTone.stepText,
+                        backgroundColor: nextTone.stepFill,
+                        borderColor: nextTone.stepFill,
                     }}
                 >
                     <XStack items="center" gap="$2">
@@ -1818,7 +1836,7 @@ function getStepTone(colors: ColorTokens) {
         border: colors.border,
         softSurface: colors.surfaceMuted,
         softBorder: colors.border,
-        text: colors.primary,
+        text: colors.primaryText,
     };
 }
 
@@ -1836,12 +1854,15 @@ function getSurveyPalette(colors: ColorTokens): SurveyPalette {
         intro: colors.successSoft,
         introBorder: colors.border,
         accent: colors.primary,
+        accentText: colors.primaryText,
         mutedAccent: colors.secondaryForeground,
+        mutedAccentText: colors.secondaryForeground,
         progress: colors.surfaceMuted,
         progressTrack: colors.mutedSurface,
+        stepFill: colors.primary,
         stepSurface: colors.primarySoft,
         stepBorder: colors.border,
-        stepText: colors.primary,
+        stepText: colors.primaryText,
     };
 }
 

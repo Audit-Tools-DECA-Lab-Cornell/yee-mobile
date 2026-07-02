@@ -34,7 +34,6 @@ export default function SignupScreen() {
             contentContainerStyle={[
                 getResponsiveContentContainerStyle(layout, {
                     bottomPadding: 32,
-                    maxWidth: 440,
                     topInset: insets.top,
                 }),
                 {
@@ -44,7 +43,7 @@ export default function SignupScreen() {
                 },
             ]}
         >
-            <YStack gap="$6" width="100%" style={{ maxWidth: 440, alignSelf: "center" }}>
+            <YStack gap="$6" width="100%" style={{ alignSelf: "center" }}>
                 <YStack items="center" gap="$4">
                     <YStack
                         width={88}
@@ -59,7 +58,7 @@ export default function SignupScreen() {
                             boxShadow: designSystem.shadows.card,
                         }}
                     >
-                        <ShieldAlert size={34} color={designSystem.colors.warning} />
+                        <ShieldAlert size={34} color={designSystem.colors.warningText} />
                     </YStack>
 
                     <YStack items="center" gap="$2">
@@ -92,9 +91,9 @@ export default function SignupScreen() {
                     gap="$3"
                 >
                     <XStack items="center" gap="$2">
-                        <ShieldAlert size={18} color={designSystem.colors.warning} />
+                        <ShieldAlert size={18} color={designSystem.colors.warningText} />
                         <Text
-                            color={designSystem.colors.warning}
+                            color={designSystem.colors.warningText}
                             fontFamily={designSystem.fonts.bodyBold}
                             fontSize={14}
                             textTransform="uppercase"

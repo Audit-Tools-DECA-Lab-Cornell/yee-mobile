@@ -2,7 +2,7 @@ export default {
     expo: {
         name: "Youth Enabling Environments Audit Tool",
         slug: "audit-tools-yee-mobile",
-        version: "0.1.0",
+        version: "0.2.1",
         orientation: "portrait",
         icon: "./assets/icon.png",
         scheme: "yee-mobile",
@@ -76,7 +76,12 @@ export default {
         runtimeVersion: {
             policy: "fingerprint",
         },
-        owner: "audit-tools-deca-lab-cornell",
+        owner: "yee-decalab-cornell",
         githubUrl: "https://github.com/audit-tools-deca-lab-cornell/yee-mobile",
+        updates: {
+            url: "https://u.expo.dev/34a0dc8b-bf74-4b5a-8d76-ac98418eccd3",
+            enableTracking: true,
+            enableBsdiffPatchSupport: true,
+        },
     },
 };

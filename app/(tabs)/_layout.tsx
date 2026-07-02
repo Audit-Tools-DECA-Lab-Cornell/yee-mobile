@@ -57,8 +57,8 @@ export default function TabLayout() {
     const layout = useResponsiveLayout();
     const insets = useSafeAreaInsets();
     const tabBarLayout = getResponsiveTabBarLayout(layout, insets.bottom);
-    const tabBarLabelFontSize = layout.isTablet ? 12 : 10;
-    const tabBarLabelLineHeight = layout.isTablet ? 16 : 14;
+    const tabBarLabelFontSize = layout.isWideTablet ? 24 : layout.isTablet ? 14 : 12;
+    const tabBarLabelLineHeight = layout.isWideTablet ? 28 : layout.isTablet ? 18 : 16;
 
     return (
         <Tabs
@@ -85,9 +85,7 @@ export default function TabLayout() {
                 tabBarLabelStyle: {
                     fontSize: tabBarLabelFontSize,
                     lineHeight: tabBarLabelLineHeight,
-                    fontFamily: designSystem.fonts.bodyBold,
-                    letterSpacing: 1,
-                    textTransform: "uppercase",
+                    fontFamily: designSystem.fonts.bodySemiBold,
                 },
             }}
         >

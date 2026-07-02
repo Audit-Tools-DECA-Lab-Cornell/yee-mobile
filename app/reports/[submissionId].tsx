@@ -8,7 +8,11 @@ import { BarChart3, ChevronLeft } from "components/icons";
 import { useYeeStackHeaderOptions } from "components/navigation/useYeeStackHeaderOptions";
 import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { useDesignSystem } from "lib/design-system";
-import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
+import {
+    getContentTrackInnerWidth,
+    getResponsiveContentContainerStyle,
+    useResponsiveLayout,
+} from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { fetchSubmission } from "lib/yee-api";
 import { buildReportHeaderLabels } from "lib/yee-navigation-labels";
@@ -23,6 +27,7 @@ import {
     getWeightingComments,
     getYouthWeightedScoreMaximum,
     totalRawScoreMaximum,
+    toScorePercentage,
 } from "lib/yee-mobile-reporting";
 import {
     getOpenHoursAccessLabel,
@@ -249,8 +254,8 @@ export default function MobileReportDetailScreen() {
                         <XStack justify="space-between" items="center" gap="$3">
                             <XStack items="center" gap="$3" flex={1}>
                                 <Button
-                                    width={44}
-                                    height={44}
+                                    width={48}
+                                    height={48}
                                     p={0}
                                     rounded={designSystem.radii.button}
                                     borderWidth={1}
@@ -260,7 +265,7 @@ export default function MobileReportDetailScreen() {
                                     onPress={() => router.back()}
                                     accessibilityLabel="Go back"
                                 >
-                                    <ChevronLeft size={18} color={designSystem.colors.foreground} />
+                                    <ChevronLeft size={24} color={designSystem.colors.foreground} />
                                 </Button>
                                 <YStack flex={1} justify="center" items="flex-start">
                                     <Paragraph
@@ -330,7 +335,7 @@ export default function MobileReportDetailScreen() {
                                     />
                                     <MetricRow
                                         label="Total raw score"
-                                        value={`${submissionListItem.total_score}%`}
+                                        value={`${submissionListItem.total_score} / ${totalRawScoreMaximum} (${toScorePercentage(submissionListItem.total_score)}%)`}
                                     />
                                 </YStack>
                             )}
@@ -339,7 +344,7 @@ export default function MobileReportDetailScreen() {
                         <>
                             {submission.syncState === "pending_upload" ? (
                                 <Card title="Pending upload">
-                                    <Paragraph color={designSystem.colors.warning}>
+                                    <Paragraph color={designSystem.colors.warningText}>
                                         Scores shown are preliminary and will update once the upload
                                         completes.
                                     </Paragraph>
@@ -486,12 +491,18 @@ export default function MobileReportDetailScreen() {
                         backgroundColor: designSystem.colors.background,
                         borderTopWidth: 1,
                         borderTopColor: designSystem.colors.border,
-                        paddingHorizontal: layout.screenPaddingHorizontal,
                         paddingTop: 12,
                         paddingBottom: insets.bottom + 12,
                     }}
                 >
-                    <XStack gap="$3">
+                    <XStack
+                        gap="$3"
+                        style={{
+                            alignSelf: "center",
+                            maxWidth: "100%",
+                            width: getContentTrackInnerWidth(layout),
+                        }}
+                    >
                         <Button
                             flex={1}
                             rounded={designSystem.radii.button}
@@ -535,7 +546,7 @@ function ReportHeroCard({ title, subtitle }: { title: string; subtitle: string }
     const designSystem = useDesignSystem();
     return (
         <YStack
-            rounded={designSystem.radii.xl}
+            rounded={designSystem.radii.md}
             borderWidth={1}
             p="$4.5"
             gap="$2"
@@ -562,7 +573,7 @@ function InfoPanel({ title, children }: PropsWithChildren<{ title: string }>) {
     return (
         <YStack
             flex={1}
-            rounded={designSystem.radii.lg}
+            rounded={designSystem.radii.md}
             borderWidth={1}
             p="$4"
             gap="$2.5"
@@ -598,8 +609,9 @@ function WeightingSummaryCard({ rows }: { rows: readonly DomainScoreRow[] }) {
                     <XStack
                         key={row.domain}
                         items="center"
-                        gap="$3"
+                        gap="$12"
                         py="$2.5"
+                        pr="$4"
                         borderTopWidth={index === 0 ? 0 : 1}
                         borderColor={designSystem.colors.border}
                     >
@@ -688,13 +700,13 @@ function ScoreResultsTable({
                     label="Total raw score"
                     value={`${preview?.totalRawScore ?? 0} / ${totalRawScoreMaximum} (${Math.round(((preview?.totalRawScore ?? 0) / totalRawScoreMaximum || 0) * 100)}%)`}
                     helperText="Sum of all section raw scores."
-                    accentColor={designSystem.colors.primary}
+                    textColor={designSystem.colors.primaryText}
                 />
                 <MetricCard
                     label="Total Youth-Weighted average"
                     value={`${preview?.totalWeightedScore ?? 0} / ${preview ? getYouthWeightedScoreMaximum(preview.selectedWeights) : 0} (${Math.round(((preview?.totalWeightedScore ?? 0) / (preview ? getYouthWeightedScoreMaximum(preview.selectedWeights) : 1) || 0) * 100)}%)`}
                     helperText="Weighted by domain importance ratings."
-                    accentColor={designSystem.colors.success}
+                    textColor={designSystem.colors.successText}
                 />
             </XStack>
         </Card>
@@ -714,7 +726,7 @@ function ScoreTableHeader() {
             {["Section", "Raw", "Weighted"].map((label, index) => (
                 <Text
                     key={label}
-                    flex={index === 0 ? 1.5 : 1}
+                    flex={index === 0 ? 1.25 : 1}
                     color={designSystem.colors.secondaryForeground}
                     fontFamily={designSystem.fonts.bodyBold}
                     fontSize={13}
@@ -737,17 +749,34 @@ function ScoreTableRow({ row }: { row: DomainScoreRow }) {
             gap="$2"
         >
             <Text
-                flex={1.5}
+                flex={1.25}
                 color={designSystem.colors.foreground}
                 fontFamily={designSystem.fonts.bodyBold}
+                numberOfLines={1}
+                overflow="hidden"
+                style={{ textOverflow: "ellipsis" }}
             >
                 {row.label}
             </Text>
             <Paragraph flex={1} color={designSystem.colors.secondaryForeground}>
-                {row.rawScore}/{row.rawMax} ({Math.round(row.rawPercentage)}%)
+                {row.rawScore}/{row.rawMax}{" "}
+                <Text
+                    color={designSystem.colors.foreground}
+                    fontFamily={designSystem.fonts.bodyBold}
+                    fontSize={12}
+                >
+                    ({Math.round(row.rawPercentage)}%)
+                </Text>
             </Paragraph>
             <Paragraph flex={1} color={designSystem.colors.secondaryForeground}>
-                {row.weightedScore}/{row.weightedMax} ({Math.round(row.weightedPercentage)}%)
+                {row.weightedScore}/{row.weightedMax}{" "}
+                <Text
+                    color={designSystem.colors.foreground}
+                    fontFamily={designSystem.fonts.bodyBold}
+                    fontSize={12}
+                >
+                    ({Math.round(row.weightedPercentage)}%)
+                </Text>
             </Paragraph>
         </XStack>
     );
@@ -915,7 +944,7 @@ function Card({
     const designSystem = useDesignSystem();
     return (
         <YStack
-            rounded={designSystem.radii.lg}
+            rounded={designSystem.radii.md}
             borderWidth={1}
             borderColor={designSystem.colors.border}
             bg={designSystem.colors.surface}
@@ -946,18 +975,18 @@ function MetricCard({
     label,
     value,
     helperText,
-    accentColor,
+    textColor,
 }: {
     label: string;
     value: string;
     helperText: string;
-    accentColor: string;
+    textColor: string;
 }) {
     const designSystem = useDesignSystem();
     return (
         <YStack
             flex={1}
-            rounded={designSystem.radii.lg}
+            rounded={designSystem.radii.md}
             borderWidth={1}
             borderColor={designSystem.colors.border}
             bg={designSystem.colors.surface}
@@ -966,7 +995,7 @@ function MetricCard({
             style={{ minWidth: 150, boxShadow: designSystem.shadows.card }}
         >
             <Text
-                style={{ color: accentColor }}
+                style={{ color: textColor }}
                 fontFamily={designSystem.fonts.headingBold}
                 fontSize={24}
             >
@@ -1015,17 +1044,21 @@ function MetricRow({ label, value }: { label: string; value: string }) {
 
 function CommentBlock({ title, body }: { title: string; body: string }) {
     const designSystem = useDesignSystem();
+    const layout = useResponsiveLayout();
     const trimmed = body.trim();
+    // Fixed-width columns (not flex) so every card is the same width regardless
+    // of how many land on the final row; a min height keeps empty and filled
+    // cards visually consistent.
     return (
         <YStack
-            flex={1}
-            rounded={designSystem.radii.md}
+            width={layout.isTablet ? "48.5%" : "100%"}
+            rounded={designSystem.radii.sm}
             borderWidth={1}
             borderColor={designSystem.colors.border}
             bg={designSystem.colors.input}
             p="$3"
             gap="$1.5"
-            style={{ minWidth: 250 }}
+            style={{ minHeight: 76 }}
         >
             <Text
                 color={designSystem.colors.foreground}

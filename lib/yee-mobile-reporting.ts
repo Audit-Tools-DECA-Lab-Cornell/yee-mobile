@@ -16,6 +16,28 @@ export const totalRawScoreMaximum = Object.values(rawDomainScoreMaximums).reduce
 );
 export const totalYouthWeightedScoreMaximum = totalRawScoreMaximum * 3;
 
+/**
+ * Convert a raw total audit score into a whole-number percentage of the maximum
+ * available raw score ({@link totalRawScoreMaximum}).
+ *
+ * `YeeMyAuditItem.total_score` / `YeeScoreResult.total_score` are RAW totals
+ * (e.g. 121 out of 125), not percentages. Summary surfaces (reports list, metric
+ * cards, the Execute score, progress bars) must render this percentage so they
+ * agree with the report detail's `raw / max (pct%)` breakdown — appending `%`
+ * to the raw value produces impossible figures like "121%".
+ *
+ * @param rawTotalScore Raw total score from a submission.
+ * @returns Percentage in the 0–100 range, rounded to a whole number.
+ */
+export function toScorePercentage(rawTotalScore: number): number {
+    if (!Number.isFinite(rawTotalScore) || totalRawScoreMaximum <= 0) {
+        return 0;
+    }
+
+    const ratio = rawTotalScore / totalRawScoreMaximum;
+    return Math.round(Math.max(0, Math.min(ratio, 1)) * 100);
+}
+
 export interface MobileSubmissionScorePreview {
     readonly rawDomainScores: Record<MobileYeeDomainKey, number>;
     readonly weightedDomainScores: Record<MobileYeeDomainKey, number>;

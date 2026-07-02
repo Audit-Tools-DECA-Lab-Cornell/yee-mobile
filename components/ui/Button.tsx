@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Button, XStack, type ButtonProps } from "tamagui";
+import { Button, Spinner, XStack, type ButtonProps } from "tamagui";
 import { useDesignSystem, type ColorTokens } from "lib/design-system";
 import { ScaledText as Text } from "./ScaledText";
 
@@ -10,7 +10,7 @@ import { ScaledText as Text } from "./ScaledText";
  * - `secondary`: bordered neutral surface.
  * - `ghost`: text-only, chromeless action.
  */
-export type AppButtonVariant = "primary" | "secondary" | "ghost";
+export type AppButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
 export interface AppButtonProps extends Omit<ButtonProps, "children" | "icon" | "variant"> {
     readonly label: string;
@@ -19,6 +19,7 @@ export interface AppButtonProps extends Omit<ButtonProps, "children" | "icon" | 
     readonly leadingIcon?: ReactNode;
     /** Optional trailing icon element. */
     readonly trailingIcon?: ReactNode;
+    readonly isLoading?: boolean;
 }
 
 interface VariantStyle {
@@ -45,16 +46,24 @@ function resolveVariantStyle(variant: AppButtonVariant, colors: ColorTokens): Va
 
     if (variant === "secondary") {
         return {
-            background: colors.surfaceMuted,
+            background: colors.surface,
             borderColor: colors.border,
             textColor: colors.foreground,
+        };
+    }
+
+    if (variant === "danger") {
+        return {
+            background: colors.danger,
+            borderColor: colors.danger,
+            textColor: colors.primaryForeground,
         };
     }
 
     return {
         background: "transparent",
         borderColor: "transparent",
-        textColor: colors.primary,
+        textColor: colors.primaryText,
     };
 }
 
@@ -74,29 +83,35 @@ export function AppButton({
     leadingIcon,
     trailingIcon,
     disabled,
+    isLoading = false,
     ...rest
 }: AppButtonProps) {
     const designSystem = useDesignSystem();
     const variantStyle = resolveVariantStyle(variant, designSystem.colors);
+    const isDisabled = disabled === true || isLoading;
+    // Filled/bordered buttons carry a resting shadow so they read as tappable on
+    // the near-white app background; ghost stays chromeless.
+    const boxShadow = variant === "ghost" ? undefined : designSystem.shadows.card;
 
     return (
         <Button
             height={52}
             rounded={designSystem.radii.button}
             borderWidth={variant === "ghost" ? 0 : 1}
-            opacity={disabled === true ? 0.6 : 1}
-            disabled={disabled}
+            opacity={isDisabled ? 0.6 : 1}
+            disabled={isDisabled}
             pressStyle={{ opacity: 0.92, scale: 0.985 }}
             accessibilityRole="button"
-            accessibilityState={{ disabled: disabled === true }}
+            accessibilityState={{ busy: isLoading, disabled: isDisabled }}
             {...rest}
             style={{
                 backgroundColor: variantStyle.background,
                 borderColor: variantStyle.borderColor,
+                ...(boxShadow === undefined ? null : { boxShadow }),
             }}
         >
             <XStack items="center" justify="center" gap="$2">
-                {leadingIcon}
+                {isLoading ? <Spinner size="small" color={variantStyle.textColor} /> : leadingIcon}
                 <Text
                     style={{ color: variantStyle.textColor }}
                     fontFamily={designSystem.fonts.bodyBold}
@@ -104,7 +119,7 @@ export function AppButton({
                 >
                     {label}
                 </Text>
-                {trailingIcon}
+                {isLoading ? null : trailingIcon}
             </XStack>
         </Button>
     );

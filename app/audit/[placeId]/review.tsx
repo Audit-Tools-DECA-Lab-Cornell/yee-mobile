@@ -5,14 +5,18 @@ import {
 } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { PropsWithChildren } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Children, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowLeft, ChevronLeft, Send } from "components/icons";
 import { useYeeStackHeaderOptions } from "components/navigation/useYeeStackHeaderOptions";
 import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
 import { useDesignSystem, type ColorTokens } from "lib/design-system";
-import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
+import {
+    getContentTrackInnerWidth,
+    getResponsiveContentContainerStyle,
+    useResponsiveLayout,
+} from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { buildAuditReviewHeaderLabels } from "lib/yee-navigation-labels";
 import {
@@ -574,7 +578,7 @@ export default function AuditReviewScreen() {
                             />
                         </XStack>
                         {incompleteStep === null ? null : (
-                            <Paragraph color={designSystem.colors.warning}>
+                            <Paragraph color={designSystem.colors.warningText}>
                                 {incompleteStep.label} still needs required answers before this
                                 audit can be submitted.
                             </Paragraph>
@@ -636,7 +640,7 @@ export default function AuditReviewScreen() {
                                         >
                                             <XStack justify="space-between" items="center" gap="$3">
                                                 <Text
-                                                    style={{ color: theme.accent }}
+                                                    style={{ color: theme.text }}
                                                     fontFamily={designSystem.fonts.bodyBold}
                                                     flex={1}
                                                 >
@@ -680,7 +684,7 @@ export default function AuditReviewScreen() {
                             <SectionCard
                                 key={section.domain}
                                 title={section.label}
-                                accent={theme.accent}
+                                accent={theme.text}
                                 soft={theme.soft}
                                 border={theme.border}
                             >
@@ -737,6 +741,7 @@ export default function AuditReviewScreen() {
                                                 label="Answer"
                                                 value={row.response}
                                                 accent={theme.accent}
+                                                textColor={theme.text}
                                                 soft={theme.soft}
                                             />
                                             {row.condition ? (
@@ -744,6 +749,7 @@ export default function AuditReviewScreen() {
                                                     label="Condition"
                                                     value={row.condition}
                                                     accent={theme.accent}
+                                                    textColor={theme.text}
                                                     soft={designSystem.colors.surfaceMuted}
                                                 />
                                             ) : null}
@@ -783,7 +789,9 @@ export default function AuditReviewScreen() {
 
                     {errorMessage === null ? null : (
                         <SectionCard title="Submission note">
-                            <Paragraph color={designSystem.colors.danger}>{errorMessage}</Paragraph>
+                            <Paragraph color={designSystem.colors.dangerText}>
+                                {errorMessage}
+                            </Paragraph>
                         </SectionCard>
                     )}
                 </KeyboardAwareScrollView>
@@ -798,12 +806,18 @@ export default function AuditReviewScreen() {
                         backgroundColor: designSystem.colors.background,
                         borderTopWidth: 1,
                         borderTopColor: designSystem.colors.border,
-                        paddingHorizontal: layout.screenPaddingHorizontal,
                         paddingTop: 12,
                         paddingBottom: insets.bottom + 12,
                     }}
                 >
-                    <XStack gap="$2.5">
+                    <XStack
+                        gap="$2.5"
+                        style={{
+                            alignSelf: "center",
+                            maxWidth: "100%",
+                            width: getContentTrackInnerWidth(layout),
+                        }}
+                    >
                         <Button
                             flex={1}
                             rounded={designSystem.radii.button}
@@ -965,27 +979,32 @@ function submitStatusToneColors(
 ): {
     readonly accent: string;
     readonly soft: string;
+    readonly text: string;
 } {
     switch (tone) {
         case "warning":
             return {
                 accent: colors.warning,
                 soft: colors.warningSoft,
+                text: colors.warningText,
             };
         case "danger":
             return {
                 accent: colors.danger,
                 soft: colors.dangerSoft,
+                text: colors.dangerText,
             };
         case "success":
             return {
                 accent: colors.success,
                 soft: colors.successSoft,
+                text: colors.successText,
             };
         default:
             return {
-                accent: colors.primary,
-                soft: colors.surfaceMuted,
+                accent: colors.info,
+                soft: colors.infoSoft,
+                text: colors.infoText,
             };
     }
 }
@@ -998,7 +1017,7 @@ function SubmitStatusBanner({ status }: { status: SubmitUiStatus }) {
     if (copy === null) {
         return null;
     }
-    const { accent, soft } = submitStatusToneColors(copy.tone, designSystem.colors);
+    const { accent, soft, text } = submitStatusToneColors(copy.tone, designSystem.colors);
     return (
         <YStack
             rounded={designSystem.radii.lg}
@@ -1007,7 +1026,7 @@ function SubmitStatusBanner({ status }: { status: SubmitUiStatus }) {
             gap="$1.5"
             style={{ backgroundColor: soft, borderColor: accent }}
         >
-            <Text style={{ color: accent }} fontFamily={designSystem.fonts.bodyBold}>
+            <Text style={{ color: text }} fontFamily={designSystem.fonts.bodyBold}>
                 {copy.title}
             </Text>
             <Paragraph color={designSystem.colors.secondaryForeground}>{copy.message}</Paragraph>
@@ -1053,7 +1072,19 @@ function SectionCard({
 }
 
 function SummaryGrid({ children }: PropsWithChildren) {
-    return <YStack gap="$3">{children}</YStack>;
+    const layout = useResponsiveLayout();
+
+    if (!layout.isWideTablet) {
+        return <YStack gap="$3">{children}</YStack>;
+    }
+
+    return (
+        <XStack gap="$3" flexWrap="wrap">
+            {Children.map(children, (child) => (
+                <YStack style={{ minWidth: 260, width: "48%" }}>{child}</YStack>
+            ))}
+        </XStack>
+    );
 }
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
@@ -1080,11 +1111,13 @@ function AnswerPill({
     label,
     value,
     accent,
+    textColor,
     soft,
 }: {
     label: string;
     value: string;
     accent: string;
+    textColor: string;
     soft: string;
 }) {
     const designSystem = useDesignSystem();
@@ -1100,13 +1133,13 @@ function AnswerPill({
                 {label}
             </Paragraph>
             <YStack
-                rounded={designSystem.radii.full}
+                rounded={designSystem.radii.button}
                 px="$3"
                 py="$2"
                 borderWidth={1}
                 style={{ backgroundColor: soft, borderColor: accent }}
             >
-                <Text style={{ color: accent }} fontFamily={designSystem.fonts.bodyBold}>
+                <Text style={{ color: textColor }} fontFamily={designSystem.fonts.bodyBold}>
                     {value}
                 </Text>
             </YStack>
@@ -1157,7 +1190,7 @@ function StepJumpButton({
                 borderColor: theme.border,
             }}
         >
-            <Button.Text style={{ color: theme.accent }} fontFamily={designSystem.fonts.bodyBold}>
+            <Button.Text style={{ color: theme.text }} fontFamily={designSystem.fonts.bodyBold}>
                 {step}. {label}
             </Button.Text>
         </Button>
@@ -1290,6 +1323,7 @@ function getReviewThemeByStep(_step: MobileYeeStepNumber, colors: ColorTokens) {
         accent: colors.primary,
         soft: colors.primarySoft,
         border: colors.border,
+        text: colors.primaryText,
     };
 }
 

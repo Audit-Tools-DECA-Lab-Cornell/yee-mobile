@@ -38,8 +38,9 @@ export function ScreenHeader({ title, eyebrow, subtitle, trailing }: ScreenHeade
                 <Text
                     color={designSystem.colors.foreground}
                     fontFamily={designSystem.fonts.headingBold}
-                    fontSize={28}
-                    lineHeight={32}
+                    fontSize={30}
+                    lineHeight={34}
+                    letterSpacing={-0.6}
                     accessibilityRole="header"
                 >
                     {title}

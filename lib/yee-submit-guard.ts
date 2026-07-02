@@ -43,45 +43,88 @@ export function findFirstIncompleteStep(
     draft: SubmitGuardDraft,
     instrument: NormalizedInstrument | null,
 ): IncompleteStep | null {
-    if (
-        draft.visitFrequency.length === 0 ||
-        draft.publicAccess.length === 0 ||
-        draft.openHoursAccess.length === 0 ||
-        draft.season.length === 0 ||
-        draft.weather.length === 0
-    ) {
+    if (!isContextComplete(draft)) {
         return { step: 1, label: "Context" };
     }
 
-    if (Object.values(draft.weights).some((value) => value.length === 0)) {
+    if (!isWeightingComplete(draft)) {
         return { step: 2, label: "Weighting" };
     }
 
     if (instrument !== null) {
-        const domainSteps: readonly MobileYeeStepNumber[] = [3, 4, 5, 6, 7, 8];
-        for (const step of domainSteps) {
+        for (const step of DOMAIN_STEPS) {
             const section = getSectionForStep(instrument, step);
             if (section === null) {
                 continue;
             }
 
-            const totalRows = section.groups.reduce((sum, group) => sum + group.rows.length, 0);
-            const answeredRows = section.groups.reduce((sum, group) => {
-                return (
-                    sum +
-                    group.rows.filter((row) => {
-                        const presenceValue = draft.responses[row.presenceItemId]?.[row.choiceId];
-                        return typeof presenceValue === "string" && presenceValue.length > 0;
-                    }).length
-                );
-            }, 0);
-            if (answeredRows < totalRows) {
+            if (!isDomainSectionComplete(draft, section)) {
                 return { step, label: section.title };
             }
         }
     }
 
     return null;
+}
+
+const DOMAIN_STEPS: readonly MobileYeeStepNumber[] = [3, 4, 5, 6, 7, 8];
+
+function isContextComplete(draft: SubmitGuardDraft): boolean {
+    return (
+        draft.visitFrequency.length > 0 &&
+        draft.publicAccess.length > 0 &&
+        draft.openHoursAccess.length > 0 &&
+        draft.season.length > 0 &&
+        draft.weather.length > 0
+    );
+}
+
+function isWeightingComplete(draft: SubmitGuardDraft): boolean {
+    return Object.values(draft.weights).every((value) => value.length > 0);
+}
+
+function isDomainSectionComplete(
+    draft: SubmitGuardDraft,
+    section: NonNullable<ReturnType<typeof getSectionForStep>>,
+): boolean {
+    return section.groups.every((group) =>
+        group.rows.every((row) => {
+            const presenceValue = draft.responses[row.presenceItemId]?.[row.choiceId];
+            return typeof presenceValue === "string" && presenceValue.length > 0;
+        }),
+    );
+}
+
+/**
+ * Steps whose required fields are fully answered, for progress display (the
+ * tablet step rail). Uses the same per-step rules as
+ * {@link findFirstIncompleteStep}. Step 9 (final comments) is optional and is
+ * never included; domain steps are only evaluated when the instrument is
+ * hydrated.
+ */
+export function getCompletedSteps(
+    draft: SubmitGuardDraft,
+    instrument: NormalizedInstrument | null,
+): ReadonlySet<MobileYeeStepNumber> {
+    const completed = new Set<MobileYeeStepNumber>();
+    if (isContextComplete(draft)) {
+        completed.add(1);
+    }
+
+    if (isWeightingComplete(draft)) {
+        completed.add(2);
+    }
+
+    if (instrument !== null) {
+        for (const step of DOMAIN_STEPS) {
+            const section = getSectionForStep(instrument, step);
+            if (section !== null && isDomainSectionComplete(draft, section)) {
+                completed.add(step);
+            }
+        }
+    }
+
+    return completed;
 }
 
 /**

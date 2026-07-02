@@ -32,7 +32,7 @@ export function ErrorState({ title, description, icon, action }: ErrorStateProps
         >
             {icon}
             <Text
-                color={designSystem.colors.danger}
+                color={designSystem.colors.dangerText}
                 fontFamily={designSystem.fonts.bodyBold}
                 fontSize={16}
                 style={{ textAlign: "center" }}

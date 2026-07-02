@@ -14,7 +14,7 @@ import {
     WifiOff,
 } from "components/icons";
 import { Button, Spinner, XStack, YStack } from "tamagui";
-import { ScaledParagraph as Paragraph, ScaledText as Text } from "components/ui";
+import { ScaledParagraph as Paragraph, ScaledText as Text, ScreenHeader } from "components/ui";
 import { useDesignSystem, getMetricTone, getPlaceStatusTone } from "lib/design-system";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
@@ -99,22 +99,116 @@ export default function DashboardScreen() {
         scrollToOffset,
     });
 
-    return (
-        <ScrollView
-            ref={scrollViewRef}
-            contentInsetAdjustmentBehavior="automatic"
-            style={{ backgroundColor: designSystem.colors.background }}
-            contentContainerStyle={getResponsiveContentContainerStyle(layout, {
-                bottomPadding: 132,
-                gap: 28,
-            })}
+    // Status cards sit inline at the top of the dashboard. On tablets they share
+    // a row (two equal columns); on phones they stack full-width. This replaces
+    // the old fixed rail that left the tablet's right half empty.
+    const connectivityCard = (
+        <YStack
+            flex={1}
+            rounded={designSystem.radii.lg}
+            borderWidth={1}
+            borderColor={isOnline ? designSystem.colors.border : designSystem.colors.warning}
+            bg={isOnline ? designSystem.colors.surface : designSystem.colors.warningSoft}
+            p="$4"
+            gap="$2.5"
+            style={{ boxShadow: isOnline ? designSystem.shadows.card : undefined }}
         >
-            <YStack gap="$6">
+            <XStack items="center" gap="$2.5">
+                {isOnline ? (
+                    <Bell size={15} color={designSystem.colors.primary} />
+                ) : (
+                    <WifiOff size={15} color={designSystem.colors.warningText} />
+                )}
+                <Text
+                    color={
+                        isOnline ? designSystem.colors.foreground : designSystem.colors.warningText
+                    }
+                    fontFamily={designSystem.fonts.bodyBold}
+                    fontSize={14}
+                >
+                    {isOnline ? "Online and ready to sync" : "Offline mode active"}
+                </Text>
+            </XStack>
+            <Paragraph
+                color={designSystem.colors.mutedForeground}
+                fontFamily={designSystem.fonts.bodyMedium}
+                fontSize={13}
+            >
+                {syncSummary}
+            </Paragraph>
+            {errorMessage === null ? null : (
+                <Paragraph
+                    color={designSystem.colors.dangerText}
+                    fontFamily={designSystem.fonts.bodyMedium}
+                    fontSize={13}
+                >
+                    {errorMessage}
+                </Paragraph>
+            )}
+        </YStack>
+    );
+
+    const offlineReadyCard = (
+        <YStack
+            flex={1}
+            rounded={designSystem.radii.lg}
+            borderWidth={1}
+            borderColor={isOfflineReady ? designSystem.colors.success : designSystem.colors.warning}
+            bg={isOfflineReady ? designSystem.colors.successSoft : designSystem.colors.warningSoft}
+            p="$4"
+            gap="$2.5"
+        >
+            <Text
+                color={
+                    isOfflineReady
+                        ? designSystem.colors.successText
+                        : designSystem.colors.warningText
+                }
+                fontFamily={designSystem.fonts.bodyBold}
+                fontSize={11}
+                textTransform="uppercase"
+                letterSpacing={1.2}
+            >
+                {isOfflineReady ? "Ready for offline use" : "Online sync needed"}
+            </Text>
+            {isOfflineReady ? (
+                <Paragraph
+                    color={designSystem.colors.secondaryForeground}
+                    fontFamily={designSystem.fonts.bodyMedium}
+                    fontSize={13}
+                >
+                    Sign-in, assigned places, and the survey instrument are cached on this device.
+                </Paragraph>
+            ) : (
+                <YStack gap="$1">
+                    <ChecklistLine done={hasOfflineLoginCredentials} label="Sign-in saved" />
+                    <ChecklistLine done={hasCachedAssignedPlaces} label="Places available" />
+                    <ChecklistLine done={hasCachedInstrument} label="Survey instrument ready" />
+                </YStack>
+            )}
+        </YStack>
+    );
+
+    const statusSection = layout.isTablet ? (
+        <XStack gap="$3" items="stretch">
+            {connectivityCard}
+            {offlineReadyCard}
+        </XStack>
+    ) : (
+        <YStack gap="$3">
+            {connectivityCard}
+            {offlineReadyCard}
+        </YStack>
+    );
+
+    const dashboardMain = (
+        <YStack gap={layout.sectionGap}>
+            <YStack gap={layout.sectionGap}>
                 <XStack justify="space-between" items="center" gap="$3">
                     <XStack items="center" gap="$3" flex={1}>
                         <YStack
-                            width={44}
-                            height={44}
+                            width={48}
+                            height={48}
                             items="center"
                             justify="center"
                             rounded={designSystem.radii.md}
@@ -122,7 +216,7 @@ export default function DashboardScreen() {
                             borderColor={designSystem.colors.border}
                             bg={designSystem.colors.surfaceMuted}
                         >
-                            <UserRound size={20} color={designSystem.colors.primary} />
+                            <UserRound size={18} color={designSystem.colors.primary} />
                         </YStack>
                         <YStack flex={1} gap="$0.5">
                             <Paragraph
@@ -182,112 +276,9 @@ export default function DashboardScreen() {
                     </XStack>
                 </XStack>
 
-                <YStack gap="$1.5">
-                    <Text
-                        color={designSystem.colors.foreground}
-                        fontFamily={designSystem.fonts.headingBold}
-                        fontSize={34}
-                        lineHeight={38}
-                        letterSpacing={-0.8}
-                    >
-                        Dashboard
-                    </Text>
-                    <Paragraph
-                        color={designSystem.colors.mutedForeground}
-                        fontFamily={designSystem.fonts.bodySemiBold}
-                    >
-                        {dateLabel}
-                    </Paragraph>
-                </YStack>
+                <ScreenHeader title="Dashboard" subtitle={dateLabel} />
 
-                <YStack
-                    rounded={designSystem.radii.lg}
-                    borderWidth={1}
-                    borderColor={
-                        isOnline ? designSystem.colors.border : designSystem.colors.warning
-                    }
-                    bg={isOnline ? designSystem.colors.surface : designSystem.colors.warningSoft}
-                    p="$4"
-                    gap="$2.5"
-                >
-                    <XStack items="center" gap="$2.5">
-                        {isOnline ? (
-                            <Bell size={15} color={designSystem.colors.primary} />
-                        ) : (
-                            <WifiOff size={15} color={designSystem.colors.warning} />
-                        )}
-                        <Text
-                            color={
-                                isOnline
-                                    ? designSystem.colors.foreground
-                                    : designSystem.colors.warning
-                            }
-                            fontFamily={designSystem.fonts.bodyBold}
-                            fontSize={13}
-                        >
-                            {isOnline ? "Online and ready to sync" : "Offline mode active"}
-                        </Text>
-                    </XStack>
-                    <Paragraph
-                        color={designSystem.colors.mutedForeground}
-                        fontFamily={designSystem.fonts.bodyMedium}
-                    >
-                        {syncSummary}
-                    </Paragraph>
-                    {errorMessage === null ? null : (
-                        <Paragraph
-                            color={designSystem.colors.danger}
-                            fontFamily={designSystem.fonts.bodyMedium}
-                        >
-                            {errorMessage}
-                        </Paragraph>
-                    )}
-                </YStack>
-
-                <YStack
-                    rounded={designSystem.radii.lg}
-                    borderWidth={1}
-                    borderColor={
-                        isOfflineReady ? designSystem.colors.success : designSystem.colors.warning
-                    }
-                    bg={
-                        isOfflineReady
-                            ? designSystem.colors.successSoft
-                            : designSystem.colors.warningSoft
-                    }
-                    p="$4"
-                    gap="$2.5"
-                >
-                    <Text
-                        color={
-                            isOfflineReady
-                                ? designSystem.colors.success
-                                : designSystem.colors.warning
-                        }
-                        fontFamily={designSystem.fonts.bodyBold}
-                        fontSize={13}
-                        textTransform="uppercase"
-                        letterSpacing={1.2}
-                    >
-                        {isOfflineReady ? "Ready for offline use" : "Online sync needed"}
-                    </Text>
-                    {isOfflineReady ? null : (
-                        <>
-                            <ChecklistLine
-                                done={hasOfflineLoginCredentials}
-                                label="Sign-in saved"
-                            />
-                            <ChecklistLine
-                                done={hasCachedAssignedPlaces}
-                                label="Places available"
-                            />
-                            <ChecklistLine
-                                done={hasCachedInstrument}
-                                label="Survey instrument ready"
-                            />
-                        </>
-                    )}
-                </YStack>
+                {statusSection}
 
                 <XStack gap="$3" flexWrap="wrap">
                     <MetricCard label="Places" value={summary.assignedCount} tone="blue" />
@@ -395,26 +386,50 @@ export default function DashboardScreen() {
                         body="Once a manager assigns places to this auditor, they will be cached here for online and offline fieldwork."
                     />
                 ) : (
-                    placeViews.slice(0, 3).map((view) => {
-                        const tone = getPlaceStatusTone(
-                            mapStatusToPlaceTone(view.status),
-                            designSystem.colors,
-                        );
-                        return (
-                            <YStack
-                                key={view.place.id}
-                                rounded={designSystem.radii.lg}
-                                borderWidth={1}
-                                borderColor={designSystem.colors.border}
-                                bg={designSystem.colors.surface}
-                                overflow="hidden"
-                                style={{ boxShadow: designSystem.shadows.card }}
-                            >
-                                <XStack>
-                                    <YStack width={4} style={{ backgroundColor: tone.accent }} />
-                                    <YStack flex={1} p="$4" gap="$3">
-                                        <XStack justify="space-between" items="flex-start" gap="$3">
-                                            <YStack flex={1} gap="$1">
+                    <XStack gap="$3" flexWrap="wrap" items="stretch">
+                        {placeViews.slice(0, layout.isTablet ? 4 : 3).map((view) => {
+                            const tone = getPlaceStatusTone(
+                                mapStatusToPlaceTone(view.status),
+                                designSystem.colors,
+                            );
+                            return (
+                                <YStack
+                                    key={view.place.id}
+                                    width={layout.isTablet ? "48.5%" : "100%"}
+                                    rounded={designSystem.radii.lg}
+                                    borderWidth={1}
+                                    borderColor={designSystem.colors.border}
+                                    bg={designSystem.colors.surface}
+                                    overflow="hidden"
+                                    style={{ boxShadow: designSystem.shadows.card }}
+                                >
+                                    <XStack flex={1}>
+                                        <YStack
+                                            maxW={4}
+                                            flex={1}
+                                            style={{ backgroundColor: tone.accent }}
+                                        />
+                                        <YStack flex={1} p="$4" gap="$3">
+                                            <YStack
+                                                rounded={designSystem.radii.full}
+                                                px="$3"
+                                                py="$1"
+                                                style={{
+                                                    alignSelf: "flex-start",
+                                                    backgroundColor: tone.surface,
+                                                }}
+                                            >
+                                                <Text
+                                                    style={{ color: tone.text }}
+                                                    fontFamily={designSystem.fonts.bodyBold}
+                                                    fontSize={10}
+                                                    textTransform="uppercase"
+                                                    letterSpacing={1.2}
+                                                >
+                                                    {getStatusLabel(view.status)}
+                                                </Text>
+                                            </YStack>
+                                            <YStack gap="$1">
                                                 <Text
                                                     color={designSystem.colors.foreground}
                                                     fontFamily={designSystem.fonts.bodyBold}
@@ -429,98 +444,97 @@ export default function DashboardScreen() {
                                                     {view.place.project}
                                                 </Paragraph>
                                             </YStack>
-                                            <YStack
-                                                rounded={designSystem.radii.full}
-                                                px="$3"
-                                                py="$1"
-                                                style={{ backgroundColor: tone.surface }}
+                                            <Paragraph
+                                                color={designSystem.colors.secondaryForeground}
+                                                fontFamily={designSystem.fonts.bodyMedium}
                                             >
-                                                <Text
-                                                    style={{ color: tone.text }}
-                                                    fontFamily={designSystem.fonts.bodyBold}
-                                                    fontSize={10}
-                                                    textTransform="uppercase"
-                                                    letterSpacing={1.2}
-                                                >
-                                                    {getStatusLabel(view.status)}
-                                                </Text>
-                                            </YStack>
-                                        </XStack>
-                                        <Paragraph
-                                            color={designSystem.colors.secondaryForeground}
-                                            fontFamily={designSystem.fonts.bodyMedium}
-                                        >
-                                            {view.place.address}
-                                        </Paragraph>
-                                        <XStack justify="space-between" items="center" gap="$3">
-                                            <YStack gap="$0.5" flex={1}>
-                                                <Paragraph
-                                                    color={designSystem.colors.mutedForeground}
-                                                    fontFamily={designSystem.fonts.bodyMedium}
-                                                >
-                                                    {view.latestActivityLabel}
-                                                </Paragraph>
-                                                <Paragraph
-                                                    style={{ color: tone.text }}
-                                                    fontFamily={designSystem.fonts.bodyBold}
-                                                    fontSize={12}
-                                                >
-                                                    {view.syncLabel}
-                                                </Paragraph>
-                                            </YStack>
-                                            <Button
-                                                size="$3"
-                                                rounded={designSystem.radii.button}
-                                                bg={
-                                                    view.status === "submitted"
-                                                        ? designSystem.colors.successSoft
-                                                        : designSystem.colors.primary
-                                                }
-                                                borderWidth={1}
-                                                borderColor={
-                                                    view.status === "submitted"
-                                                        ? designSystem.colors.success
-                                                        : designSystem.colors.primary
-                                                }
-                                                pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                                                onPress={() => {
-                                                    setSelectedPlaceId(view.place.id);
-                                                    if (
-                                                        view.status === "submitted" &&
-                                                        view.submission !== null
-                                                    ) {
-                                                        router.push(
-                                                            `/reports/${view.submission.id}`,
-                                                        );
-                                                        return;
+                                                {view.place.address}
+                                            </Paragraph>
+                                            <YStack gap="$3" flex={1}>
+                                                <YStack gap="$0.5" flex={1} justify="flex-end">
+                                                    <Paragraph
+                                                        color={designSystem.colors.mutedForeground}
+                                                        fontFamily={designSystem.fonts.bodyMedium}
+                                                    >
+                                                        {view.latestActivityLabel}
+                                                    </Paragraph>
+                                                    <Paragraph
+                                                        style={{ color: tone.text }}
+                                                        fontFamily={designSystem.fonts.bodyBold}
+                                                        fontSize={12}
+                                                    >
+                                                        {view.syncLabel}
+                                                    </Paragraph>
+                                                </YStack>
+                                                <Button
+                                                    size="$3"
+                                                    rounded={designSystem.radii.button}
+                                                    bg={
+                                                        view.status === "submitted"
+                                                            ? designSystem.colors.successSoft
+                                                            : designSystem.colors.primary
                                                     }
-
-                                                    openAuditForPlace(view.place.id);
-                                                }}
-                                            >
-                                                <Button.Text
-                                                    color={
+                                                    borderWidth={1}
+                                                    borderColor={
                                                         view.status === "submitted"
                                                             ? designSystem.colors.success
-                                                            : designSystem.colors.primaryForeground
+                                                            : designSystem.colors.primary
                                                     }
-                                                    fontFamily={designSystem.fonts.bodyBold}
+                                                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                                                    onPress={() => {
+                                                        setSelectedPlaceId(view.place.id);
+                                                        if (
+                                                            view.status === "submitted" &&
+                                                            view.submission !== null
+                                                        ) {
+                                                            router.push(
+                                                                `/reports/${view.submission.id}`,
+                                                            );
+                                                            return;
+                                                        }
+
+                                                        openAuditForPlace(view.place.id);
+                                                    }}
                                                 >
-                                                    {view.status === "submitted"
-                                                        ? "View report"
-                                                        : view.status === "draft"
-                                                          ? "Continue"
-                                                          : "Start"}
-                                                </Button.Text>
-                                            </Button>
-                                        </XStack>
-                                    </YStack>
-                                </XStack>
-                            </YStack>
-                        );
-                    })
+                                                    <Button.Text
+                                                        color={
+                                                            view.status === "submitted"
+                                                                ? designSystem.colors.success
+                                                                : designSystem.colors
+                                                                      .primaryForeground
+                                                        }
+                                                        fontFamily={designSystem.fonts.bodyBold}
+                                                    >
+                                                        {view.status === "submitted"
+                                                            ? "View report"
+                                                            : view.status === "draft"
+                                                              ? "Continue"
+                                                              : "Start"}
+                                                    </Button.Text>
+                                                </Button>
+                                            </YStack>
+                                        </YStack>
+                                    </XStack>
+                                </YStack>
+                            );
+                        })}
+                    </XStack>
                 )}
             </YStack>
+        </YStack>
+    );
+
+    return (
+        <ScrollView
+            ref={scrollViewRef}
+            contentInsetAdjustmentBehavior="automatic"
+            style={{ backgroundColor: designSystem.colors.background }}
+            contentContainerStyle={getResponsiveContentContainerStyle(layout, {
+                bottomPadding: 132,
+                gap: layout.sectionGap,
+            })}
+        >
+            {dashboardMain}
         </ScrollView>
     );
 
@@ -592,12 +606,15 @@ interface MetricCardProps {
 
 function MetricCard({ label, value, tone }: MetricCardProps) {
     const designSystem = useDesignSystem();
+    const layout = useResponsiveLayout();
     const palette = getMetricTone(tone, designSystem.colors);
+    // Four across on wide tablets; two across on phones and narrow tablets.
+    const width = layout.isWideTablet ? "23%" : "48%";
     return (
         <YStack
-            width="48%"
+            width={width}
             style={{
-                minWidth: 160,
+                minWidth: 150,
                 boxShadow: designSystem.shadows.card,
                 borderColor: palette.accent,
                 backgroundColor: palette.surface,

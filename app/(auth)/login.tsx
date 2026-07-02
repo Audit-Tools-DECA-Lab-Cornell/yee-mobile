@@ -100,13 +100,12 @@ export default function LoginScreen() {
                 contentContainerStyle={[
                     getResponsiveContentContainerStyle(layout, {
                         bottomPadding: 64,
-                        maxWidth: 460,
                         topInset: insets.top,
                     }),
                     { flexGrow: 1, justifyContent: "center" },
                 ]}
             >
-                <YStack gap="$5" width="100%" style={{ maxWidth: 460, alignSelf: "center" }}>
+                <YStack gap="$5" width="100%" style={{ alignSelf: "center" }}>
                     <YStack gap="$2" px="$1">
                         <Paragraph
                             color={designSystem.colors.secondaryForeground}
@@ -255,7 +254,7 @@ export default function LoginScreen() {
                                     Password
                                 </Paragraph>
                                 <Paragraph
-                                    color={designSystem.colors.success}
+                                    color={designSystem.colors.successText}
                                     fontFamily={designSystem.fonts.bodySemiBold}
                                     fontSize={13}
                                     onPress={handleForgotPassword}
@@ -324,7 +323,7 @@ export default function LoginScreen() {
                                 p="$3"
                             >
                                 <Paragraph
-                                    color={designSystem.colors.danger}
+                                    color={designSystem.colors.dangerText}
                                     fontFamily={designSystem.fonts.bodyMedium}
                                 >
                                     {visibleErrorMessage}
@@ -341,7 +340,7 @@ export default function LoginScreen() {
                                 checked={staySignedIn}
                             >
                                 {staySignedIn ? (
-                                    <Check size={16} color={designSystem.colors.success} />
+                                    <Check size={16} color={designSystem.colors.successText} />
                                 ) : null}
                             </Checkbox>
                             <Paragraph
@@ -365,7 +364,7 @@ export default function LoginScreen() {
                                 void handleLogin();
                             }}
                             style={{
-                                boxShadow: designSystem.shadows.accent,
+                                boxShadow: designSystem.shadows.elevated,
                             }}
                         >
                             <XStack items="center" gap="$2">
@@ -397,7 +396,7 @@ export default function LoginScreen() {
                                 }}
                             >
                                 <Text
-                                    color={designSystem.colors.success}
+                                    color={designSystem.colors.successText}
                                     fontFamily={designSystem.fonts.bodyBold}
                                     fontSize={16}
                                 >
@@ -427,7 +426,7 @@ function ChecklistRow({ done, label }: { done: boolean; label: string }) {
             >
                 <Check
                     size={12}
-                    color={done ? designSystem.colors.success : designSystem.colors.warning}
+                    color={done ? designSystem.colors.successText : designSystem.colors.warningText}
                 />
             </YStack>
             <Paragraph
