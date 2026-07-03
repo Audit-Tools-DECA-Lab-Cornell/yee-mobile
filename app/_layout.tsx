@@ -238,10 +238,7 @@ function RootLayoutNav() {
                     <Stack.Screen name="(auth)" options={{ headerShown: false }} />
                     <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
                     <Stack.Screen name="audit/[placeId]" options={{ headerShown: false }} />
-                    <Stack.Screen
-                        name="reports/[submissionId]"
-                        options={{ headerShown: true, title: "Report" }}
-                    />
+                    <Stack.Screen name="reports/[submissionId]" options={{ headerShown: false }} />
                     <Stack.Screen name="settings" options={{ headerShown: false }} />
                 </Stack>
             </KeyboardAvoidingView>

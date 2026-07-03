@@ -244,7 +244,7 @@ export default function ExecuteScreen() {
             return;
         }
 
-        router.push(`/audit/${placeId}/1`);
+        router.push(`/audit/${placeId}`);
     }
 }
 

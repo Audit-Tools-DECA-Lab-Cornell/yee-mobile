@@ -544,7 +544,7 @@ export default function DashboardScreen() {
             return;
         }
 
-        router.push(`/audit/${placeId}/1`);
+        router.push(`/audit/${placeId}`);
     }
 }
 

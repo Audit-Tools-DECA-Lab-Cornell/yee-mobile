@@ -76,8 +76,8 @@ export default function SettingsScreen() {
                 <XStack justify="space-between" items="center" gap="$3">
                     <XStack items="center" gap="$3" flex={1}>
                         <Button
-                            width={48}
-                            height={48}
+                            width={44}
+                            height={44}
                             p={0}
                             rounded={radii.button}
                             borderWidth={1}

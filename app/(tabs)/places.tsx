@@ -238,17 +238,6 @@ export default function PlacesScreen() {
                                             </XStack>
 
                                             <XStack gap="$2" flexWrap="wrap">
-                                                <ActionButton
-                                                    label={
-                                                        view.status === "draft"
-                                                            ? "Continue draft"
-                                                            : "Start audit"
-                                                    }
-                                                    onPress={() => {
-                                                        setSelectedPlaceId(view.place.id);
-                                                        openAuditForPlace(view.place.id);
-                                                    }}
-                                                />
                                                 {view.status === "submitted" ? (
                                                     <ActionButton
                                                         label="View report"
@@ -265,7 +254,19 @@ export default function PlacesScreen() {
                                                             router.push("/(tabs)/reports");
                                                         }}
                                                     />
-                                                ) : null}
+                                                ) : (
+                                                    <ActionButton
+                                                        label={
+                                                            view.status === "draft"
+                                                                ? "Continue draft"
+                                                                : "Start audit"
+                                                        }
+                                                        onPress={() => {
+                                                            setSelectedPlaceId(view.place.id);
+                                                            openAuditForPlace(view.place.id);
+                                                        }}
+                                                    />
+                                                )}
                                             </XStack>
                                         </YStack>
                                     </YStack>
@@ -284,7 +285,7 @@ export default function PlacesScreen() {
             return;
         }
 
-        router.push(`/audit/${placeId}/1`);
+        router.push(`/audit/${placeId}`);
     }
 }
 

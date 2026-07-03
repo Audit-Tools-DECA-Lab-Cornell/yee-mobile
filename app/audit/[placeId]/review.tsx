@@ -1,11 +1,18 @@
+import {
+    memo,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type PropsWithChildren,
+} from "react";
 import { Alert, Platform } from "react-native";
 import {
     KeyboardAwareScrollView,
     type KeyboardAwareScrollViewRef,
 } from "react-native-keyboard-controller";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import type { PropsWithChildren } from "react";
-import { Children, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowLeft, ChevronLeft, Send } from "components/icons";
@@ -55,21 +62,14 @@ import { readInstrumentCache } from "lib/yee-offline-storage";
 import type { YeeScoreResult, YeeSubmissionResponse } from "lib/yee-types";
 import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
-
-type ReviewRow = {
-    readonly prompt: string;
-    readonly response: string;
-    readonly condition: string | null;
-};
-
-type ReviewSection = {
-    readonly domain: MobileYeeDomainKey;
-    readonly label: string;
-    readonly step: MobileYeeStepNumber;
-    readonly rows: readonly ReviewRow[];
-    readonly answeredCount: number;
-    readonly totalCount: number;
-};
+import { useAuditSessionStore } from "stores/yee-audit-session-store";
+import { useSurveyPalette } from "components/audit/survey-theme";
+import { NoticeCard, SurveyCard } from "components/audit/primitives";
+import {
+    ReviewSectionCard,
+    ReviewSummaryRow,
+    type ReviewSection,
+} from "components/audit/review/ReviewSectionCard";
 
 /**
  * Backend-preview score state for the review screen. There is deliberately no
@@ -135,18 +135,27 @@ export default function AuditReviewScreen() {
         [submittedAudits, placeId],
     );
 
-    const [draft, setDraft] = useState<MobileAuditFormState | null>(null);
-    const [instrument, setInstrument] = useState<NormalizedInstrument | null>(null);
-    const [scorePreview, setScorePreview] = useState<ScorePreviewState>({ status: "loading" });
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    // Shared active-audit session store (populated by the persistent shell at
+    // app/audit/[placeId]/index.tsx, which stays mounted underneath review). When
+    // the shell already loaded this exact place, its instrument/draft are reused
+    // as-is — no re-fetch, no draft rebuild. Otherwise (deep link / cold entry
+    // where the shell never mounted) we fall back to the screen's own self-load
+    // path below so review still works standalone and offline.
+    const sessionPlaceId = useAuditSessionStore((state) => state.placeId);
+    const sessionInstrument = useAuditSessionStore((state) => state.instrument);
+    const sessionDraft = useAuditSessionStore((state) => state.draft);
+    const hasSharedSession =
+        sessionPlaceId === placeId && sessionInstrument !== null && sessionDraft !== null;
+
+    const [fallbackDraft, setFallbackDraft] = useState<MobileAuditFormState | null>(null);
+    const [fallbackInstrument, setFallbackInstrument] = useState<NormalizedInstrument | null>(null);
 
     useEffect(() => {
-        if (placeId.length === 0) {
+        if (hasSharedSession || placeId.length === 0) {
             return;
         }
 
-        setDraft(
+        setFallbackDraft(
             buildFormStateFromSources({
                 placeId,
                 placeName:
@@ -157,9 +166,13 @@ export default function AuditReviewScreen() {
                 storedDraft,
             }),
         );
-    }, [place?.name, placeId, storedDraft]);
+    }, [hasSharedSession, place?.name, placeId, storedDraft]);
 
     useEffect(() => {
+        if (hasSharedSession) {
+            return;
+        }
+
         let cancelled = false;
 
         async function loadInstrument() {
@@ -167,14 +180,21 @@ export default function AuditReviewScreen() {
             if (cachedInstrument === null || cancelled) {
                 return;
             }
-            setInstrument(normalizeInstrument(cachedInstrument));
+            setFallbackInstrument(normalizeInstrument(cachedInstrument));
         }
 
         void loadInstrument();
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [hasSharedSession]);
+
+    const draft = hasSharedSession ? sessionDraft : fallbackDraft;
+    const instrument = hasSharedSession ? sessionInstrument : fallbackInstrument;
+
+    const [scorePreview, setScorePreview] = useState<ScorePreviewState>({ status: "loading" });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     // The backend is the only scoring authority. The review preview reflects a
     // live backend preview (/yee/audits/score); when it cannot be reached we show
@@ -259,7 +279,7 @@ export default function AuditReviewScreen() {
                         prompt: row.label,
                         response,
                         condition,
-                    } satisfies ReviewRow;
+                    };
                 }),
             );
 
@@ -301,6 +321,27 @@ export default function AuditReviewScreen() {
     const scrollToOffset = useCallback((offset: number) => {
         scrollViewRef.current?.scrollTo({ y: offset, animated: false });
     }, []);
+
+    // There is no per-step route (app/audit/[placeId]/[step] does not exist):
+    // the persistent shell at app/audit/[placeId]/index.tsx swaps step content
+    // in place via the shared session store's `step`. When that shell is still
+    // mounted underneath review (the normal case — review is pushed on top of
+    // it), drive it directly and pop back to reveal it, so the shell is never
+    // remounted. On cold/deep-link entry where the shell never mounted, fall
+    // back to opening the audit route fresh; it lands on the first incomplete
+    // step on its own.
+    const goToStep = useCallback(
+        (target: MobileYeeStepNumber) => {
+            const sessionState = useAuditSessionStore.getState();
+            if (sessionState.placeId === placeId && sessionState.draft !== null) {
+                sessionState.setStep(target);
+                router.back();
+            } else {
+                router.replace(`/audit/${placeId}`);
+            }
+        },
+        [placeId, router],
+    );
 
     useScreenshotScrollAutomation({
         contentReady: draft !== null,
@@ -367,7 +408,7 @@ export default function AuditReviewScreen() {
             );
 
             if (goFix) {
-                router.push(`/audit/${placeId}/${incomplete.step}`);
+                goToStep(incomplete.step);
             }
             return;
         }
@@ -383,7 +424,6 @@ export default function AuditReviewScreen() {
         }
 
         const finalizedDraft = finalizeDraftBeforeSubmit(currentDraft);
-        setDraft(finalizedDraft);
         setIsSubmitting(true);
 
         try {
@@ -489,382 +529,72 @@ export default function AuditReviewScreen() {
                         gap: 28,
                     })}
                 >
-                    <YStack gap="$6">
-                        <XStack justify="space-between" items="center" gap="$3">
-                            <XStack items="center" gap="$3" flex={1}>
-                                <Button
-                                    width={44}
-                                    height={44}
-                                    p={0}
-                                    rounded={designSystem.radii.button}
-                                    borderWidth={1}
-                                    borderColor={designSystem.colors.border}
-                                    bg={designSystem.colors.surfaceMuted}
-                                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                                    onPress={() => router.back()}
-                                    accessibilityLabel="Go back"
-                                >
-                                    <ChevronLeft size={18} color={designSystem.colors.foreground} />
-                                </Button>
-                                <YStack flex={1} gap="$0.5">
-                                    <Paragraph
-                                        color={designSystem.colors.mutedForeground}
-                                        fontFamily={designSystem.fonts.bodyBold}
-                                        fontSize={10}
-                                        textTransform="uppercase"
-                                        letterSpacing={1.4}
-                                    >
-                                        {headerLabels.primary}
-                                    </Paragraph>
-                                    <Text
-                                        color={designSystem.colors.foreground}
-                                        fontFamily={designSystem.fonts.bodyBold}
-                                        fontSize={15}
-                                    >
-                                        {headerLabels.secondary}
-                                    </Text>
-                                </YStack>
-                            </XStack>
-                        </XStack>
+                    <ReviewHeader
+                        primary={headerLabels.primary}
+                        secondary={headerLabels.secondary}
+                        placeName={draft.placeName}
+                        onBack={() => router.back()}
+                    />
 
-                        <YStack gap="$1.5">
-                            <Text
-                                color={designSystem.colors.foreground}
-                                fontFamily={designSystem.fonts.headingBold}
-                                fontSize={34}
-                                lineHeight={38}
-                                letterSpacing={-0.8}
-                            >
-                                Review and submit
-                            </Text>
-                            <Paragraph
-                                color={designSystem.colors.mutedForeground}
-                                fontFamily={designSystem.fonts.bodySemiBold}
-                            >
-                                Review every answer for {draft.placeName || "this place"} before the
-                                final submission.
-                            </Paragraph>
-                        </YStack>
-                    </YStack>
-
-                    <XStack gap="$2" flexWrap="wrap">
-                        <Chip>{draft.auditorId}</Chip>
-                        <Chip>{draft.placeName || "Assigned place"}</Chip>
-                        <Chip>{answeredCount} saved answers</Chip>
-                        <Chip>
-                            {incompleteStep === null ? "Ready to submit" : "Still incomplete"}
-                        </Chip>
-                    </XStack>
+                    <ReviewChipRow
+                        auditorId={draft.auditorId}
+                        placeName={draft.placeName}
+                        answeredCount={answeredCount}
+                        isComplete={incompleteStep === null}
+                    />
 
                     <SubmitStatusBanner status={submitStatus} />
 
-                    <SectionCard title="Quick actions">
-                        <XStack gap="$2.5" flexWrap="wrap">
-                            <ActionButton
-                                label="Back to dashboard"
-                                onPress={() => router.replace("/(tabs)")}
-                                tone="neutral"
-                            />
-                            <ActionButton
-                                label="Edit audit"
-                                onPress={() => router.push(`/audit/${placeId}/1`)}
-                                tone="neutral"
-                            />
-                            <ActionButton
-                                label={submitActionLabel(submitStatus, isSubmitting)}
-                                onPress={() => void submitNow()}
-                                tone="primary"
-                                disabled={submitDisabled}
-                            />
-                        </XStack>
-                        {incompleteStep === null ? null : (
-                            <Paragraph color={designSystem.colors.warningText}>
-                                {incompleteStep.label} still needs required answers before this
-                                audit can be submitted.
-                            </Paragraph>
-                        )}
-                    </SectionCard>
+                    <QuickActionsCard
+                        submitStatus={submitStatus}
+                        isSubmitting={isSubmitting}
+                        submitDisabled={submitDisabled}
+                        incompleteLabel={incompleteStep?.label ?? null}
+                        onBackToDashboard={() => router.replace("/(tabs)")}
+                        onEditAudit={() => goToStep(1)}
+                        onSubmit={() => void submitNow()}
+                    />
 
-                    <SectionCard title="Survey pages">
-                        <XStack gap="$2" flexWrap="wrap">
-                            {mobileYeeSteps.map((entry) => (
-                                <StepJumpButton
-                                    key={entry.step}
-                                    step={entry.step}
-                                    label={entry.title}
-                                    onPress={() => router.push(`/audit/${placeId}/${entry.step}`)}
-                                />
-                            ))}
-                        </XStack>
-                    </SectionCard>
+                    <SurveyPagesCard onJump={goToStep} />
 
-                    <SectionCard title="Context summary">
-                        <SummaryGrid>
-                            <SummaryRow
-                                label="Visit frequency"
-                                value={getVisitFrequencyLabel(draft.visitFrequency)}
-                            />
-                            <SummaryRow
-                                label="Open to the public"
-                                value={getPublicAccessLabel(draft.publicAccess)}
-                            />
-                            <SummaryRow
-                                label="Open all hours"
-                                value={getOpenHoursAccessLabel(draft.openHoursAccess)}
-                            />
-                            <SummaryRow label="Season" value={getSeasonLabel(draft.season)} />
-                            <SummaryRow
-                                label="Weather"
-                                value={getWeatherLabelList(draft.weather)}
-                            />
-                            <SummaryRow label="Answered audit fields" value={`${answeredCount}`} />
-                        </SummaryGrid>
-                    </SectionCard>
+                    <ContextSummaryCard draft={draft} answeredCount={answeredCount} />
 
-                    <SectionCard title="Youth weighting">
-                        <YStack gap="$3">
-                            {(Object.keys(mobileYeeDomainLabels) as MobileYeeDomainKey[]).map(
-                                (domain) => {
-                                    const theme = getReviewTheme(domain, designSystem.colors);
-                                    return (
-                                        <YStack
-                                            key={domain}
-                                            rounded={designSystem.radii.lg}
-                                            borderWidth={1}
-                                            p="$3.5"
-                                            gap="$1.5"
-                                            style={{
-                                                backgroundColor: theme.soft,
-                                                borderColor: theme.border,
-                                            }}
-                                        >
-                                            <XStack justify="space-between" items="center" gap="$3">
-                                                <Text
-                                                    style={{ color: theme.text }}
-                                                    fontFamily={designSystem.fonts.bodyBold}
-                                                    flex={1}
-                                                >
-                                                    {mobileYeeDomainLabels[domain]}
-                                                </Text>
-                                                <YStack
-                                                    rounded={designSystem.radii.full}
-                                                    px="$3"
-                                                    py="$1.5"
-                                                    style={{ backgroundColor: theme.accent }}
-                                                >
-                                                    <Text
-                                                        color={
-                                                            designSystem.colors.primaryForeground
-                                                        }
-                                                        fontFamily={designSystem.fonts.bodyBold}
-                                                    >
-                                                        {getWeightNumber(draft.weights[domain])}
-                                                    </Text>
-                                                </YStack>
-                                            </XStack>
-                                            <Paragraph
-                                                color={designSystem.colors.secondaryForeground}
-                                            >
-                                                {getWeightLabel(draft.weights[domain])}
-                                            </Paragraph>
-                                        </YStack>
-                                    );
-                                },
-                            )}
-                            <SummaryRow
-                                label="Weighting comments"
-                                value={draft.weightingComments || "No weighting comments added."}
-                            />
-                        </YStack>
-                    </SectionCard>
+                    <WeightingSummaryCard draft={draft} />
 
-                    {reviewSections.map((section) => {
-                        const theme = getReviewTheme(section.domain, designSystem.colors);
-                        return (
-                            <SectionCard
-                                key={section.domain}
-                                title={section.label}
-                                accent={theme.text}
-                                soft={theme.soft}
-                                border={theme.border}
-                            >
-                                <XStack
-                                    justify="space-between"
-                                    items="center"
-                                    gap="$3"
-                                    flexWrap="wrap"
-                                >
-                                    <Paragraph color={designSystem.colors.secondaryForeground}>
-                                        {section.answeredCount} of {section.totalCount} question
-                                        rows answered
-                                    </Paragraph>
-                                    <Button
-                                        rounded={designSystem.radii.button}
-                                        borderWidth={1}
-                                        style={{
-                                            backgroundColor: theme.accent,
-                                            borderColor: theme.accent,
-                                        }}
-                                        pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                                        onPress={() =>
-                                            router.push(`/audit/${placeId}/${section.step}`)
-                                        }
-                                    >
-                                        <Button.Text
-                                            color={designSystem.colors.primaryForeground}
-                                            fontFamily={designSystem.fonts.bodyBold}
-                                        >
-                                            Edit section
-                                        </Button.Text>
-                                    </Button>
-                                </XStack>
-                                <YStack gap="$3">
-                                    {section.rows.map((row, index) => (
-                                        <YStack
-                                            key={`${section.domain}-${index}`}
-                                            rounded={designSystem.radii.lg}
-                                            borderWidth={1}
-                                            p="$3.5"
-                                            gap="$2"
-                                            style={{
-                                                backgroundColor: designSystem.colors.surface,
-                                                borderColor: theme.border,
-                                            }}
-                                        >
-                                            <Text
-                                                color={designSystem.colors.foreground}
-                                                fontFamily={designSystem.fonts.bodyBold}
-                                            >
-                                                {row.prompt}
-                                            </Text>
-                                            <AnswerPill
-                                                label="Answer"
-                                                value={row.response}
-                                                accent={theme.accent}
-                                                textColor={theme.text}
-                                                soft={theme.soft}
-                                            />
-                                            {row.condition ? (
-                                                <AnswerPill
-                                                    label="Condition"
-                                                    value={row.condition}
-                                                    accent={theme.accent}
-                                                    textColor={theme.text}
-                                                    soft={designSystem.colors.surfaceMuted}
-                                                />
-                                            ) : null}
-                                        </YStack>
-                                    ))}
-                                    <SummaryRow
-                                        label={`${section.label} comments`}
-                                        value={
-                                            draft.sectionComments[section.domain] ||
-                                            "No section comments added."
-                                        }
-                                    />
-                                </YStack>
-                            </SectionCard>
-                        );
-                    })}
+                    {reviewSections.map((section) => (
+                        <ReviewSectionCard
+                            key={section.domain}
+                            section={section}
+                            sectionComment={draft.sectionComments[section.domain]}
+                            onEditSection={goToStep}
+                        />
+                    ))}
 
-                    <SectionCard title="Final comments">
-                        <SummaryRow
+                    <SurveyCard title="Final comments">
+                        <ReviewSummaryRow
                             label="Overall comments"
                             value={draft.comments || "No overall comments added."}
                         />
-                    </SectionCard>
+                    </SurveyCard>
 
-                    <SectionCard title="Score preview">
-                        <SummaryRow
-                            label="Estimated score"
-                            value={
-                                scorePreview.status === "ready"
-                                    ? `${scorePreview.totalScore}%`
-                                    : scorePreview.status === "loading"
-                                      ? "Calculating..."
-                                      : "Available when online"
-                            }
-                        />
-                    </SectionCard>
+                    <ScorePreviewCard scorePreview={scorePreview} />
 
                     {errorMessage === null ? null : (
-                        <SectionCard title="Submission note">
-                            <Paragraph color={designSystem.colors.dangerText}>
-                                {errorMessage}
-                            </Paragraph>
-                        </SectionCard>
+                        <NoticeCard tone="danger" title="Submission note" body={errorMessage} />
                     )}
                 </KeyboardAwareScrollView>
 
-                <YStack
-                    position="absolute"
-                    onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
-                    style={{
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        backgroundColor: designSystem.colors.background,
-                        borderTopWidth: 1,
-                        borderTopColor: designSystem.colors.border,
-                        paddingTop: 12,
-                        paddingBottom: insets.bottom + 12,
-                    }}
-                >
-                    <XStack
-                        gap="$2.5"
-                        style={{
-                            alignSelf: "center",
-                            maxWidth: "100%",
-                            width: getContentTrackInnerWidth(layout),
-                        }}
-                    >
-                        <Button
-                            flex={1}
-                            rounded={designSystem.radii.button}
-                            bg={designSystem.colors.surfaceMuted}
-                            borderWidth={1}
-                            borderColor={designSystem.colors.border}
-                            pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                            onPress={() => router.push(`/audit/${placeId}/9`)}
-                            icon={<ArrowLeft size={16} color={designSystem.colors.foreground} />}
-                        >
-                            <Button.Text
-                                color={designSystem.colors.foreground}
-                                fontFamily={designSystem.fonts.bodyBold}
-                            >
-                                Back
-                            </Button.Text>
-                        </Button>
-                        <Button
-                            flex={1}
-                            rounded={designSystem.radii.button}
-                            bg={designSystem.colors.primary}
-                            borderWidth={1}
-                            borderColor={designSystem.colors.primary}
-                            disabled={submitDisabled}
-                            opacity={submitDisabled ? 0.6 : 1}
-                            pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                            onPress={() => void submitNow()}
-                        >
-                            <XStack items="center" gap="$2">
-                                {isSubmitting ? (
-                                    <Spinner
-                                        color={designSystem.colors.primaryForeground}
-                                        size="small"
-                                    />
-                                ) : (
-                                    <Send size={16} color={designSystem.colors.primaryForeground} />
-                                )}
-                                <Button.Text
-                                    color={designSystem.colors.primaryForeground}
-                                    fontFamily={designSystem.fonts.bodyBold}
-                                >
-                                    {submitActionLabel(submitStatus, isSubmitting)}
-                                </Button.Text>
-                            </XStack>
-                        </Button>
-                    </XStack>
-                </YStack>
+                <ReviewFooter
+                    footerHeight={footerHeight}
+                    onMeasure={setFooterHeight}
+                    contentWidth={getContentTrackInnerWidth(layout)}
+                    bottomInset={insets.bottom}
+                    onBack={() => goToStep(9)}
+                    onSubmit={() => void submitNow()}
+                    submitDisabled={submitDisabled}
+                    isSubmitting={isSubmitting}
+                    submitLabel={submitActionLabel(submitStatus, isSubmitting)}
+                />
             </YStack>
         </>
     );
@@ -1011,7 +741,11 @@ function submitStatusToneColors(
 
 /** Single, clear status line for the final-submit lifecycle. Renders nothing
  * when there is no persisted submission state to report (idle). */
-function SubmitStatusBanner({ status }: { status: SubmitUiStatus }) {
+const SubmitStatusBanner = memo(function SubmitStatusBanner({
+    status,
+}: {
+    status: SubmitUiStatus;
+}) {
     const designSystem = useDesignSystem();
     const copy = submitStatusCopy(status);
     if (copy === null) {
@@ -1032,118 +766,397 @@ function SubmitStatusBanner({ status }: { status: SubmitUiStatus }) {
             <Paragraph color={designSystem.colors.secondaryForeground}>{copy.message}</Paragraph>
         </YStack>
     );
-}
+});
 
-function SectionCard({
-    title,
-    children,
-    accent,
-    soft,
-    border,
-}: PropsWithChildren<{
-    title: string;
-    accent?: string;
-    soft?: string;
-    border?: string;
-}>) {
-    const designSystem = useDesignSystem();
-    return (
-        <YStack
-            rounded={designSystem.radii.lg}
-            borderWidth={1}
-            p="$4"
-            gap="$3"
-            style={{
-                backgroundColor: soft ?? designSystem.colors.surface,
-                borderColor: border ?? designSystem.colors.border,
-                boxShadow: designSystem.shadows.card,
-            }}
-        >
-            <Text
-                style={{ color: accent ?? designSystem.colors.foreground }}
-                fontFamily={designSystem.fonts.headingBold}
-                fontSize={22}
-            >
-                {title}
-            </Text>
-            {children}
-        </YStack>
-    );
-}
-
-function SummaryGrid({ children }: PropsWithChildren) {
-    const layout = useResponsiveLayout();
-
-    if (!layout.isWideTablet) {
-        return <YStack gap="$3">{children}</YStack>;
-    }
-
-    return (
-        <XStack gap="$3" flexWrap="wrap">
-            {Children.map(children, (child) => (
-                <YStack style={{ minWidth: 260, width: "48%" }}>{child}</YStack>
-            ))}
-        </XStack>
-    );
-}
-
-function SummaryRow({ label, value }: { label: string; value: string }) {
-    const designSystem = useDesignSystem();
-    return (
-        <YStack gap="$0.5">
-            <Paragraph
-                color={designSystem.colors.mutedForeground}
-                fontFamily={designSystem.fonts.bodyBold}
-                fontSize={11}
-                textTransform="uppercase"
-                letterSpacing={1.1}
-            >
-                {label}
-            </Paragraph>
-            <Text color={designSystem.colors.foreground} fontFamily={designSystem.fonts.bodyMedium}>
-                {value}
-            </Text>
-        </YStack>
-    );
-}
-
-function AnswerPill({
-    label,
-    value,
-    accent,
-    textColor,
-    soft,
+/** Compact review header, mirroring components/audit/AuditHeader.tsx's language. */
+const ReviewHeader = memo(function ReviewHeader({
+    primary,
+    secondary,
+    placeName,
+    onBack,
 }: {
-    label: string;
-    value: string;
-    accent: string;
-    textColor: string;
-    soft: string;
+    primary: string;
+    secondary: string;
+    placeName: string;
+    onBack: () => void;
 }) {
     const designSystem = useDesignSystem();
     return (
-        <YStack gap="$1">
-            <Paragraph
-                color={designSystem.colors.mutedForeground}
-                fontFamily={designSystem.fonts.bodyBold}
-                fontSize={11}
-                textTransform="uppercase"
-                letterSpacing={1.1}
-            >
-                {label}
-            </Paragraph>
-            <YStack
-                rounded={designSystem.radii.button}
-                px="$3"
-                py="$2"
-                borderWidth={1}
-                style={{ backgroundColor: soft, borderColor: accent }}
-            >
-                <Text style={{ color: textColor }} fontFamily={designSystem.fonts.bodyBold}>
-                    {value}
+        <YStack gap="$6">
+            <XStack justify="space-between" items="center" gap="$3">
+                <XStack items="center" gap="$3" flex={1}>
+                    <Button
+                        width={44}
+                        height={44}
+                        p={0}
+                        rounded={designSystem.radii.button}
+                        borderWidth={1}
+                        borderColor={designSystem.colors.border}
+                        bg={designSystem.colors.surfaceMuted}
+                        pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                        onPress={onBack}
+                        accessibilityLabel="Go back"
+                    >
+                        <ChevronLeft size={18} color={designSystem.colors.foreground} />
+                    </Button>
+                    <YStack flex={1} gap="$0.5">
+                        <Paragraph
+                            color={designSystem.colors.mutedForeground}
+                            fontFamily={designSystem.fonts.bodyBold}
+                            fontSize={10}
+                            textTransform="uppercase"
+                            letterSpacing={1.4}
+                        >
+                            {primary}
+                        </Paragraph>
+                        <Text
+                            color={designSystem.colors.foreground}
+                            fontFamily={designSystem.fonts.bodyBold}
+                            fontSize={15}
+                        >
+                            {secondary}
+                        </Text>
+                    </YStack>
+                </XStack>
+            </XStack>
+
+            <YStack gap="$1.5">
+                <Text
+                    color={designSystem.colors.foreground}
+                    fontFamily={designSystem.fonts.headingBold}
+                    fontSize={34}
+                    lineHeight={38}
+                    letterSpacing={-0.8}
+                >
+                    Review and submit
                 </Text>
+                <Paragraph
+                    color={designSystem.colors.mutedForeground}
+                    fontFamily={designSystem.fonts.bodySemiBold}
+                >
+                    Review every answer for {placeName || "this place"} before the final submission.
+                </Paragraph>
             </YStack>
         </YStack>
+    );
+});
+
+const ReviewChipRow = memo(function ReviewChipRow({
+    auditorId,
+    placeName,
+    answeredCount,
+    isComplete,
+}: {
+    auditorId: string;
+    placeName: string;
+    answeredCount: number;
+    isComplete: boolean;
+}) {
+    return (
+        <XStack gap="$2" flexWrap="wrap">
+            <Chip>{auditorId}</Chip>
+            <Chip>{placeName || "Assigned place"}</Chip>
+            <Chip>{answeredCount} saved answers</Chip>
+            <Chip>{isComplete ? "Ready to submit" : "Still incomplete"}</Chip>
+        </XStack>
+    );
+});
+
+const QuickActionsCard = memo(function QuickActionsCard({
+    submitStatus,
+    isSubmitting,
+    submitDisabled,
+    incompleteLabel,
+    onBackToDashboard,
+    onEditAudit,
+    onSubmit,
+}: {
+    submitStatus: SubmitUiStatus;
+    isSubmitting: boolean;
+    submitDisabled: boolean;
+    incompleteLabel: string | null;
+    onBackToDashboard: () => void;
+    onEditAudit: () => void;
+    onSubmit: () => void;
+}) {
+    const designSystem = useDesignSystem();
+    return (
+        <SurveyCard title="Quick actions">
+            <XStack gap="$2.5" flexWrap="wrap">
+                <ActionButton
+                    label="Back to dashboard"
+                    onPress={onBackToDashboard}
+                    tone="neutral"
+                />
+                <ActionButton label="Edit audit" onPress={onEditAudit} tone="neutral" />
+                <ActionButton
+                    label={submitActionLabel(submitStatus, isSubmitting)}
+                    onPress={onSubmit}
+                    tone="primary"
+                    disabled={submitDisabled}
+                />
+            </XStack>
+            {incompleteLabel === null ? null : (
+                <Paragraph color={designSystem.colors.warningText}>
+                    {incompleteLabel} still needs required answers before this audit can be
+                    submitted.
+                </Paragraph>
+            )}
+        </SurveyCard>
+    );
+});
+
+const SurveyPagesCard = memo(function SurveyPagesCard({
+    onJump,
+}: {
+    onJump: (step: MobileYeeStepNumber) => void;
+}) {
+    return (
+        <SurveyCard title="Survey pages">
+            <XStack gap="$2" flexWrap="wrap">
+                {mobileYeeSteps.map((entry) => (
+                    <StepJumpButton
+                        key={entry.step}
+                        step={entry.step}
+                        label={entry.title}
+                        onPress={() => onJump(entry.step)}
+                    />
+                ))}
+            </XStack>
+        </SurveyCard>
+    );
+});
+
+const ContextSummaryCard = memo(function ContextSummaryCard({
+    draft,
+    answeredCount,
+}: {
+    draft: MobileAuditFormState;
+    answeredCount: number;
+}) {
+    const layout = useResponsiveLayout();
+    return (
+        <SurveyCard title="Context summary">
+            <SummaryGrid isWideTablet={layout.isWideTablet}>
+                <ReviewSummaryRow
+                    label="Visit frequency"
+                    value={getVisitFrequencyLabel(draft.visitFrequency)}
+                />
+                <ReviewSummaryRow
+                    label="Open to the public"
+                    value={getPublicAccessLabel(draft.publicAccess)}
+                />
+                <ReviewSummaryRow
+                    label="Open all hours"
+                    value={getOpenHoursAccessLabel(draft.openHoursAccess)}
+                />
+                <ReviewSummaryRow label="Season" value={getSeasonLabel(draft.season)} />
+                <ReviewSummaryRow label="Weather" value={getWeatherLabelList(draft.weather)} />
+                <ReviewSummaryRow label="Answered audit fields" value={`${answeredCount}`} />
+            </SummaryGrid>
+        </SurveyCard>
+    );
+});
+
+const WeightingSummaryCard = memo(function WeightingSummaryCard({
+    draft,
+}: {
+    draft: MobileAuditFormState;
+}) {
+    return (
+        <SurveyCard title="Youth weighting">
+            <YStack gap="$3">
+                {(Object.keys(mobileYeeDomainLabels) as MobileYeeDomainKey[]).map((domain) => (
+                    <WeightingDomainRow
+                        key={domain}
+                        label={mobileYeeDomainLabels[domain]}
+                        weight={draft.weights[domain]}
+                    />
+                ))}
+                <ReviewSummaryRow
+                    label="Weighting comments"
+                    value={draft.weightingComments || "No weighting comments added."}
+                />
+            </YStack>
+        </SurveyCard>
+    );
+});
+
+const WeightingDomainRow = memo(function WeightingDomainRow({
+    label,
+    weight,
+}: {
+    label: string;
+    weight: string;
+}) {
+    const designSystem = useDesignSystem();
+    const palette = useSurveyPalette();
+    return (
+        <YStack
+            rounded={designSystem.radii.md}
+            borderWidth={1}
+            p="$3.5"
+            gap="$1.5"
+            style={{
+                backgroundColor: palette.inner,
+                borderColor: palette.innerBorder,
+            }}
+        >
+            <XStack justify="space-between" items="center" gap="$3">
+                <Text
+                    color={designSystem.colors.foreground}
+                    fontFamily={designSystem.fonts.bodyBold}
+                    flex={1}
+                >
+                    {label}
+                </Text>
+                <YStack
+                    rounded={designSystem.radii.full}
+                    px="$3"
+                    py="$1.5"
+                    style={{ backgroundColor: palette.accent }}
+                >
+                    <Text
+                        color={designSystem.colors.primaryForeground}
+                        fontFamily={designSystem.fonts.bodyBold}
+                    >
+                        {getWeightNumber(weight)}
+                    </Text>
+                </YStack>
+            </XStack>
+            <Paragraph color={designSystem.colors.secondaryForeground}>
+                {getWeightLabel(weight)}
+            </Paragraph>
+        </YStack>
+    );
+});
+
+const ScorePreviewCard = memo(function ScorePreviewCard({
+    scorePreview,
+}: {
+    scorePreview: ScorePreviewState;
+}) {
+    return (
+        <SurveyCard title="Score preview">
+            <ReviewSummaryRow
+                label="Estimated score"
+                value={
+                    scorePreview.status === "ready"
+                        ? `${scorePreview.totalScore}%`
+                        : scorePreview.status === "loading"
+                          ? "Calculating..."
+                          : "Available when online"
+                }
+            />
+        </SurveyCard>
+    );
+});
+
+const ReviewFooter = memo(function ReviewFooter({
+    onMeasure,
+    contentWidth,
+    bottomInset,
+    onBack,
+    onSubmit,
+    submitDisabled,
+    isSubmitting,
+    submitLabel,
+}: {
+    footerHeight: number;
+    onMeasure: (height: number) => void;
+    contentWidth: number;
+    bottomInset: number;
+    onBack: () => void;
+    onSubmit: () => void;
+    submitDisabled: boolean;
+    isSubmitting: boolean;
+    submitLabel: string;
+}) {
+    const designSystem = useDesignSystem();
+    return (
+        <YStack
+            position="absolute"
+            onLayout={(event) => onMeasure(event.nativeEvent.layout.height)}
+            style={{
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: designSystem.colors.background,
+                borderTopWidth: 1,
+                borderTopColor: designSystem.colors.border,
+                paddingTop: 12,
+                paddingBottom: bottomInset + 12,
+            }}
+        >
+            <XStack
+                gap="$2.5"
+                style={{
+                    alignSelf: "center",
+                    maxWidth: "100%",
+                    width: contentWidth,
+                }}
+            >
+                <Button
+                    flex={1}
+                    rounded={designSystem.radii.button}
+                    bg={designSystem.colors.surfaceMuted}
+                    borderWidth={1}
+                    borderColor={designSystem.colors.border}
+                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                    onPress={onBack}
+                    icon={<ArrowLeft size={16} color={designSystem.colors.foreground} />}
+                >
+                    <Button.Text
+                        color={designSystem.colors.foreground}
+                        fontFamily={designSystem.fonts.bodyBold}
+                    >
+                        Back
+                    </Button.Text>
+                </Button>
+                <Button
+                    flex={1}
+                    rounded={designSystem.radii.button}
+                    bg={designSystem.colors.primary}
+                    borderWidth={1}
+                    borderColor={designSystem.colors.primary}
+                    disabled={submitDisabled}
+                    opacity={submitDisabled ? 0.6 : 1}
+                    pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                    onPress={onSubmit}
+                >
+                    <XStack items="center" gap="$2">
+                        {isSubmitting ? (
+                            <Spinner color={designSystem.colors.primaryForeground} size="small" />
+                        ) : (
+                            <Send size={16} color={designSystem.colors.primaryForeground} />
+                        )}
+                        <Button.Text
+                            color={designSystem.colors.primaryForeground}
+                            fontFamily={designSystem.fonts.bodyBold}
+                        >
+                            {submitLabel}
+                        </Button.Text>
+                    </XStack>
+                </Button>
+            </XStack>
+        </YStack>
+    );
+});
+
+function SummaryGrid({ children, isWideTablet }: PropsWithChildren<{ isWideTablet: boolean }>) {
+    if (!isWideTablet) {
+        return <YStack gap="$3">{children}</YStack>;
+    }
+
+    const items = Array.isArray(children) ? children : [children];
+    return (
+        <XStack gap="$3" flexWrap="wrap">
+            {items.map((child, index) => (
+                <YStack key={index} style={{ minWidth: 260, width: "48%" }}>
+                    {child}
+                </YStack>
+            ))}
+        </XStack>
     );
 }
 
@@ -1175,7 +1188,7 @@ function StepJumpButton({
     onPress: () => void;
 }) {
     const designSystem = useDesignSystem();
-    const theme = getReviewThemeByStep(step, designSystem.colors);
+    const palette = useSurveyPalette();
     return (
         <Button
             rounded={designSystem.radii.button}
@@ -1186,11 +1199,14 @@ function StepJumpButton({
             pressStyle={{ opacity: 0.92, scale: 0.985 }}
             onPress={onPress}
             style={{
-                backgroundColor: theme.soft,
-                borderColor: theme.border,
+                backgroundColor: palette.inner,
+                borderColor: palette.innerBorder,
             }}
         >
-            <Button.Text style={{ color: theme.text }} fontFamily={designSystem.fonts.bodyBold}>
+            <Button.Text
+                style={{ color: designSystem.colors.foreground }}
+                fontFamily={designSystem.fonts.bodyBold}
+            >
                 {step}. {label}
             </Button.Text>
         </Button>
@@ -1313,20 +1329,4 @@ function getStepForDomain(domain: MobileYeeDomainKey): MobileYeeStepNumber {
         case "useAndUsability":
             return 8;
     }
-}
-
-// Unified brand theme for every review section. Sections are differentiated by
-// their heading and order, not by a unique colour, so the page reads as one calm
-// green/cream system instead of a rainbow of section tints.
-function getReviewThemeByStep(_step: MobileYeeStepNumber, colors: ColorTokens) {
-    return {
-        accent: colors.primary,
-        soft: colors.primarySoft,
-        border: colors.border,
-        text: colors.primaryText,
-    };
-}
-
-function getReviewTheme(domain: MobileYeeDomainKey, colors: ColorTokens) {
-    return getReviewThemeByStep(getStepForDomain(domain), colors);
 }

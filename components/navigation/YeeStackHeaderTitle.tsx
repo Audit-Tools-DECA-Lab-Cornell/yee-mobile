@@ -1,7 +1,9 @@
 import { ScrollView } from "react-native";
-import { Text, XStack, YStack } from "tamagui";
+import { Button, Text, XStack, YStack } from "tamagui";
 import { useDesignSystem } from "lib/design-system";
 import { useResponsiveLayout } from "lib/responsive-layout";
+import { ChevronLeft } from "components/icons";
+import { useRouter } from "expo-router";
 
 export interface YeeStackHeaderTitleProps {
     readonly primary: string;
@@ -23,6 +25,7 @@ function truncateHeaderText(text: string, limit: number): string {
 
 export function YeeStackHeaderTitle({ primary, secondary, size = "md" }: YeeStackHeaderTitleProps) {
     const designSystem = useDesignSystem();
+    const router = useRouter();
     const layout = useResponsiveLayout();
     const primarySize = Math.round((size === "lg" ? 17 : 15) * designSystem.fontScale);
     const secondarySize = Math.round(12 * designSystem.fontScale);
@@ -41,52 +44,76 @@ export function YeeStackHeaderTitle({ primary, secondary, size = "md" }: YeeStac
             >
                 {layout.isTablet && displaySecondary !== undefined ? (
                     <XStack items="center" gap="$2">
-                        <Text
-                            color={designSystem.colors.primary}
-                            fontFamily={designSystem.fonts.bodyBold}
-                            fontSize={primarySize}
-                            lineHeight={primarySize + 4}
+                        <Button
+                            width={44}
+                            height={44}
+                            p={0}
+                            rounded={designSystem.radii.button}
+                            borderWidth={1}
+                            borderColor={designSystem.colors.border}
+                            bg={designSystem.colors.surfaceMuted}
+                            pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                            onPress={() => void router.back()}
+                            accessibilityLabel="Back"
                         >
-                            {displayPrimary}
-                        </Text>
-                        <Text
-                            color={designSystem.colors.mutedForeground}
-                            fontFamily={designSystem.fonts.bodyRegular}
-                            fontSize={primarySize}
-                            lineHeight={primarySize + 4}
-                        >
-                            |
-                        </Text>
-                        <Text
-                            color={designSystem.colors.mutedForeground}
-                            fontFamily={designSystem.fonts.bodyRegular}
-                            fontSize={primarySize}
-                            lineHeight={primarySize + 4}
-                        >
-                            {displaySecondary}
-                        </Text>
-                    </XStack>
-                ) : (
-                    <YStack justify="center">
-                        <Text
-                            color={designSystem.colors.primary}
-                            fontFamily={designSystem.fonts.bodyBold}
-                            fontSize={primarySize}
-                            lineHeight={primarySize + 4}
-                        >
-                            {displayPrimary}
-                        </Text>
-                        {displaySecondary === undefined ? null : (
+                            <ChevronLeft size={18} color={designSystem.colors.foreground} />
+                        </Button>
+                        <YStack justify="center" gap="$2">
+                            <Text
+                                color={designSystem.colors.primary}
+                                fontFamily={designSystem.fonts.bodyBold}
+                                fontSize={primarySize}
+                                lineHeight={primarySize + 4}
+                            >
+                                {displayPrimary}
+                            </Text>
                             <Text
                                 color={designSystem.colors.mutedForeground}
-                                fontFamily={designSystem.fonts.bodyMedium}
-                                fontSize={secondarySize}
-                                lineHeight={secondarySize + 4}
+                                fontFamily={designSystem.fonts.bodyRegular}
+                                fontSize={primarySize}
+                                lineHeight={primarySize + 4}
                             >
                                 {displaySecondary}
                             </Text>
-                        )}
-                    </YStack>
+                        </YStack>
+                    </XStack>
+                ) : (
+                    <XStack items="center" gap="$2">
+                        <Button
+                            width={44}
+                            height={44}
+                            p={0}
+                            rounded={designSystem.radii.button}
+                            borderWidth={1}
+                            borderColor={designSystem.colors.border}
+                            bg={designSystem.colors.surfaceMuted}
+                            pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                            onPress={() => void router.back()}
+                            accessibilityLabel="Back"
+                        >
+                            <ChevronLeft size={18} color={designSystem.colors.foreground} />
+                        </Button>
+                        <YStack justify="center" gap="$2">
+                            <Text
+                                color={designSystem.colors.primary}
+                                fontFamily={designSystem.fonts.bodyBold}
+                                fontSize={primarySize}
+                                lineHeight={primarySize + 4}
+                            >
+                                {displayPrimary}
+                            </Text>
+                            {displaySecondary === undefined ? null : (
+                                <Text
+                                    color={designSystem.colors.mutedForeground}
+                                    fontFamily={designSystem.fonts.bodyMedium}
+                                    fontSize={secondarySize}
+                                    lineHeight={secondarySize + 4}
+                                >
+                                    {displaySecondary}
+                                </Text>
+                            )}
+                        </YStack>
+                    </XStack>
                 )}
             </ScrollView>
         </YStack>

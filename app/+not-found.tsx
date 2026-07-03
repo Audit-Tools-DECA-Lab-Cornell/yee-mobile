@@ -3,6 +3,10 @@ import { YStack } from "tamagui";
 import { useDesignSystem } from "lib/design-system";
 import { AppButton, EmptyState } from "components/ui";
 import { ArrowRight, MapPin } from "components/icons";
+import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
+import { useRef } from "react";
+import { ScrollView } from "react-native";
+import { YeeStackHeaderTitle } from "components/navigation/YeeStackHeaderTitle";
 
 /**
  * Fallback screen shown for unmatched routes, styled with the YEE design system.
@@ -10,31 +14,47 @@ import { ArrowRight, MapPin } from "components/icons";
 export default function NotFoundScreen() {
     const designSystem = useDesignSystem();
     const router = useRouter();
-
+    const layout = useResponsiveLayout();
+    const scrollViewRef = useRef<ScrollView>(null);
     return (
-        <>
-            <Stack.Screen options={{ title: "Page not found" }} />
-            <YStack flex={1} justify="center" bg={designSystem.colors.background} px="$4">
-                <EmptyState
-                    icon={<MapPin size={22} color={designSystem.colors.primary} />}
-                    title="This screen does not exist"
-                    description="The page you were looking for could not be found. Head back to your dashboard to continue your fieldwork."
-                    action={
-                        <AppButton
-                            label="Go to dashboard"
-                            trailingIcon={
-                                <ArrowRight
-                                    size={16}
-                                    color={designSystem.colors.primaryForeground}
-                                />
-                            }
-                            onPress={() => {
-                                router.replace("/(tabs)");
-                            }}
-                        />
-                    }
+        <ScrollView
+            ref={scrollViewRef}
+            contentInsetAdjustmentBehavior="automatic"
+            style={{ backgroundColor: designSystem.colors.background }}
+            contentContainerStyle={getResponsiveContentContainerStyle(layout, {
+                bottomPadding: 132,
+                gap: layout.sectionGap,
+            })}
+        >
+            <YStack gap="$12">
+                <YeeStackHeaderTitle
+                    primary="Page not found"
+                    size="md"
+                    secondary="The page you were looking for could not be found. Head back to your dashboard to continue your fieldwork."
                 />
+                <Stack.Screen options={{ title: "Page not found", headerShown: false }} />
+                <YStack flex={1} justify="center" bg={designSystem.colors.background} px="$4">
+                    <EmptyState
+                        icon={<MapPin size={22} color={designSystem.colors.primary} />}
+                        title="This screen does not exist"
+                        description="The page you were looking for could not be found. Head back to your dashboard to continue your fieldwork."
+                        action={
+                            <AppButton
+                                label="Go to dashboard"
+                                trailingIcon={
+                                    <ArrowRight
+                                        size={16}
+                                        color={designSystem.colors.primaryForeground}
+                                    />
+                                }
+                                onPress={() => {
+                                    router.replace("/(tabs)");
+                                }}
+                            />
+                        }
+                    />
+                </YStack>
             </YStack>
-        </>
+        </ScrollView>
     );
 }
