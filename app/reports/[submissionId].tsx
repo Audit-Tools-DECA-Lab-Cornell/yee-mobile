@@ -27,7 +27,6 @@ import {
     getWeightingComments,
     getYouthWeightedScoreMaximum,
     totalRawScoreMaximum,
-    toScorePercentage,
 } from "lib/yee-mobile-reporting";
 import {
     getOpenHoursAccessLabel,
@@ -160,16 +159,13 @@ export default function MobileReportDetailScreen() {
         scrollToOffset,
     });
 
-    const isPendingUpload =
-        submission?.syncState === "pending_upload" ||
-        submissionSummary?.syncState === "pending_upload";
     const headerLabels = useMemo(
         () =>
             buildReportHeaderLabels({
                 placeName: submission?.place_name ?? submissionSummary?.place_name,
-                isPendingUpload,
+                isPendingUpload: isUnsyncedSubmission,
             }),
-        [isPendingUpload, submission?.place_name, submissionSummary?.place_name],
+        [isUnsyncedSubmission, submission?.place_name, submissionSummary?.place_name],
     );
     const stackHeader = (
         <Stack.Screen
@@ -302,10 +298,12 @@ export default function MobileReportDetailScreen() {
                                 color={designSystem.colors.mutedForeground}
                                 fontFamily={designSystem.fonts.bodySemiBold}
                             >
-                                {isPendingUpload
-                                    ? "Results are being uploaded. Scores shown are preliminary."
+                                {submission === null
+                                    ? isUnsyncedSubmission
+                                        ? "This audit is still uploading. The full report opens once it finishes."
+                                        : "This report is available online only."
                                     : `Final audit results for ${
-                                          submission?.place_name ??
+                                          submission.place_name ??
                                           submissionSummary?.place_name ??
                                           "this place"
                                       }.`}
@@ -334,22 +332,14 @@ export default function MobileReportDetailScreen() {
                                         value={getSubmissionTimestampLabel(submissionListItem)}
                                     />
                                     <MetricRow
-                                        label="Total raw score"
-                                        value={`${submissionListItem.total_score} / ${totalRawScoreMaximum} (${toScorePercentage(submissionListItem.total_score)}%)`}
+                                        label="Status"
+                                        value={getSubmissionSyncLabel(submissionListItem)}
                                     />
                                 </YStack>
                             )}
                         </Card>
                     ) : (
                         <>
-                            {submission.syncState === "pending_upload" ? (
-                                <Card title="Pending upload">
-                                    <Paragraph color={designSystem.colors.warningText}>
-                                        Scores shown are preliminary and will update once the upload
-                                        completes.
-                                    </Paragraph>
-                                </Card>
-                            ) : null}
                             <ReportHeroCard
                                 title="Audit results"
                                 subtitle="Scores and responses for this submitted audit."

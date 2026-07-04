@@ -56,7 +56,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
                 "offline login credentials",
             );
             const persistedSession = await withTimeout(readAuthSession(), "auth session");
-            if (persistedSession === null || persistedSession.user.accountType !== "AUDITOR") {
+            if (persistedSession === null || !isSupportedFieldSession(persistedSession)) {
                 if (persistedSession !== null) {
                     await clearAuthSession();
                 }
@@ -65,6 +65,9 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
                     session: null,
                     status: "unauthenticated",
                     hasOfflineLoginCredentials: cachedOfflineLogin !== null,
+                    // Explain the sign-out instead of silently ejecting a
+                    // manager who has no auditor profile yet.
+                    errorMessage: persistedSession !== null ? AUDITOR_ONLY_MESSAGE : null,
                 }));
                 return;
             }
@@ -115,7 +118,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
                 if (
                     cachedCredentials !== null &&
                     cachedSession !== null &&
-                    cachedSession.user.accountType === "AUDITOR" &&
+                    isSupportedFieldSession(cachedSession) &&
                     cachedCredentials.email === normalizedEmail &&
                     cachedCredentials.password === payload.password
                 ) {
@@ -256,17 +259,38 @@ function toAuthErrorMessage(error: unknown): string {
 }
 
 /**
- * Ensure session role matches the mobile auditor workflow.
+ * Message shown when a manager without a usable auditor profile is signed out
+ * or rejected. Managers become field-capable by creating a self auditor profile
+ * in the web app.
+ */
+const AUDITOR_ONLY_MESSAGE =
+    "This app is for auditor field work. Managers can create their auditor profile in the web app's Manager Settings, then sign in here again.";
+
+/**
+ * Check that a session can run the auditor field workflows: a standard auditor,
+ * or a manager who owns a usable self auditor profile (the backend already
+ * applies the same-organization rule before setting hasAuditorProfile).
+ *
+ * @param session Auth session to check.
+ * @returns True when the session supports field work.
+ */
+function isSupportedFieldSession(session: AuthSession): boolean {
+    if (session.user.accountType === "AUDITOR") {
+        return true;
+    }
+
+    return session.user.accountType === "MANAGER" && session.user.hasAuditorProfile;
+}
+
+/**
+ * Ensure the session can run the mobile auditor workflow.
  *
  * @param session Auth session from backend.
- * @returns Same session when role is AUDITOR.
+ * @returns Same session when it supports field work.
  */
 function ensureAuditorSession(session: AuthSession): AuthSession {
-    if (session.user.accountType !== "AUDITOR") {
-        throw new AuthApiError(
-            "This mobile app supports auditor field workflows. Use an assigned auditor account.",
-            403,
-        );
+    if (!isSupportedFieldSession(session)) {
+        throw new AuthApiError(AUDITOR_ONLY_MESSAGE, 403, AUDITOR_ONLY_MESSAGE);
     }
 
     return session;

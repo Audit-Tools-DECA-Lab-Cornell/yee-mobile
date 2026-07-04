@@ -1,0 +1,37 @@
+# Manager-without-auditor-profile login is rejected with actionable copy.
+# The mobile app accepts AUDITOR accounts and MANAGER accounts that own a self
+# auditor profile (stores/auth-store.ts isSupportedFieldSession). A manager with
+# NO auditor profile must see the auditor-only message, not a silent bounce.
+#
+# Requires a seeded manager WITHOUT an auditor profile. The default seed's
+# manager-demo@yee.local qualifies until a dual-role test creates its profile;
+# override with a known profile-less manager via MANAGER_EMAIL if needed.
+# Android appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
+appId: com.andisha2004.audit-tools-yee-mobile
+env:
+    MANAGER_EMAIL: manager-demo@yee.local
+    MANAGER_PASSWORD: DemoPass123!
+---
+# clearState so a persisted auditor session cannot skip the login screen —
+# this flow specifically exercises the login rejection path.
+- launchApp:
+      clearState: true
+- extendedWaitUntil:
+      visible: "Log in to the YEE workspace."
+      timeout: 60000
+- tapOn: "auditor@example.com"
+- inputText: ${MANAGER_EMAIL}
+- tapOn: "Enter password"
+- inputText: ${MANAGER_PASSWORD}
+# Dismiss the keyboard by tapping the unique heading (hideKeyboard fails on iOS 26).
+- tapOn: "Log in to the YEE workspace."
+- tapOn:
+      text: "Log in"
+      below:
+          text: "Stay signed in for offline field work"
+# The store rejects the session with AUDITOR_ONLY_MESSAGE and stays on login.
+- extendedWaitUntil:
+      visible: ".*auditor field work.*"
+      timeout: 30000
+- assertVisible: "Log in to the YEE workspace."

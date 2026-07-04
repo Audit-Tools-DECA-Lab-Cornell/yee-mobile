@@ -48,7 +48,13 @@ function makeSession(): AuthSession {
         accessToken: "token-123",
         tokenType: "bearer",
         expiresAt: "2099-01-01T00:00:00.000Z",
-        user: { id: "auditor-1", email: "a@b.com", name: "A", accountType: "AUDITOR" },
+        user: {
+            id: "auditor-1",
+            email: "a@b.com",
+            name: "A",
+            accountType: "AUDITOR",
+            hasAuditorProfile: false,
+        },
     };
 }
 

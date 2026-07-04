@@ -73,19 +73,18 @@ export default function TabLayout() {
                     backgroundColor: designSystem.colors.background,
                     borderTopColor: designSystem.colors.border,
                     height: tabBarLayout.height,
-                    paddingTop: tabBarLayout.paddingTop - 10,
-                    paddingBottom: tabBarLayout.paddingBottom,
                 },
                 tabBarItemStyle: {
                     borderRadius: layout.isTablet ? designSystem.radii.md : 0,
                     marginHorizontal: layout.isTablet ? 4 : 0,
-                    marginVertical: layout.isTablet ? 6 : 0,
+                    marginVertical: layout.isTablet ? 10 : 0,
                     paddingTop: 0,
                 },
                 tabBarLabelStyle: {
                     fontSize: tabBarLabelFontSize,
                     lineHeight: tabBarLabelLineHeight,
                     fontFamily: designSystem.fonts.bodySemiBold,
+                    letterSpacing: layout.isTablet ? 0.9 : 1,
                 },
             }}
         >

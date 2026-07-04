@@ -32,6 +32,7 @@ function makeSession(overrides: Partial<AuthSession> = {}): AuthSession {
             email: "auditor@example.com",
             name: "Test Auditor",
             accountType: "AUDITOR",
+            hasAuditorProfile: false,
         },
         ...overrides,
     };
@@ -86,11 +87,23 @@ describe("saveAuthSession / readAuthSession — valid session", () => {
                 email: "manager@example.com",
                 name: "Test Manager",
                 accountType: "MANAGER",
+                hasAuditorProfile: true,
             },
         });
         await saveAuthSession(session);
         const result = await readAuthSession();
         expect(result?.user.accountType).toBe("MANAGER");
+        expect(result?.user.hasAuditorProfile).toBe(true);
+    });
+
+    it("defaults hasAuditorProfile to false for sessions persisted before the dual-role flag", async () => {
+        const session = makeSession();
+        const legacyUser = { ...session.user } as Record<string, unknown>;
+        delete legacyUser.hasAuditorProfile;
+        await saveAuthSession({ ...session, user: legacyUser } as unknown as AuthSession);
+        const result = await readAuthSession();
+        expect(result).not.toBeNull();
+        expect(result?.user.hasAuditorProfile).toBe(false);
     });
 });
 

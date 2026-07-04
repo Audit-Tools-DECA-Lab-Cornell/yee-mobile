@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useWindowDimensions, type ViewStyle } from "react-native";
+import { Platform, useWindowDimensions, type ViewStyle } from "react-native";
 import {
     createResponsiveLayoutTokens,
     TABLET_TYPOGRAPHY_BASE_SCALE,
@@ -128,7 +128,8 @@ export function getResponsiveTabBarLayout(
     bottomInset: number,
 ): ResponsiveTabBarLayout {
     const safeBottomInset = Number.isFinite(bottomInset) && bottomInset > 0 ? bottomInset : 0;
-    const contentHeight = layout.isTablet ? layout.buttonHeight : 26;
+    const contentHeight =
+        Platform.OS === "android" ? (layout.isTablet ? 64 : 52) : layout.isTablet ? 52 : 26;
     const paddingTop = layout.isWideTablet ? 18 : layout.isTablet ? 10 : 16;
     const paddingBottom = layout.isWideTablet ? safeBottomInset - 8 : 6 + safeBottomInset;
 

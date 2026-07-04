@@ -209,6 +209,8 @@ function toAuthUser(payload: unknown): AuthUser | null {
     const email = readString(payload.email);
     const name = readNullableString(payload.name);
     const accountType = readAccountType(payload.accountType);
+    // Sessions persisted before the dual-role flag default to false.
+    const hasAuditorProfile = payload.hasAuditorProfile === true;
 
     if (id === null || email === null || name === undefined || accountType === null) {
         return null;
@@ -219,6 +221,7 @@ function toAuthUser(payload: unknown): AuthUser | null {
         email,
         name,
         accountType,
+        hasAuditorProfile,
     };
 }
 

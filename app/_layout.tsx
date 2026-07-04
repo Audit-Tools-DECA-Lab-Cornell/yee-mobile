@@ -222,7 +222,10 @@ function RootLayoutNav() {
 
     return (
         <ThemeProvider value={navigationTheme}>
-            <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
+            <StatusBar
+                hidden={Platform.OS === "android"}
+                style={resolvedTheme === "dark" ? "light" : "dark"}
+            />
             <KeyboardAvoidingView
                 behavior={Platform.OS === "ios" ? "padding" : undefined}
                 style={{ flex: 1 }}

@@ -11,6 +11,13 @@ export interface AuthUser {
     readonly email: string;
     readonly name: string | null;
     readonly accountType: AccountType;
+    /**
+     * True when the user owns a usable auditor profile in their own
+     * organization. A manager with such a profile uses the auditor field
+     * workflows like a normal auditor. The backend already applies the
+     * same-organization rule before setting this flag.
+     */
+    readonly hasAuditorProfile: boolean;
 }
 
 /**

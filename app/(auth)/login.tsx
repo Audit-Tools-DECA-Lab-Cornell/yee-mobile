@@ -31,8 +31,9 @@ export default function LoginScreen() {
     const hasCachedAssignedPlaces = useYeeMobileStore((state) => state.hasCachedAssignedPlaces);
     const hasCachedInstrument = useYeeMobileStore((state) => state.hasCachedInstrument);
 
-    const [email, setEmail] = useState<string>("");
-    const [password, setPassword] = useState<string>("");
+    const isDev = process.env.NODE_ENV === "development";
+    const [email, setEmail] = useState<string>(isDev ? "auditor-demo-2@yee.local" : "");
+    const [password, setPassword] = useState<string>(isDev ? "DemoPass123!" : "");
     const [showPassword, setShowPassword] = useState<boolean>(false);
     const [validationMessage, setValidationMessage] = useState<string | null>(null);
     const [staySignedIn, setStaySignedIn] = useState<boolean>(true);

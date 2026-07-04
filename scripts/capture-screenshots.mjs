@@ -8,7 +8,7 @@ import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const DEFAULT_SCHEME = "yee-mobile";
-const DEFAULT_API_BASE_URL = "https://audit-tools-backend.onrender.com";
+const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
 const DEFAULT_WAIT_MS = 20000;
 const DEFAULT_LOGIN_WAIT_MS = 20000;
 const DEFAULT_SCROLL_DELAY_MS = 450;
@@ -760,9 +760,9 @@ function buildDynamicRoutes(discovery) {
 
     if (isResolvedPlace(discovery.firstPlace)) {
         const placeId = encodeURIComponent(discovery.firstPlace.id);
-        routes.auditContext = `/audit/${placeId}/1`;
-        routes.auditWeighting = `/audit/${placeId}/2`;
-        routes.auditDomain = `/audit/${placeId}/3`;
+        routes.auditContext = `/audit/${placeId}`;
+        routes.auditWeighting = `/audit/${placeId}`;
+        routes.auditDomain = `/audit/${placeId}`;
         routes.auditReview = `/audit/${placeId}/review`;
     }
 

@@ -12,6 +12,7 @@ const authResponseSchema = z.object({
         email: z.string().min(1),
         name: z.string().nullable(),
         account_type: z.enum(["MANAGER", "AUDITOR"]),
+        has_auditor_profile: z.boolean().default(false),
     }),
 });
 
@@ -176,6 +177,7 @@ function parseAuthResponse(payload: unknown): AuthSession {
             email: sessionPayload.user.email,
             name: sessionPayload.user.name,
             accountType: sessionPayload.user.account_type,
+            hasAuditorProfile: sessionPayload.user.has_auditor_profile,
         },
     };
 }
