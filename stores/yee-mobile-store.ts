@@ -452,7 +452,11 @@ function mergeSubmittedAuditSummaries(
         ...normalizedRemoteAudits,
         ...pendingLocalAudits.filter(
             (localAudit) =>
-                !normalizedRemoteAudits.some((remoteAudit) => remoteAudit.id === localAudit.id),
+                !normalizedRemoteAudits.some(
+                    (remoteAudit) =>
+                        remoteAudit.id === localAudit.id ||
+                        remoteAudit.place_id === localAudit.place_id,
+                ),
         ),
     ].sort((left, right) => Date.parse(right.submitted_at) - Date.parse(left.submitted_at));
 }
@@ -597,8 +601,9 @@ async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): P
         }
 
         try {
+            let syncedDraft: YeeLocalDraft | null = null;
             if (liveItem.kind === "draft_save") {
-                await drainDraftSave(liveItem, session, get);
+                syncedDraft = await drainDraftSave(liveItem, session, get);
             } else {
                 auditListNeedsRefresh = true;
                 await drainSubmission(liveItem, session, get, set);
@@ -615,6 +620,13 @@ async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): P
             });
             set((state) => ({
                 syncQueue: state.syncQueue.filter((entry) => entry.id !== liveItem.id),
+                draftsByPlace:
+                    syncedDraft === null
+                        ? state.draftsByPlace
+                        : {
+                              ...state.draftsByPlace,
+                              [syncedDraft.placeId]: syncedDraft,
+                          },
                 lastDraftSyncAt: syncedAt,
                 lastAuditsSyncAt:
                     liveItem.kind === "submission" ? syncedAt : state.lastAuditsSyncAt,
@@ -687,7 +699,7 @@ async function drainDraftSave(
     item: YeeSyncQueueItem,
     session: AuthSession,
     get: StoreGet,
-): Promise<void> {
+): Promise<YeeLocalDraft | null> {
     try {
         const savedState = await saveAuditDraft(item.placeId, session, {
             participant_info: item.payload.participant_info,
@@ -696,7 +708,7 @@ async function drainDraftSave(
         const existingDraft = get().draftsByPlace[item.placeId] ?? null;
         if (existingDraft !== null) {
             const syncedAtIso = new Date().toISOString();
-            await writeDraft({
+            const syncedDraft: YeeLocalDraft = {
                 ...existingDraft,
                 version: existingDraft.version + 1,
                 scorePreview: savedState.score,
@@ -705,11 +717,14 @@ async function drainDraftSave(
                 syncState: "synced",
                 updatedAt: syncedAtIso,
                 lastUpdatedIso: syncedAtIso,
-            });
+            };
+            await writeDraft(syncedDraft);
+            return syncedDraft;
         }
     } catch {
         // Legacy remote draft save is best-effort; never block local recovery.
     }
+    return null;
 }
 
 /**
@@ -756,7 +771,12 @@ async function drainSubmission(
     const nextSubmittedAudits = [
         ...get().submittedAudits.filter(
             (audit) =>
-                audit.id !== submission.id && audit.id !== item.payload.provisional_submission_id,
+                audit.id !== submission.id &&
+                audit.id !== item.payload.provisional_submission_id &&
+                !(
+                    audit.place_id === item.placeId &&
+                    (audit.syncState === "pending_upload" || audit.syncState === "sync_failed")
+                ),
         ),
         syncedSubmissionSummary,
     ].sort((left, right) => Date.parse(right.submitted_at) - Date.parse(left.submitted_at));
@@ -769,10 +789,7 @@ async function drainSubmission(
         }
         return {
             draftsByPlace: nextDraftsByPlace,
-            submittedAudits: [
-                ...state.submittedAudits.filter((audit) => audit.id !== syncedSubmissionSummary.id),
-                syncedSubmissionSummary,
-            ].sort((left, right) => Date.parse(right.submitted_at) - Date.parse(left.submitted_at)),
+            submittedAudits: nextSubmittedAudits,
         };
     });
 }

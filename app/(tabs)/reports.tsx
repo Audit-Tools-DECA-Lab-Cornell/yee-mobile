@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef } from "react";
 import { ScrollView } from "react-native";
 import { useRouter } from "expo-router";
+import { useShallow } from "zustand/react/shallow";
 import { FileBarChart, TriangleAlert } from "components/icons";
 import { Button, XStack, YStack } from "tamagui";
 import { ScaledParagraph as Paragraph, ScaledText as Text, ScreenHeader } from "components/ui";
@@ -9,12 +10,9 @@ import { toScorePercentage } from "lib/yee-mobile-reporting";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import {
-    averageSubmittedScore,
-    getLatestSubmissionForPlace,
+    buildMobileAuditProjection,
     getSubmissionSyncLabel,
     getSubmissionTimestampLabel,
-    getTopSubmission,
-    sortAuditsNewestFirst,
 } from "lib/yee-mobile-selectors";
 import { useSelectionStore } from "stores/selection-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
@@ -28,19 +26,30 @@ export default function ReportsScreen() {
     const router = useRouter();
     const scrollViewRef = useRef<ScrollView>(null);
     const selectedPlaceId = useSelectionStore((state) => state.selectedPlaceId);
-    const submittedAudits = useYeeMobileStore((state) => state.submittedAudits);
+    const { assignedPlaces, draftsByPlace, submittedAudits, syncQueue } = useYeeMobileStore(
+        useShallow((state) => ({
+            assignedPlaces: state.assignedPlaces,
+            draftsByPlace: state.draftsByPlace,
+            submittedAudits: state.submittedAudits,
+            syncQueue: state.syncQueue,
+        })),
+    );
 
-    const sortedAudits = useMemo(() => sortAuditsNewestFirst(submittedAudits), [submittedAudits]);
-    const averageScore = useMemo(() => averageSubmittedScore(submittedAudits), [submittedAudits]);
-    const topSubmission = useMemo(() => getTopSubmission(submittedAudits), [submittedAudits]);
-    const focusedSubmission = useMemo(() => {
-        return (
-            getLatestSubmissionForPlace(sortedAudits, selectedPlaceId) ??
-            topSubmission ??
-            sortedAudits[0] ??
-            null
-        );
-    }, [selectedPlaceId, sortedAudits, topSubmission]);
+    const projection = useMemo(
+        () =>
+            buildMobileAuditProjection({
+                assignedPlaces,
+                draftsByPlace,
+                submittedAudits,
+                syncQueue,
+                selectedPlaceId,
+            }),
+        [assignedPlaces, draftsByPlace, submittedAudits, syncQueue, selectedPlaceId],
+    );
+    const sortedAudits = projection.sortedReports;
+    const averageScore = projection.averageScore;
+    const topSubmission = projection.topSubmission;
+    const focusedSubmission = projection.focusedSubmission;
     const scrollToOffset = useCallback((offset: number) => {
         scrollViewRef.current?.scrollTo({ y: offset, animated: false });
     }, []);

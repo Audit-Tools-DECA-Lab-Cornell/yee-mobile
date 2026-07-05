@@ -9,7 +9,7 @@ import { useDesignSystem, getPlaceStatusTone } from "lib/design-system";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
-import { buildPlaceViews, getStatusLabel, summarizeMobileAudits } from "lib/yee-mobile-selectors";
+import { buildMobileAuditProjection, getStatusLabel } from "lib/yee-mobile-selectors";
 import { useAuthStore } from "stores/auth-store";
 import { useSelectionStore } from "stores/selection-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
@@ -38,11 +38,18 @@ export default function PlacesScreen() {
     const hasCachedInstrument = useYeeMobileStore((state) => state.hasCachedInstrument);
     const isOfflineReady = useYeeMobileStore((state) => state.isOfflineReady);
 
-    const placeViews = useMemo(
-        () => buildPlaceViews(assignedPlaces, draftsByPlace, submittedAudits),
-        [assignedPlaces, draftsByPlace, submittedAudits],
+    const projection = useMemo(
+        () =>
+            buildMobileAuditProjection({
+                assignedPlaces,
+                draftsByPlace,
+                submittedAudits,
+                syncQueue,
+            }),
+        [assignedPlaces, draftsByPlace, submittedAudits, syncQueue],
     );
-    const summary = useMemo(() => summarizeMobileAudits(placeViews), [placeViews]);
+    const placeViews = projection.placeViews;
+    const summary = projection.summary;
     const offlineReadinessMessage = getOfflineReadinessMessage({
         hasOfflineLoginCredentials,
         hasCachedAssignedPlaces,
@@ -81,7 +88,7 @@ export default function PlacesScreen() {
                         value={summary.submittedCount}
                         tone="submitted"
                     />
-                    <SummaryTile label="Queued" value={syncQueue.length} tone="queued" />
+                    <SummaryTile label="Queued" value={summary.pendingSyncCount} tone="queued" />
                 </XStack>
 
                 <YStack

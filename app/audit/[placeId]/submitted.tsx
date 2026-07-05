@@ -7,6 +7,7 @@ import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { useDesignSystem } from "lib/design-system";
 import { useResponsiveLayout } from "lib/responsive-layout";
 import { buildAuditSubmittedHeaderLabels } from "lib/yee-navigation-labels";
+import { buildMobileAuditProjection } from "lib/yee-mobile-selectors";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 export default function AuditSubmittedScreen() {
@@ -19,25 +20,42 @@ export default function AuditSubmittedScreen() {
     }>();
     const layout = useResponsiveLayout();
     const stackHeaderOptions = useYeeStackHeaderOptions();
-    const { assignedPlaces, draftsByPlace, submittedAudits } = useYeeMobileStore(
+    const { assignedPlaces, draftsByPlace, submittedAudits, syncQueue } = useYeeMobileStore(
         useShallow((state) => ({
             assignedPlaces: state.assignedPlaces,
             draftsByPlace: state.draftsByPlace,
             submittedAudits: state.submittedAudits,
+            syncQueue: state.syncQueue,
         })),
     );
     const placeId = typeof params.placeId === "string" ? params.placeId : "";
-    const queued = params.mode === "queued";
-    const submissionId = typeof params.submissionId === "string" ? params.submissionId : "";
-    const place = assignedPlaces.find((entry) => entry.id === placeId) ?? null;
-    const draft = draftsByPlace[placeId] ?? null;
+    const routeSubmissionId = typeof params.submissionId === "string" ? params.submissionId : "";
+    const projection = buildMobileAuditProjection({
+        assignedPlaces,
+        draftsByPlace,
+        submittedAudits,
+        syncQueue,
+        selectedPlaceId: placeId,
+        selectedSubmissionId: routeSubmissionId,
+    });
+    const placeView = projection.selectedPlaceView;
     const submission =
-        submittedAudits.find((entry) => entry.id === submissionId) ??
-        submittedAudits.find((entry) => entry.place_id === placeId) ??
+        (routeSubmissionId.length > 0
+            ? projection.sortedReports.find((entry) => entry.id === routeSubmissionId)
+            : null) ??
+        placeView?.submission ??
         null;
+    const submissionId = routeSubmissionId.length > 0 ? routeSubmissionId : (submission?.id ?? "");
+    const queued =
+        params.mode === "queued" ||
+        placeView?.isPendingSync === true ||
+        submission?.syncState === "pending_upload" ||
+        submission?.syncState === "sync_failed";
     const headerLabels = buildAuditSubmittedHeaderLabels({
         placeName:
-            submission?.place_name ?? draft?.participantInfo.place_name?.toString() ?? place?.name,
+            submission?.place_name ??
+            placeView?.draft?.participantInfo.place_name?.toString() ??
+            placeView?.place.name,
         queued,
     });
 

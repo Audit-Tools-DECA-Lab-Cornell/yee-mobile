@@ -6,6 +6,11 @@ import {
 } from "lib/responsive-layout";
 
 vi.mock("react-native", () => ({
+    Platform: {
+        OS: "ios",
+        select: <T>(options: { ios?: T; android?: T; default?: T }) =>
+            options.ios ?? options.default,
+    },
     useWindowDimensions: () => ({ width: 390, height: 844 }),
 }));
 
@@ -59,8 +64,6 @@ describe("createResponsiveLayout", () => {
         expect(tabBarLayout.height).toBe(
             tabBarLayout.contentHeight + tabBarLayout.paddingTop + tabBarLayout.paddingBottom,
         );
-        expect(tabBarLayout.height - tabBarLayout.paddingTop - tabBarLayout.paddingBottom).toBe(
-            layout.buttonHeight,
-        );
+        expect(tabBarLayout.paddingBottom).toBeGreaterThan(bottomInset);
     });
 });

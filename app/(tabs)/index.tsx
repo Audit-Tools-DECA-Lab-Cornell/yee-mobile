@@ -19,7 +19,11 @@ import { useDesignSystem, getMetricTone, getPlaceStatusTone } from "lib/design-s
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
-import { buildPlaceViews, getStatusLabel, summarizeMobileAudits } from "lib/yee-mobile-selectors";
+import {
+    buildMobileAuditProjection,
+    getStatusLabel,
+    type MobilePlaceWorkflowStatus,
+} from "lib/yee-mobile-selectors";
 import { useAuthStore } from "stores/auth-store";
 import { useSelectionStore } from "stores/selection-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
@@ -69,10 +73,18 @@ export default function DashboardScreen() {
         })),
     );
 
-    const placeViews = useMemo(() => {
-        return buildPlaceViews(assignedPlaces, draftsByPlace, submittedAudits);
-    }, [assignedPlaces, draftsByPlace, submittedAudits]);
-    const summary = useMemo(() => summarizeMobileAudits(placeViews), [placeViews]);
+    const projection = useMemo(
+        () =>
+            buildMobileAuditProjection({
+                assignedPlaces,
+                draftsByPlace,
+                submittedAudits,
+                syncQueue,
+            }),
+        [assignedPlaces, draftsByPlace, submittedAudits, syncQueue],
+    );
+    const placeViews = projection.placeViews;
+    const summary = projection.summary;
     const primaryDraft = placeViews.find((view) => view.status === "draft") ?? null;
     const activeAuditorName = session?.user.name ?? session?.user.email ?? "Active auditor";
     const dateLabel = useMemo(() => {
@@ -83,7 +95,7 @@ export default function DashboardScreen() {
             weekday: "long",
         });
     }, []);
-    const syncSummary = describeSync(lastPlacesSyncAt, lastAuditsSyncAt, syncQueue.length);
+    const syncSummary = describeSync(lastPlacesSyncAt, lastAuditsSyncAt, summary.pendingSyncCount);
     const offlineReadinessMessage = getOfflineReadinessMessage({
         hasOfflineLoginCredentials,
         hasCachedAssignedPlaces,
@@ -560,7 +572,7 @@ function ChecklistLine({ done, label }: { done: boolean; label: string }) {
     );
 }
 
-function mapStatusToPlaceTone(status: ReturnType<typeof buildPlaceViews>[number]["status"]) {
+function mapStatusToPlaceTone(status: MobilePlaceWorkflowStatus) {
     if (status === "submitted") {
         return "submitted" as const;
     }

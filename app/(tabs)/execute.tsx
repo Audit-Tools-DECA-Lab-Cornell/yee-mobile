@@ -23,7 +23,7 @@ import {
 } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
-import { buildPlaceViews, getStatusLabel } from "lib/yee-mobile-selectors";
+import { buildMobileAuditProjection, getStatusLabel } from "lib/yee-mobile-selectors";
 import { useAuthStore } from "stores/auth-store";
 import { useSelectionStore } from "stores/selection-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
@@ -60,15 +60,21 @@ export default function ExecuteScreen() {
         })),
     );
 
-    const placeViews = useMemo(
-        () => buildPlaceViews(assignedPlaces, draftsByPlace, submittedAudits),
-        [assignedPlaces, draftsByPlace, submittedAudits],
+    const projection = useMemo(
+        () =>
+            buildMobileAuditProjection({
+                assignedPlaces,
+                draftsByPlace,
+                submittedAudits,
+                syncQueue,
+                selectedPlaceId,
+            }),
+        [assignedPlaces, draftsByPlace, submittedAudits, syncQueue, selectedPlaceId],
     );
+    const placeViews = projection.placeViews;
     const activePlaceView = useMemo(() => {
-        return (
-            placeViews.find((view) => view.place.id === selectedPlaceId) ?? placeViews[0] ?? null
-        );
-    }, [placeViews, selectedPlaceId]);
+        return projection.selectedPlaceView ?? placeViews[0] ?? null;
+    }, [placeViews, projection.selectedPlaceView]);
     const scrollToOffset = useCallback((offset: number) => {
         scrollViewRef.current?.scrollTo({ y: offset, animated: false });
     }, []);
@@ -104,9 +110,7 @@ export default function ExecuteScreen() {
         hasCachedAssignedPlaces,
         hasCachedInstrument,
     });
-    const pendingForPlace = syncQueue.filter(
-        (item) => item.placeId === activePlaceView.place.id,
-    ).length;
+    const pendingForPlace = activePlaceView.pendingSyncCount;
     const isSubmitted = activePlaceView.status === "submitted";
 
     return (

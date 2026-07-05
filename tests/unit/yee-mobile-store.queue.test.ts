@@ -13,7 +13,13 @@ import type { AuthSession } from "lib/auth/types";
 import { YeeMobileApiError } from "lib/yee-api";
 import { readDraft, readSyncQueue, upsertSyncQueueItem } from "lib/yee-offline-storage";
 import { setActiveAccount } from "lib/yee-secure-draft-storage";
-import type { YeeLocalDraft, YeeMyAuditItem, YeeSubmissionResponse } from "lib/yee-types";
+import type {
+    YeeAssignedPlace,
+    YeeInstrumentResponse,
+    YeeLocalDraft,
+    YeeMyAuditItem,
+    YeeSubmissionResponse,
+} from "lib/yee-types";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 // --- Mock the API layer -----------------------------------------------------
@@ -22,6 +28,9 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
 const submitAuditMock = vi.fn<(...args: unknown[]) => Promise<YeeSubmissionResponse>>();
 const saveAuditDraftMock = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const fetchMyAuditsMock = vi.fn<(...args: unknown[]) => Promise<readonly YeeMyAuditItem[]>>();
+const fetchAssignedPlacesMock =
+    vi.fn<(...args: unknown[]) => Promise<readonly YeeAssignedPlace[]>>();
+const fetchYeeInstrumentMock = vi.fn<(...args: unknown[]) => Promise<YeeInstrumentResponse>>();
 
 // Re-export the real YeeMobileApiError so classification (instanceof) works.
 vi.mock("lib/yee-api", async () => {
@@ -31,6 +40,8 @@ vi.mock("lib/yee-api", async () => {
         submitAudit: (...args: unknown[]) => submitAuditMock(...args),
         saveAuditDraft: (...args: unknown[]) => saveAuditDraftMock(...args),
         fetchMyAudits: (...args: unknown[]) => fetchMyAuditsMock(...args),
+        fetchAssignedPlaces: (...args: unknown[]) => fetchAssignedPlacesMock(...args),
+        fetchYeeInstrument: (...args: unknown[]) => fetchYeeInstrumentMock(...args),
     };
 });
 
@@ -118,7 +129,11 @@ beforeEach(() => {
     submitAuditMock.mockReset();
     saveAuditDraftMock.mockReset();
     fetchMyAuditsMock.mockReset();
+    fetchAssignedPlacesMock.mockReset();
+    fetchYeeInstrumentMock.mockReset();
     fetchMyAuditsMock.mockResolvedValue([]);
+    fetchAssignedPlacesMock.mockResolvedValue([]);
+    fetchYeeInstrumentMock.mockResolvedValue({});
     freshAccount();
     resetStore();
 });
@@ -183,6 +198,23 @@ describe("syncPendingQueue — successful submit cleanup", () => {
         expect(summaries.some((s) => s.id === "server-sub-1" && s.syncState === "synced")).toBe(
             true,
         );
+    });
+
+    it("clears the provisional pending summary immediately when submit succeeds", async () => {
+        const draft = makeDraft("place-1");
+        const provisionalSubmission = makeSubmissionResponse("place-1", "local-sub-1");
+        await useYeeMobileStore.getState().saveDraftLocally(draft);
+        await useYeeMobileStore.getState().queueSubmissionSync(draft, provisionalSubmission);
+
+        submitAuditMock.mockResolvedValue(makeSubmissionResponse("place-1", "server-sub-1"));
+        fetchMyAuditsMock.mockRejectedValue(new Error("refresh unavailable"));
+
+        await useYeeMobileStore.getState().syncPendingQueue(makeSession());
+
+        expect(useYeeMobileStore.getState().submittedAudits.map((audit) => audit.id)).toEqual([
+            "server-sub-1",
+        ]);
+        expect(useYeeMobileStore.getState().submittedAudits[0]?.syncState).toBe("synced");
     });
 });
 
@@ -351,5 +383,56 @@ describe("queueDraftSync — legacy draft save never blocks", () => {
         // the local draft (source of truth) remains intact.
         expect(await readSyncQueue()).toHaveLength(0);
         expect(await readDraft("place-1")).not.toBeNull();
+    });
+
+    it("updates in-memory draft syncState after successful draft_save drain", async () => {
+        const draft = makeDraft("place-1");
+        await useYeeMobileStore.getState().saveDraftLocally(draft);
+        await useYeeMobileStore.getState().queueDraftSync(draft);
+
+        saveAuditDraftMock.mockResolvedValue({
+            status: "DRAFT",
+            submission_id: null,
+            score: null,
+        });
+
+        await useYeeMobileStore.getState().syncPendingQueue(makeSession());
+
+        expect(await readSyncQueue()).toHaveLength(0);
+        expect(useYeeMobileStore.getState().syncQueue).toHaveLength(0);
+        expect(useYeeMobileStore.getState().draftsByPlace["place-1"]?.syncState).toBe("synced");
+        expect((await readDraft("place-1"))?.syncState).toBe("synced");
+    });
+});
+
+describe("refreshRemoteState — same-place submission reconciliation", () => {
+    it("drops stale local pending summaries when refresh returns the remote submission for the same place", async () => {
+        useYeeMobileStore.setState({
+            submittedAudits: [
+                {
+                    id: "local-submission-place-1",
+                    place_id: "place-1",
+                    place_name: "Place",
+                    submitted_at: "2026-06-25T00:30:00.000Z",
+                    total_score: 0,
+                    syncState: "pending_upload",
+                },
+            ],
+        });
+        fetchMyAuditsMock.mockResolvedValue([
+            {
+                id: "server-sub-1",
+                place_id: "place-1",
+                place_name: "Place",
+                submitted_at: "2026-06-25T01:00:00.000Z",
+                total_score: 88,
+            },
+        ]);
+
+        await useYeeMobileStore.getState().refreshRemoteState(makeSession());
+
+        expect(useYeeMobileStore.getState().submittedAudits.map((audit) => audit.id)).toEqual([
+            "server-sub-1",
+        ]);
     });
 });

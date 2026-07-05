@@ -16,7 +16,11 @@ import {
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { fetchSubmission } from "lib/yee-api";
 import { buildReportHeaderLabels } from "lib/yee-navigation-labels";
-import { getSubmissionSyncLabel, getSubmissionTimestampLabel } from "lib/yee-mobile-selectors";
+import {
+    buildMobileAuditProjection,
+    getSubmissionSyncLabel,
+    getSubmissionTimestampLabel,
+} from "lib/yee-mobile-selectors";
 import {
     buildSubmissionCsv,
     buildDomainScoreRows,
@@ -54,13 +58,29 @@ export default function MobileReportDetailScreen() {
     const [footerHeight, setFooterHeight] = useState(0);
     const submissionId = typeof params.submissionId === "string" ? params.submissionId : "";
     const session = useAuthStore((state) => state.session);
-    const { isOnline, submittedAudits } = useYeeMobileStore(
-        useShallow((state) => ({
-            isOnline: state.isOnline,
-            submittedAudits: state.submittedAudits,
-        })),
+    const { isOnline, assignedPlaces, draftsByPlace, submittedAudits, syncQueue } =
+        useYeeMobileStore(
+            useShallow((state) => ({
+                isOnline: state.isOnline,
+                assignedPlaces: state.assignedPlaces,
+                draftsByPlace: state.draftsByPlace,
+                submittedAudits: state.submittedAudits,
+                syncQueue: state.syncQueue,
+            })),
+        );
+    const projection = useMemo(
+        () =>
+            buildMobileAuditProjection({
+                assignedPlaces,
+                draftsByPlace,
+                submittedAudits,
+                syncQueue,
+                selectedSubmissionId: submissionId,
+            }),
+        [assignedPlaces, draftsByPlace, submittedAudits, syncQueue, submissionId],
     );
-    const submissionSummary = submittedAudits.find((audit) => audit.id === submissionId) ?? null;
+    const submissionSummary =
+        projection.sortedReports.find((audit) => audit.id === submissionId) ?? null;
     // A queued or failed submission has no backend record yet: its id is a local
     // provisional id, so there is nothing to fetch and no offline report to show.
     const isUnsyncedSubmission =

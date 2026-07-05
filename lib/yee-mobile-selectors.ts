@@ -1,4 +1,9 @@
-import type { YeeAssignedPlace, YeeLocalDraft, YeeMyAuditItem } from "./yee-types";
+import type {
+    YeeAssignedPlace,
+    YeeLocalDraft,
+    YeeMyAuditItem,
+    YeeSyncQueueItem,
+} from "./yee-types";
 
 export type MobilePlaceWorkflowStatus = "not_started" | "draft" | "submitted";
 
@@ -7,6 +12,11 @@ export interface MobilePlaceView {
     readonly status: MobilePlaceWorkflowStatus;
     readonly draft: YeeLocalDraft | null;
     readonly submission: YeeMyAuditItem | null;
+    readonly pendingQueueItems: readonly YeeSyncQueueItem[];
+    readonly pendingSubmission: YeeSyncQueueItem | null;
+    readonly pendingSyncCount: number;
+    readonly isPendingSync: boolean;
+    readonly hasSyncFailure: boolean;
     readonly latestActivityLabel: string;
     readonly syncLabel: string;
 }
@@ -18,16 +28,35 @@ export interface MobileAuditSummary {
     readonly pendingSyncCount: number;
 }
 
+export interface MobileAuditProjectionInput {
+    readonly assignedPlaces: readonly YeeAssignedPlace[];
+    readonly draftsByPlace: Record<string, YeeLocalDraft>;
+    readonly submittedAudits: readonly YeeMyAuditItem[];
+    readonly syncQueue: readonly YeeSyncQueueItem[];
+    readonly selectedPlaceId?: string | null;
+    readonly selectedSubmissionId?: string | null;
+}
+
+export interface MobileAuditProjection {
+    readonly placeViews: readonly MobilePlaceView[];
+    readonly summary: MobileAuditSummary;
+    readonly sortedReports: readonly YeeMyAuditItem[];
+    readonly averageScore: number;
+    readonly topSubmission: YeeMyAuditItem | null;
+    readonly selectedPlaceView: MobilePlaceView | null;
+    readonly focusedSubmission: YeeMyAuditItem | null;
+}
+
 export function getSubmissionSyncLabel(audit: YeeMyAuditItem): string {
     if (audit.syncState === "pending_upload") {
-        return "Saved on device and waiting to upload";
+        return "Queued for sync";
     }
 
     if (audit.syncState === "sync_failed") {
-        return "Upload needs attention";
+        return "Sync needs attention";
     }
 
-    return "uploaded";
+    return "Saved on Cloud";
 }
 
 export function getSubmissionTimestampLabel(audit: YeeMyAuditItem): string {
@@ -42,10 +71,25 @@ export function buildPlaceViews(
     places: readonly YeeAssignedPlace[],
     draftsByPlace: Record<string, YeeLocalDraft>,
     submittedAudits: readonly YeeMyAuditItem[],
+    syncQueue: readonly YeeSyncQueueItem[] = [],
 ): readonly MobilePlaceView[] {
     return places.map((place) => {
         const draft = draftsByPlace[place.id] ?? null;
         const submission = getLatestSubmissionForPlace(submittedAudits, place.id);
+        const pendingQueueItems = syncQueue.filter((item) => item.placeId === place.id);
+        const pendingSubmission =
+            pendingQueueItems.find((item) => item.kind === "submission") ?? null;
+        const hasSyncFailure =
+            pendingQueueItems.some(queueItemNeedsAttention) ||
+            submission?.syncState === "sync_failed" ||
+            draft?.syncState === "sync_failed";
+        const isPendingSync =
+            pendingQueueItems.length > 0 ||
+            submission?.syncState === "pending_upload" ||
+            submission?.syncState === "sync_failed" ||
+            draft?.syncState === "pending_upload" ||
+            draft?.syncState === "sync_failed";
+        const pendingSyncCount = isPendingSync ? 1 : 0;
 
         if (submission !== null) {
             return {
@@ -53,11 +97,17 @@ export function buildPlaceViews(
                 status: "submitted",
                 draft,
                 submission,
-                latestActivityLabel: formatTimestamp(submission.submitted_at, "Submitted"),
-                syncLabel:
-                    submission.syncState === "pending_upload"
-                        ? "Queued for sync"
-                        : "Saved on Cloud",
+                pendingQueueItems,
+                pendingSubmission,
+                pendingSyncCount,
+                isPendingSync,
+                hasSyncFailure,
+                latestActivityLabel: getSubmissionTimestampLabel(submission),
+                syncLabel: getPlaceSubmissionSyncLabel(
+                    submission,
+                    pendingSubmission,
+                    hasSyncFailure,
+                ),
             } satisfies MobilePlaceView;
         }
 
@@ -67,8 +117,13 @@ export function buildPlaceViews(
                 status: "draft",
                 draft,
                 submission: null,
+                pendingQueueItems,
+                pendingSubmission,
+                pendingSyncCount,
+                isPendingSync,
+                hasSyncFailure,
                 latestActivityLabel: formatTimestamp(draft.updatedAt, "Draft saved"),
-                syncLabel: getDraftSyncLabel(draft.syncState),
+                syncLabel: hasSyncFailure ? "Sync needs attention" : getDraftSyncLabel(draft),
             } satisfies MobilePlaceView;
         }
 
@@ -77,10 +132,57 @@ export function buildPlaceViews(
             status: "not_started",
             draft: null,
             submission: null,
+            pendingQueueItems,
+            pendingSubmission,
+            pendingSyncCount,
+            isPendingSync,
+            hasSyncFailure,
             latestActivityLabel: "Not started yet",
-            syncLabel: "Ready for offline capture",
+            syncLabel: hasSyncFailure
+                ? "Sync needs attention"
+                : isPendingSync
+                  ? "Queued for sync"
+                  : "Ready for offline capture",
         } satisfies MobilePlaceView;
     });
+}
+
+export function buildMobileAuditProjection(
+    input: MobileAuditProjectionInput,
+): MobileAuditProjection {
+    const placeViews = buildPlaceViews(
+        input.assignedPlaces,
+        input.draftsByPlace,
+        input.submittedAudits,
+        input.syncQueue,
+    );
+    const summary = summarizeMobileAudits(placeViews);
+    const sortedReports = sortAuditsNewestFirst(input.submittedAudits);
+    const averageScore = averageSubmittedScore(input.submittedAudits);
+    const topSubmission = getTopSubmission(input.submittedAudits);
+    const selectedPlaceView =
+        input.selectedPlaceId === undefined || input.selectedPlaceId === null
+            ? null
+            : (placeViews.find((view) => view.place.id === input.selectedPlaceId) ?? null);
+    const selectedReport =
+        input.selectedSubmissionId === undefined || input.selectedSubmissionId === null
+            ? null
+            : (sortedReports.find((audit) => audit.id === input.selectedSubmissionId) ?? null);
+    const placeReport =
+        input.selectedPlaceId === undefined || input.selectedPlaceId === null
+            ? null
+            : getLatestSubmissionForPlace(sortedReports, input.selectedPlaceId);
+
+    return {
+        placeViews,
+        summary,
+        sortedReports,
+        averageScore,
+        topSubmission,
+        selectedPlaceView,
+        focusedSubmission:
+            selectedReport ?? placeReport ?? topSubmission ?? sortedReports[0] ?? null,
+    };
 }
 
 export function summarizeMobileAudits(placeViews: readonly MobilePlaceView[]): MobileAuditSummary {
@@ -90,14 +192,7 @@ export function summarizeMobileAudits(placeViews: readonly MobilePlaceView[]): M
                 assignedCount: summary.assignedCount + 1,
                 draftCount: summary.draftCount + (view.status === "draft" ? 1 : 0),
                 submittedCount: summary.submittedCount + (view.status === "submitted" ? 1 : 0),
-                pendingSyncCount:
-                    summary.pendingSyncCount +
-                    (view.submission?.syncState === "pending_upload" ||
-                    view.submission?.syncState === "sync_failed" ||
-                    view.draft?.syncState === "pending_upload" ||
-                    view.draft?.syncState === "sync_failed"
-                        ? 1
-                        : 0),
+                pendingSyncCount: summary.pendingSyncCount + view.pendingSyncCount,
             };
         },
         {
@@ -181,16 +276,32 @@ export function getStatusLabel(status: MobilePlaceWorkflowStatus): string {
     return "Not started";
 }
 
-function getDraftSyncLabel(syncState: YeeLocalDraft["syncState"]): string {
-    if (syncState === "pending_upload") {
+function getPlaceSubmissionSyncLabel(
+    submission: YeeMyAuditItem,
+    pendingSubmission: YeeSyncQueueItem | null,
+    hasSyncFailure: boolean,
+): string {
+    if (hasSyncFailure) {
+        return "Sync needs attention";
+    }
+
+    if (pendingSubmission !== null || submission.syncState === "pending_upload") {
+        return "Queued for sync";
+    }
+
+    return "Saved on Cloud";
+}
+
+function getDraftSyncLabel(draft: YeeLocalDraft): string {
+    if (draft.syncState === "pending_upload") {
         return "Waiting to sync";
     }
 
-    if (syncState === "sync_failed") {
-        return "Sync needs retry";
+    if (draft.syncState === "sync_failed") {
+        return "Sync needs attention";
     }
 
-    if (syncState === "local_only") {
+    if (draft.syncState === "local_only") {
         return "Saved on device";
     }
 
@@ -215,4 +326,12 @@ function formatTimestamp(value: string, prefix: string): string {
 
 function isBackendSyncedAudit(audit: YeeMyAuditItem): boolean {
     return audit.syncState !== "pending_upload" && audit.syncState !== "sync_failed";
+}
+
+function queueItemNeedsAttention(item: YeeSyncQueueItem): boolean {
+    return (
+        item.failureReason === "auth" ||
+        item.failureReason === "terminal" ||
+        item.failureReason === "validation"
+    );
 }

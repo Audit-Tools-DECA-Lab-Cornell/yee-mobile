@@ -32,6 +32,7 @@ import {
     buildFormStateFromSources,
     type MobileAuditFormState,
 } from "lib/yee-mobile-draft";
+import { buildMobileAuditProjection } from "lib/yee-mobile-selectors";
 import {
     getOpenHoursAccessLabel,
     getPublicAccessLabel,
@@ -117,23 +118,48 @@ export default function AuditReviewScreen() {
             reconcilePlaceSubmission: state.reconcilePlaceSubmission,
         })),
     );
-    const place = assignedPlaces.find((entry) => entry.id === placeId) ?? null;
-    const storedDraft = draftsByPlace[placeId] ?? null;
+    const auditProjection = useMemo(
+        () =>
+            buildMobileAuditProjection({
+                assignedPlaces,
+                draftsByPlace,
+                submittedAudits,
+                syncQueue,
+                selectedPlaceId: placeId,
+            }),
+        [assignedPlaces, draftsByPlace, submittedAudits, syncQueue, placeId],
+    );
+    const place =
+        auditProjection.selectedPlaceView?.place ??
+        assignedPlaces.find((entry) => entry.id === placeId) ??
+        null;
+    const storedDraft = auditProjection.selectedPlaceView?.draft ?? draftsByPlace[placeId] ?? null;
 
     // Persisted in-flight guard: a queued submission item for this place survives
     // app restarts (the queue lives in MMKV), so a restart mid-submit must NOT be
     // able to enqueue a second submission for the same place.
     const pendingSubmission = useMemo(
-        () => findPendingSubmission(syncQueue, placeId),
-        [syncQueue, placeId],
-    );
-    const hasSyncedSubmission = useMemo(
         () =>
-            submittedAudits.some(
-                (audit) => audit.place_id === placeId && audit.syncState !== "pending_upload",
-            ),
-        [submittedAudits, placeId],
+            auditProjection.selectedPlaceView?.pendingSubmission ??
+            findPendingSubmission(syncQueue, placeId),
+        [auditProjection.selectedPlaceView?.pendingSubmission, syncQueue, placeId],
     );
+    const hasSyncedSubmission = useMemo(() => {
+        const projectedSubmission = auditProjection.selectedPlaceView?.submission ?? null;
+        if (projectedSubmission !== null) {
+            return (
+                projectedSubmission.syncState !== "pending_upload" &&
+                projectedSubmission.syncState !== "sync_failed"
+            );
+        }
+
+        return submittedAudits.some(
+            (audit) =>
+                audit.place_id === placeId &&
+                audit.syncState !== "pending_upload" &&
+                audit.syncState !== "sync_failed",
+        );
+    }, [auditProjection.selectedPlaceView?.submission, submittedAudits, placeId]);
 
     // Shared active-audit session store (populated by the persistent shell at
     // app/audit/[placeId]/index.tsx, which stays mounted underneath review). When
@@ -476,9 +502,21 @@ export default function AuditReviewScreen() {
         }
 
         let currentState = useYeeMobileStore.getState();
-        let queuedStillPresent = currentState.syncQueue.some(
-            (item) => item.kind === "submission" && item.placeId === placeId,
-        );
+        let currentProjection = buildMobileAuditProjection({
+            assignedPlaces: currentState.assignedPlaces,
+            draftsByPlace: currentState.draftsByPlace,
+            submittedAudits: currentState.submittedAudits,
+            syncQueue: currentState.syncQueue,
+            selectedPlaceId: placeId,
+        });
+        let queuedStillPresent =
+            currentProjection.selectedPlaceView?.pendingSubmission !== null &&
+            currentProjection.selectedPlaceView?.pendingSubmission !== undefined;
+        if (!queuedStillPresent) {
+            queuedStillPresent = currentState.syncQueue.some(
+                (item) => item.kind === "submission" && item.placeId === placeId,
+            );
+        }
 
         // Secondary fallback: still queued while online means the idempotency-key
         // drain was inconclusive. Confirm directly with audit-state.
@@ -486,23 +524,34 @@ export default function AuditReviewScreen() {
             const reconciledStatus = await reconcilePlaceSubmission(placeId, session);
             if (reconciledStatus === "SUBMITTED") {
                 currentState = useYeeMobileStore.getState();
-                queuedStillPresent = currentState.syncQueue.some(
-                    (item) => item.kind === "submission" && item.placeId === placeId,
-                );
+                currentProjection = buildMobileAuditProjection({
+                    assignedPlaces: currentState.assignedPlaces,
+                    draftsByPlace: currentState.draftsByPlace,
+                    submittedAudits: currentState.submittedAudits,
+                    syncQueue: currentState.syncQueue,
+                    selectedPlaceId: placeId,
+                });
+                queuedStillPresent =
+                    currentProjection.selectedPlaceView?.pendingSubmission !== null &&
+                    currentProjection.selectedPlaceView?.pendingSubmission !== undefined;
+                if (!queuedStillPresent) {
+                    queuedStillPresent = currentState.syncQueue.some(
+                        (item) => item.kind === "submission" && item.placeId === placeId,
+                    );
+                }
             }
         }
 
-        const latestSubmissionForPlace = currentState.submittedAudits
-            .filter((audit) => audit.place_id === placeId)
-            .sort(
-                (left, right) => Date.parse(right.submitted_at) - Date.parse(left.submitted_at),
-            )[0];
+        const latestSubmissionForPlace =
+            currentProjection.selectedPlaceView?.submission ??
+            currentProjection.sortedReports.find((audit) => audit.place_id === placeId);
 
         let nextMode: "queued" | "submitted" = "queued";
         let nextSubmissionId = fallbackSubmissionId;
         if (
             latestSubmissionForPlace !== undefined &&
-            latestSubmissionForPlace.syncState !== "pending_upload"
+            latestSubmissionForPlace.syncState !== "pending_upload" &&
+            latestSubmissionForPlace.syncState !== "sync_failed"
         ) {
             nextMode = "submitted";
             nextSubmissionId = latestSubmissionForPlace.id;
