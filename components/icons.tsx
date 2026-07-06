@@ -19,6 +19,7 @@ export const ArrowRight = makeIcon("arrow-right");
 export const ArrowUpRight = makeIcon("arrow-up-right");
 export const BarChart3 = makeIcon("bar-chart-2");
 export const Bell = makeIcon("bell");
+export const Camera = makeIcon("camera");
 export const Check = makeIcon("check");
 export const CheckCircle2 = makeIcon("check-circle");
 export const ChevronLeft = makeIcon("chevron-left");

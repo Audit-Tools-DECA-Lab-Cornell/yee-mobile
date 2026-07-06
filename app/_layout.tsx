@@ -14,6 +14,7 @@ import {
 } from "@expo-google-fonts/jetbrains-mono";
 import NetInfo from "@react-native-community/netinfo";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { BugReportFab } from "components/bug-report/BugReportFab";
 import { Provider } from "components/Provider";
 import {
     ForceUpdateScreen,
@@ -23,6 +24,7 @@ import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { useBugReportFlushPrompt } from "lib/bug-report/use-flush-prompt";
 import { useDesignSystem, type ColorTokens } from "lib/design-system";
 import { useEasUpdateBootstrap } from "lib/eas-updates";
 import { useReleasePolicyGate } from "lib/release-policy";
@@ -157,6 +159,7 @@ function RootLayoutNav() {
 
     useHiddenAndroidNavBar(routeKey);
     useEasUpdateBootstrap();
+    useBugReportFlushPrompt(session, authStatus === "authenticated");
 
     useEffect(() => {
         void initializeAuth();
@@ -266,6 +269,7 @@ function RootLayoutNav() {
                     <Stack.Screen name="settings" options={{ headerShown: false }} />
                 </Stack>
             </KeyboardAvoidingView>
+            <BugReportFab />
         </ThemeProvider>
     );
 }

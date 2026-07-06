@@ -4,7 +4,7 @@ import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowRight, Check, Eye, EyeOff, KeyRound, UserRound } from "components/icons";
-import { Button, Checkbox, Input, XStack, YStack } from "tamagui";
+import { Button, Checkbox, Input, Sheet, XStack, YStack } from "tamagui";
 import { ScaledParagraph as Paragraph, ScaledText as Text } from "components/ui";
 import { useDesignSystem } from "lib/design-system";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
@@ -13,6 +13,24 @@ import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Dev-only quick-login roster.
+ */
+const DEV_QUICK_LOGIN_PASSWORD = process.env.EXPO_PUBLIC_DEV_QUICK_LOGIN_PASSWORD!;
+const DEV_QUICK_LOGIN_USERS = [
+    { name: "Demo Auditor One", email: "auditor-demo-1@yee.local" },
+    { name: "Demo Auditor Two", email: "auditor-demo-2@yee.local" },
+    { name: "Demo Auditor Three", email: "auditor-demo-3@yee.local" },
+    { name: "Riverbend Youth Alliance Auditor 1", email: "riverbend-auditor1@example.org" },
+    { name: "Riverbend Youth Alliance Auditor 2", email: "riverbend-auditor2@example.org" },
+    { name: "Riverbend Youth Alliance Auditor 3", email: "riverbend-auditor3@example.org" },
+    { name: "Riverbend Youth Alliance Auditor 4", email: "riverbend-auditor4@example.org" },
+    { name: "Summit Community Trust Auditor 1", email: "summit-auditor1@example.org" },
+    { name: "Summit Community Trust Auditor 2", email: "summit-auditor2@example.org" },
+    { name: "Summit Community Trust Auditor 3", email: "summit-auditor3@example.org" },
+    { name: "Summit Community Trust Auditor 4", email: "summit-auditor4@example.org" },
+];
 
 /**
  * Login screen for YEE mobile.
@@ -37,6 +55,7 @@ export default function LoginScreen() {
     const [showPassword, setShowPassword] = useState<boolean>(false);
     const [validationMessage, setValidationMessage] = useState<string | null>(null);
     const [staySignedIn, setStaySignedIn] = useState<boolean>(true);
+    const [devSheetOpen, setDevSheetOpen] = useState<boolean>(false);
 
     const canSubmit = useMemo(() => {
         return !isSubmitting;
@@ -73,6 +92,19 @@ export default function LoginScreen() {
             email: normalizedEmail,
             password: trimmedPassword,
         });
+    };
+
+    /**
+     * Dev-only shortcut: fill in a seeded test auditor and sign in immediately.
+     * Wired up only when `isDev`, so it is inert in production builds.
+     */
+    const handleQuickLogin = async (userEmail: string): Promise<void> => {
+        setDevSheetOpen(false);
+        clearError();
+        setValidationMessage(null);
+        setEmail(userEmail);
+        setPassword(DEV_QUICK_LOGIN_PASSWORD);
+        await login({ email: userEmail, password: DEV_QUICK_LOGIN_PASSWORD });
     };
 
     /**
@@ -114,6 +146,13 @@ export default function LoginScreen() {
                             fontSize={12}
                             textTransform="uppercase"
                             letterSpacing={2}
+                            {...(isDev
+                                ? {
+                                      onPress: () => setDevSheetOpen(true),
+                                      pressStyle: { opacity: 0.6 },
+                                      hitSlop: { top: 12, bottom: 12, left: 12, right: 12 },
+                                  }
+                                : {})}
                         >
                             Audit Tools Platform
                         </Paragraph>
@@ -408,6 +447,78 @@ export default function LoginScreen() {
                     </YStack>
                 </YStack>
             </ScrollView>
+
+            <Sheet
+                modal
+                open={devSheetOpen}
+                onOpenChange={setDevSheetOpen}
+                snapPoints={[60]}
+                snapPointsMode="percent"
+                dismissOnSnapToBottom
+                zIndex={100_000}
+            >
+                <Sheet.Overlay opacity={0.5} />
+                <Sheet.Frame
+                    p="$5"
+                    pb={insets.bottom + 24}
+                    gap="$3"
+                    bg={designSystem.colors.background}
+                    borderTopLeftRadius={designSystem.radii.lg}
+                    borderTopRightRadius={designSystem.radii.lg}
+                >
+                    <Sheet.Handle bg={designSystem.colors.border} />
+                    <YStack gap="$1" mt="$2">
+                        <Text
+                            color={designSystem.colors.foreground}
+                            fontFamily={designSystem.fonts.headingBold}
+                            fontSize={22}
+                        >
+                            Dev quick login
+                        </Text>
+                        <Paragraph
+                            color={designSystem.colors.mutedForeground}
+                            fontFamily={designSystem.fonts.bodyMedium}
+                            fontSize={13}
+                        >
+                            Tap a seeded test auditor to sign in instantly. Shared password:{" "}
+                            {DEV_QUICK_LOGIN_PASSWORD}
+                        </Paragraph>
+                    </YStack>
+                    {DEV_QUICK_LOGIN_USERS.map((user) => (
+                        <Button
+                            key={user.email}
+                            height={64}
+                            justify="flex-start"
+                            rounded={designSystem.radii.button}
+                            borderWidth={1}
+                            borderColor={designSystem.colors.border}
+                            bg={designSystem.colors.surface}
+                            pressStyle={{ opacity: 0.9, scale: 0.99 }}
+                            disabled={isSubmitting}
+                            onPress={() => {
+                                void handleQuickLogin(user.email);
+                            }}
+                        >
+                            <YStack gap="$0.5" items="flex-start">
+                                <Text
+                                    color={designSystem.colors.foreground}
+                                    fontFamily={designSystem.fonts.bodyBold}
+                                    fontSize={15}
+                                >
+                                    {user.name}
+                                </Text>
+                                <Paragraph
+                                    color={designSystem.colors.mutedForeground}
+                                    fontFamily={designSystem.fonts.bodyMedium}
+                                    fontSize={13}
+                                >
+                                    {user.email}
+                                </Paragraph>
+                            </YStack>
+                        </Button>
+                    ))}
+                </Sheet.Frame>
+            </Sheet>
         </KeyboardAvoidingView>
     );
 }
