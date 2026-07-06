@@ -1,6 +1,22 @@
+import { createAnimations } from "@tamagui/animations-react-native";
 import { defaultConfig } from "@tamagui/config/v5";
 import { createFont, createTamagui } from "tamagui";
 import { themes } from "./themes";
+
+/**
+ * React Native animation driver. `@tamagui/config/v5`'s `defaultConfig` ships no
+ * `animations`, and animated components (notably `Sheet`) require one - without
+ * it they throw `Cannot read property 'setValue' of undefined`. These presets are
+ * referenced by name via the `animation` prop.
+ */
+const animations = createAnimations({
+    "100ms": { type: "timing", duration: 100 },
+    quick: { type: "spring", damping: 20, mass: 1.2, stiffness: 250 },
+    bouncy: { type: "spring", damping: 10, mass: 0.9, stiffness: 100 },
+    medium: { type: "spring", damping: 15, mass: 1, stiffness: 120 },
+    lazy: { type: "spring", damping: 20, stiffness: 60 },
+    slow: { type: "spring", damping: 15, stiffness: 40 },
+});
 
 /**
  * Create a Tamagui font token backed by a single native family.
@@ -36,6 +52,7 @@ const dyslexicBoldFont = createStaticFont("OpenDyslexic-Bold", defaultConfig.fon
 
 export const config = createTamagui({
     ...defaultConfig,
+    animations,
     fonts: {
         ...defaultConfig.fonts,
         body: bodyFont,

@@ -139,42 +139,6 @@ export default function LoginScreen() {
                 ]}
             >
                 <YStack gap="$5" width="100%" style={{ alignSelf: "center" }}>
-                    <YStack gap="$2" px="$1">
-                        <Paragraph
-                            color={designSystem.colors.secondaryForeground}
-                            fontFamily={designSystem.fonts.bodyBold}
-                            fontSize={12}
-                            textTransform="uppercase"
-                            letterSpacing={2}
-                            {...(isDev
-                                ? {
-                                      onPress: () => setDevSheetOpen(true),
-                                      pressStyle: { opacity: 0.6 },
-                                      hitSlop: { top: 12, bottom: 12, left: 12, right: 12 },
-                                  }
-                                : {})}
-                        >
-                            Audit Tools Platform
-                        </Paragraph>
-                        <Text
-                            color={designSystem.colors.foreground}
-                            fontFamily={designSystem.fonts.headingBold}
-                            fontSize={42}
-                            lineHeight={46}
-                            letterSpacing={-1.4}
-                        >
-                            Log in to the YEE workspace.
-                        </Text>
-                        <Paragraph
-                            color={designSystem.colors.mutedForeground}
-                            fontFamily={designSystem.fonts.bodyMedium}
-                            fontSize={17}
-                            lineHeight={28}
-                        >
-                            Sign in to access your assigned places and start auditing.
-                        </Paragraph>
-                    </YStack>
-
                     <YStack
                         gap="$4"
                         rounded={designSystem.radii.lg}
@@ -185,25 +149,39 @@ export default function LoginScreen() {
                         style={{ boxShadow: designSystem.shadows.card }}
                     >
                         <YStack gap="$3">
-                            <YStack gap="$1.5">
-                                <Text
-                                    color={designSystem.colors.foreground}
-                                    fontFamily={designSystem.fonts.headingBold}
-                                    fontSize={34}
-                                    lineHeight={38}
-                                    letterSpacing={-0.8}
-                                >
-                                    Log in
-                                </Text>
-                                <Paragraph
-                                    color={designSystem.colors.secondaryForeground}
-                                    fontFamily={designSystem.fonts.bodyMedium}
-                                    fontSize={16}
-                                    lineHeight={25}
-                                >
-                                    Enter your YEE auditor credentials to continue.
-                                </Paragraph>
-                            </YStack>
+                            <Paragraph
+                                color={designSystem.colors.secondaryForeground}
+                                fontFamily={designSystem.fonts.bodyBold}
+                                fontSize={12}
+                                textTransform="uppercase"
+                                letterSpacing={2}
+                                {...(isDev
+                                    ? {
+                                          onPress: () => setDevSheetOpen(true),
+                                          pressStyle: { opacity: 0.6 },
+                                          hitSlop: { top: 12, bottom: 12, left: 12, right: 12 },
+                                      }
+                                    : {})}
+                            >
+                                Audit Tools Platform
+                            </Paragraph>
+                            <Text
+                                color={designSystem.colors.foreground}
+                                fontFamily={designSystem.fonts.headingBold}
+                                fontSize={42}
+                                lineHeight={46}
+                                letterSpacing={-1.4}
+                            >
+                                Log in to the YEE workspace.
+                            </Text>
+                            <Paragraph
+                                color={designSystem.colors.mutedForeground}
+                                fontFamily={designSystem.fonts.bodyMedium}
+                                fontSize={17}
+                                lineHeight={28}
+                            >
+                                Sign in to access your assigned places and start auditing.
+                            </Paragraph>
                         </YStack>
 
                         <YStack
