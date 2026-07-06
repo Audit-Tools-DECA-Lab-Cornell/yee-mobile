@@ -40,10 +40,14 @@ export function toScorePercentage(rawTotalScore: number): number {
 
 export interface MobileSubmissionScorePreview {
     readonly rawDomainScores: Record<MobileYeeDomainKey, number>;
+    readonly rawDomainMaximums: Record<MobileYeeDomainKey, number>;
     readonly weightedDomainScores: Record<MobileYeeDomainKey, number>;
+    readonly weightedDomainMaximums: Record<MobileYeeDomainKey, number>;
     readonly selectedWeights: Record<MobileYeeDomainKey, number>;
     readonly totalRawScore: number;
+    readonly totalRawMax: number;
     readonly totalWeightedScore: number;
+    readonly totalWeightedMax: number;
 }
 
 export interface MobileDomainScoreRow {
@@ -62,7 +66,7 @@ export function buildMobileSubmissionScorePreview(
     score: YeeScoreResult,
     participantInfo: Record<string, unknown>,
 ): MobileSubmissionScorePreview {
-    const rawDomainScores = {
+    const fallbackRawDomainScores = {
         access: 0,
         activitySpaces: 0,
         amenities: 0,
@@ -74,26 +78,45 @@ export function buildMobileSubmissionScorePreview(
     for (const [sectionName, value] of Object.entries(score.section_scores ?? {})) {
         const domain = sectionToDomain(sectionName);
         if (!domain) continue;
-        rawDomainScores[domain] += typeof value === "number" ? value : Number(value) || 0;
+        fallbackRawDomainScores[domain] += typeof value === "number" ? value : Number(value) || 0;
     }
 
     const weights = normalizeWeights(participantInfo.domain_weights);
-    const weightedDomainScores = Object.fromEntries(
-        (Object.keys(rawDomainScores) as MobileYeeDomainKey[]).map((domain) => [
-            domain,
-            rawDomainScores[domain] * weights[domain],
-        ]),
-    ) as Record<MobileYeeDomainKey, number>;
+    const rawDomainScores = score.raw_domain_scores ?? fallbackRawDomainScores;
+    const rawDomainMaximums = score.raw_domain_maximums ?? rawDomainScoreMaximums;
+    const weightedDomainScores =
+        score.weighted_domain_scores ??
+        (Object.fromEntries(
+            (Object.keys(rawDomainScores) as MobileYeeDomainKey[]).map((domain) => [
+                domain,
+                rawDomainScores[domain] * weights[domain],
+            ]),
+        ) as Record<MobileYeeDomainKey, number>);
+    const weightedDomainMaximums =
+        score.weighted_domain_maximums ??
+        (Object.fromEntries(
+            (Object.keys(rawDomainMaximums) as MobileYeeDomainKey[]).map((domain) => [
+                domain,
+                rawDomainMaximums[domain] * weights[domain],
+            ]),
+        ) as Record<MobileYeeDomainKey, number>);
 
     return {
         rawDomainScores,
+        rawDomainMaximums,
         weightedDomainScores,
-        selectedWeights: weights,
-        totalRawScore: Object.values(rawDomainScores).reduce((sum, value) => sum + value, 0),
-        totalWeightedScore: Object.values(weightedDomainScores).reduce(
-            (sum, value) => sum + value,
-            0,
-        ),
+        weightedDomainMaximums,
+        selectedWeights: score.selected_weights ?? weights,
+        totalRawScore:
+            score.total_raw_score ??
+            Object.values(rawDomainScores).reduce((sum, value) => sum + value, 0),
+        totalRawMax: score.total_raw_maximum ?? totalRawScoreMaximum,
+        totalWeightedScore:
+            score.total_weighted_score ??
+            Object.values(weightedDomainScores).reduce((sum, value) => sum + value, 0),
+        totalWeightedMax:
+            score.total_weighted_maximum ??
+            Object.values(weightedDomainMaximums).reduce((sum, value) => sum + value, 0),
     };
 }
 
@@ -101,9 +124,9 @@ export function buildDomainScoreRows(
     preview: MobileSubmissionScorePreview,
 ): readonly MobileDomainScoreRow[] {
     return (Object.keys(mobileYeeDomainLabels) as MobileYeeDomainKey[]).map((domain) => {
-        const rawMax = rawDomainScoreMaximums[domain];
+        const rawMax = preview.rawDomainMaximums[domain];
         const weightValue = preview.selectedWeights[domain];
-        const weightedMax = rawMax * weightValue;
+        const weightedMax = preview.weightedDomainMaximums[domain];
         const rawScore = preview.rawDomainScores[domain];
         const weightedScore = preview.weightedDomainScores[domain];
 

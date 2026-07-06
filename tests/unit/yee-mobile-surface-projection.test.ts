@@ -36,4 +36,14 @@ describe("sync-visible mobile surfaces", () => {
     it("keeps Settings out of audit sync state", () => {
         expect(readSurface("app/settings.tsx")).not.toContain("useYeeMobileStore");
     });
+
+    it("keeps submitted audits out of the editable execute flow", () => {
+        const executeSurface = readSurface("app/(tabs)/execute.tsx");
+        const auditSurface = readSurface("app/audit/[placeId]/index.tsx");
+
+        expect(executeSurface).toContain('view.status !== "submitted"');
+        expect(executeSurface).toContain("No pending audits to complete");
+        expect(auditSurface).toContain("getLatestSubmissionForPlace");
+        expect(auditSurface).toContain("Audit already submitted");
+    });
 });

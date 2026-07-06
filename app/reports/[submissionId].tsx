@@ -29,7 +29,6 @@ import {
     getReadableWeather,
     getSectionComments,
     getWeightingComments,
-    getYouthWeightedScoreMaximum,
     totalRawScoreMaximum,
 } from "lib/yee-mobile-reporting";
 import {
@@ -714,8 +713,8 @@ function ScoreResultsTable({
                 />
                 <MetricCard
                     label="Total Youth-Weighted average"
-                    value={`${preview?.totalWeightedScore ?? 0} / ${preview ? getYouthWeightedScoreMaximum(preview.selectedWeights) : 0} (${Math.round(((preview?.totalWeightedScore ?? 0) / (preview ? getYouthWeightedScoreMaximum(preview.selectedWeights) : 1) || 0) * 100)}%)`}
-                    helperText="Weighted by domain importance ratings."
+                    value={`${preview?.totalWeightedScore ?? 0} / ${preview?.totalWeightedMax ?? 0} (${Math.round(((preview?.totalWeightedScore ?? 0) / (preview?.totalWeightedMax ?? 1) || 0) * 100)}%)`}
+                    helperText="Backend canonical weighted average."
                     textColor={designSystem.colors.successText}
                 />
             </XStack>

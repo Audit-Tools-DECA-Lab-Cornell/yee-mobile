@@ -21,6 +21,7 @@ import {
 } from "lib/yee-mobile-audit-config";
 import { getSectionForStep, type NormalizedInstrument } from "lib/yee-mobile-instrument";
 import type { MobileAuditFormState } from "lib/yee-mobile-draft";
+import { getLatestSubmissionForPlace } from "lib/yee-mobile-selectors";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 import { useAuditSessionStore } from "stores/yee-audit-session-store";
 import { AuditHeader } from "components/audit/AuditHeader";
@@ -56,6 +57,9 @@ export default function AuditShellScreen() {
         (state) => state.assignedPlaces.find((entry) => entry.id === placeId) ?? null,
     );
     const hasLoadedPlaces = useYeeMobileStore((state) => state.assignedPlaces.length > 0);
+    const submittedAudit = useYeeMobileStore((state) =>
+        getLatestSubmissionForPlace(state.submittedAudits, placeId),
+    );
 
     const loadPhase = useAuditSessionStore((state) => state.loadPhase);
     const errorMessage = useAuditSessionStore((state) => state.errorMessage);
@@ -71,6 +75,10 @@ export default function AuditShellScreen() {
         if (placeId.length === 0) {
             return;
         }
+        if (submittedAudit !== null) {
+            close();
+            return;
+        }
         void open(placeId, { place });
         return () => {
             close();
@@ -78,7 +86,7 @@ export default function AuditShellScreen() {
         // `place` is intentionally excluded: open() re-reads live place data, and
         // re-opening on every place-cache refresh would discard in-progress edits.
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [placeId, open, close]);
+    }, [placeId, open, close, submittedAudit]);
 
     const scrollToTop = useCallback(() => {
         scrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -180,6 +188,19 @@ export default function AuditShellScreen() {
                     title="Place not available"
                     body="This audit route is not available on this device right now. Return to the places list and refresh the assigned-place cache when you are online."
                     onBack={() => router.replace("/(tabs)/places")}
+                />
+            </>
+        );
+    }
+
+    if (submittedAudit !== null) {
+        return (
+            <>
+                {stackScreen}
+                <AuditBlockedScreen
+                    title="Audit already submitted"
+                    body="This audit has been submitted and is locked for editing. Open the submitted report to review the results."
+                    onBack={() => router.replace("/(tabs)/reports")}
                 />
             </>
         );

@@ -72,9 +72,19 @@ export default function ExecuteScreen() {
         [assignedPlaces, draftsByPlace, submittedAudits, syncQueue, selectedPlaceId],
     );
     const placeViews = projection.placeViews;
+    const executablePlaceViews = useMemo(
+        () => placeViews.filter((view) => view.status !== "submitted"),
+        [placeViews],
+    );
     const activePlaceView = useMemo(() => {
-        return projection.selectedPlaceView ?? placeViews[0] ?? null;
-    }, [placeViews, projection.selectedPlaceView]);
+        if (
+            projection.selectedPlaceView !== null &&
+            projection.selectedPlaceView.status !== "submitted"
+        ) {
+            return projection.selectedPlaceView;
+        }
+        return executablePlaceViews[0] ?? null;
+    }, [executablePlaceViews, projection.selectedPlaceView]);
     const scrollToOffset = useCallback((offset: number) => {
         scrollViewRef.current?.scrollTo({ y: offset, animated: false });
     }, []);
@@ -89,9 +99,16 @@ export default function ExecuteScreen() {
         return (
             <YStack flex={1} bg={designSystem.colors.background} px="$4" py="$6" justify="center">
                 <EmptyState
-                    icon={<CloudOff size={22} color={designSystem.colors.primary} />}
-                    title="Select a place to begin"
-                    description="Select a place from the Places tab to begin an audit."
+                    icon={<FileBarChart size={22} color={designSystem.colors.primary} />}
+                    title="No pending audits to complete"
+                    description="All assigned audits on this device have already been submitted. Submitted audits are locked for editing."
+                    action={
+                        <AppButton
+                            variant="primary"
+                            label="View reports"
+                            onPress={() => router.push("/(tabs)/reports")}
+                        />
+                    }
                 />
             </YStack>
         );

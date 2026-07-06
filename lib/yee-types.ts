@@ -13,6 +13,17 @@ export interface YeeScoreResult {
     readonly section_scores: Record<string, number>;
     readonly category_scores: Record<string, number>;
     readonly matched_scored_answers: number;
+    readonly total_raw_score?: number;
+    readonly total_raw_maximum?: number;
+    readonly raw_domain_scores?: Record<YeeDomainKey, number>;
+    readonly raw_domain_maximums?: Record<YeeDomainKey, number>;
+    readonly total_weighted_score?: number;
+    readonly total_weighted_maximum?: number;
+    readonly weighted_domain_scores?: Record<YeeDomainKey, number>;
+    readonly weighted_domain_maximums?: Record<YeeDomainKey, number>;
+    readonly selected_weights?: Record<YeeDomainKey, number>;
+    readonly normalized_weights?: Record<YeeDomainKey, number>;
+    readonly priority_gaps?: Record<YeeDomainKey, number>;
 }
 
 export interface YeeAuditStateResponse {
