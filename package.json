@@ -16,7 +16,7 @@
         "eas:android:local": "eas build --platform android --profile production --local --wait",
         "eas:ios": "eas build --platform ios --profile production --wait",
         "eas:ios:local": "eas build --platform ios --profile production --local --wait",
-        "update:production": "eas update --branch production",
+        "update:production": "eas update --channel production --environment production --message \"Production update\"",
         "submit:android": "eas submit --platform android --profile production --latest",
         "submit:ios": "eas submit --platform ios --profile production --latest",
         "release:android": "bun run eas:android && bun run submit:android",

@@ -115,6 +115,7 @@ const DomainQuestionRow = memo(function DomainQuestionRow({ row }: { row: Instru
     );
     const setPresenceAnswer = useAuditSessionStore((state) => state.setPresenceAnswer);
     const setConditionAnswer = useAuditSessionStore((state) => state.setConditionAnswer);
+    const readOnly = useAuditSessionStore((state) => state.readOnly);
 
     const onPresence = useCallback(
         (answerId: string) => setPresenceAnswer(row, answerId),
@@ -130,7 +131,12 @@ const DomainQuestionRow = memo(function DomainQuestionRow({ row }: { row: Instru
 
     return (
         <QuestionCard label={row.label}>
-            <OptionGrid value={presenceValue} options={row.presenceAnswers} onChange={onPresence} />
+            <OptionGrid
+                value={presenceValue}
+                options={row.presenceAnswers}
+                onChange={onPresence}
+                disabled={readOnly}
+            />
             {showCondition ? (
                 <YStack
                     gap="$2.5"
@@ -149,6 +155,7 @@ const DomainQuestionRow = memo(function DomainQuestionRow({ row }: { row: Instru
                         value={conditionValue}
                         options={row.conditionAnswers}
                         onChange={onCondition}
+                        disabled={readOnly}
                     />
                 </YStack>
             ) : null}
@@ -167,6 +174,7 @@ const DomainSectionComment = memo(function DomainSectionComment({
 }) {
     const value = useAuditSessionStore((state) => state.draft?.sectionComments[domain] ?? "");
     const setSectionComment = useAuditSessionStore((state) => state.setSectionComment);
+    const readOnly = useAuditSessionStore((state) => state.readOnly);
     const palette = useSurveyPalette();
     const onCommit = useCallback(
         (next: string) => setSectionComment(domain, next),
@@ -178,6 +186,7 @@ const DomainSectionComment = memo(function DomainSectionComment({
             value={value}
             onCommit={onCommit}
             palette={palette}
+            disabled={readOnly}
         />
     );
 });

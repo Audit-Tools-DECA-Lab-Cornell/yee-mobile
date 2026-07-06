@@ -47,10 +47,16 @@ export const WeightingStep = memo(function WeightingStep() {
 const WeightRow = memo(function WeightRow({ domain }: { domain: MobileYeeDomainKey }) {
     const value = useAuditSessionStore((state) => state.draft?.weights[domain]);
     const setWeight = useAuditSessionStore((state) => state.setWeight);
+    const readOnly = useAuditSessionStore((state) => state.readOnly);
     const onChange = useCallback((next: string) => setWeight(domain, next), [setWeight, domain]);
     return (
         <QuestionCard label={getWeightPrompt(domain)}>
-            <OptionGrid value={value} options={WEIGHT_OPTIONS} onChange={onChange} />
+            <OptionGrid
+                value={value}
+                options={WEIGHT_OPTIONS}
+                onChange={onChange}
+                disabled={readOnly}
+            />
         </QuestionCard>
     );
 });
@@ -58,6 +64,7 @@ const WeightRow = memo(function WeightRow({ domain }: { domain: MobileYeeDomainK
 const WeightingCommentsField = memo(function WeightingCommentsField() {
     const value = useAuditSessionStore((state) => state.draft?.weightingComments ?? "");
     const setWeightingComments = useAuditSessionStore((state) => state.setWeightingComments);
+    const readOnly = useAuditSessionStore((state) => state.readOnly);
     const palette = useSurveyPalette();
     return (
         <CommentField
@@ -65,6 +72,7 @@ const WeightingCommentsField = memo(function WeightingCommentsField() {
             value={value}
             onCommit={setWeightingComments}
             palette={palette}
+            disabled={readOnly}
         />
     );
 });

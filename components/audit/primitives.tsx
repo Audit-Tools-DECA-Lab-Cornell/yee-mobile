@@ -141,12 +141,15 @@ export const SelectionButton = memo(function SelectionButton({
     selected,
     onPress,
     multi = false,
+    disabled = false,
 }: {
     label: string;
     selected: boolean;
     onPress: () => void;
     /** Render a square (checkbox) signifier instead of a round (radio) one. */
     multi?: boolean;
+    /** View-only: ignore presses and dim unselected rows. */
+    disabled?: boolean;
 }) {
     const designSystem = useDesignSystem();
     const palette = useSurveyPalette();
@@ -158,16 +161,19 @@ export const SelectionButton = memo(function SelectionButton({
             borderWidth={1}
             py="$3"
             px="$3.5"
-            cursor="pointer"
+            cursor={disabled ? "default" : "pointer"}
             accessibilityRole="button"
-            accessibilityState={{ selected }}
-            hoverStyle={{ opacity: 0.98 }}
-            pressStyle={{ opacity: 0.92, scale: 0.985 }}
-            onPress={onPress}
+            accessibilityState={{ selected, disabled }}
+            hoverStyle={disabled ? null : { opacity: 0.98 }}
+            pressStyle={disabled ? null : { opacity: 0.92, scale: 0.985 }}
+            onPress={disabled ? undefined : onPress}
             style={{
                 backgroundColor: selected ? palette.selected : palette.inner,
                 borderColor: selected ? palette.selectedBorder : palette.innerBorder,
                 boxShadow: selected ? designSystem.shadows.elevated : "none",
+                // Keep the chosen answer fully legible; fade the rest so a locked
+                // audit still reads clearly as "this is what was selected".
+                opacity: disabled && !selected ? 0.55 : 1,
             }}
         >
             <YStack
@@ -207,10 +213,13 @@ export const OptionGrid = memo(function OptionGrid({
     value,
     options,
     onChange,
+    disabled = false,
 }: {
     value: string | undefined;
     options: readonly InstrumentOption[];
     onChange: (value: string) => void;
+    /** View-only: forward to every option so the group is non-interactive. */
+    disabled?: boolean;
 }) {
     return (
         <YStack gap="$2">
@@ -220,6 +229,7 @@ export const OptionGrid = memo(function OptionGrid({
                     label={option.label}
                     selected={value === option.id}
                     onPress={() => onChange(option.id)}
+                    disabled={disabled}
                 />
             ))}
         </YStack>
@@ -382,12 +392,15 @@ export const CommentField = memo(function CommentField({
     onCommit,
     palette,
     placeholder = "Optional notes",
+    disabled = false,
 }: {
     label: string;
     value: string;
     onCommit: (value: string) => void;
     palette: SurveyPalette;
     placeholder?: string;
+    /** View-only: lock the input and show a muted empty placeholder. */
+    disabled?: boolean;
 }) {
     const designSystem = useDesignSystem();
     const [text, setText] = useState(value);
@@ -443,6 +456,44 @@ export const CommentField = memo(function CommentField({
             }
         };
     }, []);
+
+    // View-only: render the saved comment as locked text rather than a disabled
+    // input frame — clearer that nothing here is editable.
+    if (disabled) {
+        const trimmed = value.trim();
+        return (
+            <YStack gap="$2">
+                <Paragraph
+                    color={designSystem.colors.secondaryForeground}
+                    fontFamily={designSystem.fonts.bodyBold}
+                >
+                    {label}
+                </Paragraph>
+                <YStack
+                    rounded={designSystem.radii.md}
+                    borderWidth={1}
+                    px="$3"
+                    py="$3"
+                    style={{
+                        minHeight: 56,
+                        backgroundColor: palette.inner,
+                        borderColor: palette.innerBorder,
+                    }}
+                >
+                    <Paragraph
+                        color={
+                            trimmed.length > 0
+                                ? designSystem.colors.foreground
+                                : designSystem.colors.mutedForeground
+                        }
+                        fontFamily={designSystem.fonts.bodyMedium}
+                    >
+                        {trimmed.length > 0 ? trimmed : "No comments added."}
+                    </Paragraph>
+                </YStack>
+            </YStack>
+        );
+    }
 
     return (
         <YStack gap="$2">

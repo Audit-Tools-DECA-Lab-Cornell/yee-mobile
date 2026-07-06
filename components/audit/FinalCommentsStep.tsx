@@ -7,6 +7,7 @@ import { CommentField, SurveyCard } from "./primitives";
 export const FinalCommentsStep = memo(function FinalCommentsStep() {
     const value = useAuditSessionStore((state) => state.draft?.comments ?? "");
     const setComments = useAuditSessionStore((state) => state.setComments);
+    const readOnly = useAuditSessionStore((state) => state.readOnly);
     const palette = useSurveyPalette();
     return (
         <SurveyCard
@@ -18,6 +19,7 @@ export const FinalCommentsStep = memo(function FinalCommentsStep() {
                 value={value}
                 onCommit={setComments}
                 palette={palette}
+                disabled={readOnly}
             />
         </SurveyCard>
     );

@@ -62,9 +62,11 @@ function resolvePill(
 export const SaveStatusPill = memo(function SaveStatusPill() {
     const designSystem = useDesignSystem();
     const status = useAuditSessionStore((state) => state.saveStatus);
+    const readOnly = useAuditSessionStore((state) => state.readOnly);
     const pill = resolvePill(status, designSystem.colors);
 
-    if (pill === null) {
+    // Nothing is being saved in a view-only session.
+    if (readOnly || pill === null) {
         return null;
     }
 

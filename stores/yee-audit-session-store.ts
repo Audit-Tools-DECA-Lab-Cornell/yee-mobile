@@ -42,8 +42,25 @@ export interface AuditSessionState {
      * background remote refresh from clobbering unsaved work.
      */
     readonly hasLocalEdits: boolean;
+    /**
+     * True when the session was opened purely to VIEW a submitted audit. In this
+     * mode every setter is a no-op, autosave never fires, and close() never
+     * flushes — the loaded answers are display-only and must never be written
+     * back as a draft.
+     */
+    readonly readOnly: boolean;
 
     open: (placeId: string, options: { place: YeeAssignedPlace | null }) => Promise<void>;
+    /**
+     * Open the session in view-only mode from an already-built form state (e.g. a
+     * fetched submission mapped via buildFormStateFromSources, or a queued local
+     * draft). Loads the instrument for rendering but starts no autosave and no
+     * remote refresh.
+     */
+    openReadOnly: (
+        formState: MobileAuditFormState,
+        options?: { instrument?: NormalizedInstrument | null },
+    ) => Promise<void>;
     retryLoad: () => Promise<void>;
     close: () => void;
 
@@ -82,6 +99,7 @@ const INITIAL_STATE = {
     saveStatus: "idle" as AuditSaveStatus,
     lastSavedAt: null,
     hasLocalEdits: false,
+    readOnly: false,
 } satisfies Partial<AuditSessionState>;
 
 /**
@@ -138,7 +156,9 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
      */
     function patchDraft(mutator: (draft: MobileAuditFormState) => MobileAuditFormState): void {
         set((state) => {
-            if (state.draft === null) {
+            // View-only sessions never mutate the draft — belt-and-suspenders on
+            // top of the disabled controls in the step screens.
+            if (state.readOnly || state.draft === null) {
                 return {};
             }
             const next = mutator(state.draft);
@@ -211,6 +231,61 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
             void backgroundRefresh(placeId, place);
         },
 
+        openReadOnly: async (formState, options) => {
+            cancelAutosave();
+            // Fingerprint the loaded state so the guarded autosave (which never
+            // runs in read-only anyway) would treat it as already-persisted.
+            lastPersistedFingerprint = buildDraftFingerprint(formState);
+
+            set({
+                ...INITIAL_STATE,
+                placeId: formState.placeId,
+                draft: formState,
+                readOnly: true,
+                loadPhase: "loading",
+            });
+
+            let instrument = options?.instrument ?? null;
+            if (instrument === null) {
+                try {
+                    const cached = await readInstrumentCache();
+                    if (cached !== null) {
+                        instrument = normalizeInstrument(cached);
+                    }
+                } catch {
+                    instrument = null;
+                }
+            }
+
+            // Abandoned mid-load (viewer closed / switched to another audit).
+            if (get().placeId !== formState.placeId || !get().readOnly) {
+                return;
+            }
+
+            if (instrument !== null) {
+                set({ instrument, loadPhase: "ready" });
+                return;
+            }
+
+            // No cached instrument: fetch it once if online, else surface the same
+            // "survey not cached" error the edit path uses. No draft/remote merge.
+            if (!useYeeMobileStore.getState().isOnline) {
+                set({ loadPhase: "error", errorMessage: SURVEY_NOT_CACHED_MESSAGE });
+                return;
+            }
+            try {
+                const payload = await fetchYeeInstrument();
+                await writeInstrumentCache(payload);
+                if (get().placeId === formState.placeId && get().readOnly) {
+                    set({ instrument: normalizeInstrument(payload), loadPhase: "ready" });
+                }
+            } catch {
+                if (get().placeId === formState.placeId && get().readOnly) {
+                    set({ loadPhase: "error", errorMessage: SURVEY_LOAD_FAILED_MESSAGE });
+                }
+            }
+        },
+
         retryLoad: async () => {
             const placeId = get().placeId;
             if (placeId === null) {
@@ -227,9 +302,11 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
             cancelAutosave();
             // Flush any unpersisted local edits before tearing down so an exit that
             // skipped Save & Exit never loses work. Fire-and-forget against the
-            // captured draft — independent of the store reset below.
-            const { draft, hasLocalEdits } = get();
+            // captured draft — independent of the store reset below. View-only
+            // sessions never flush (nothing was edited).
+            const { draft, hasLocalEdits, readOnly } = get();
             if (
+                !readOnly &&
                 draft !== null &&
                 hasLocalEdits &&
                 buildDraftFingerprint(draft) !== lastPersistedFingerprint
@@ -500,6 +577,10 @@ async function backgroundRefresh(placeId: string, place: YeeAssignedPlace | null
 // ---------------------------------------------------------------------------
 
 useAuditSessionStore.subscribe((state, previousState) => {
+    // View-only sessions never persist.
+    if (state.readOnly) {
+        return;
+    }
     if (state.draft === null || state.loadPhase !== "ready") {
         return;
     }

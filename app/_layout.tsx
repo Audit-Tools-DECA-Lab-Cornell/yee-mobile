@@ -15,11 +15,17 @@ import {
 import NetInfo from "@react-native-community/netinfo";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Provider } from "components/Provider";
+import {
+    ForceUpdateScreen,
+    ReleasePolicyLoadingScreen,
+} from "components/release-policy/ForceUpdateScreen";
 import { useFonts } from "expo-font";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useDesignSystem, type ColorTokens } from "lib/design-system";
+import { useEasUpdateBootstrap } from "lib/eas-updates";
+import { useReleasePolicyGate } from "lib/release-policy";
 import { useHiddenAndroidNavBar } from "lib/system-bars";
 import { useEffect, useMemo, useState } from "react";
 import { Appearance, KeyboardAvoidingView, Platform } from "react-native";
@@ -129,6 +135,7 @@ function Providers({ children }: ProvidersProps) {
  * Root navigator with auth and app route groups.
  */
 function RootLayoutNav() {
+    const releasePolicyGate = useReleasePolicyGate();
     const router = useRouter();
     const segments = useSegments();
     const routeKey = segments.join("/");
@@ -149,6 +156,7 @@ function RootLayoutNav() {
     );
 
     useHiddenAndroidNavBar(routeKey);
+    useEasUpdateBootstrap();
 
     useEffect(() => {
         void initializeAuth();
@@ -215,6 +223,19 @@ function RootLayoutNav() {
             router.replace("/(auth)/login");
         }
     }, [authStatus, router, segments]);
+
+    if (releasePolicyGate.status === "loading") {
+        return <ReleasePolicyLoadingScreen />;
+    }
+
+    if (releasePolicyGate.status === "blocked") {
+        return (
+            <ForceUpdateScreen
+                decision={releasePolicyGate.decision}
+                onRetry={releasePolicyGate.retry}
+            />
+        );
+    }
 
     if (authStatus === "loading") {
         return null;

@@ -12,6 +12,7 @@ export default function AuditLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="review" />
             <Stack.Screen name="submitted" />
+            <Stack.Screen name="view" />
         </Stack>
     );
 }

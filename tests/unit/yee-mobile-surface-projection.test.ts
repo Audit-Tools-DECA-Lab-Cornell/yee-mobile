@@ -41,8 +41,10 @@ describe("sync-visible mobile surfaces", () => {
         const executeSurface = readSurface("app/(tabs)/execute.tsx");
         const auditSurface = readSurface("app/audit/[placeId]/index.tsx");
 
+        // The "To do" segment only lists non-submitted audits for editing…
         expect(executeSurface).toContain('view.status !== "submitted"');
-        expect(executeSurface).toContain("No pending audits to complete");
+        // …and submitted audits open the read-only walkthrough, never the editor.
+        expect(executeSurface).toContain("/view?submissionId=");
         expect(auditSurface).toContain("getLatestSubmissionForPlace");
         expect(auditSurface).toContain("Audit already submitted");
     });

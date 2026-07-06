@@ -68,6 +68,13 @@ The app is built with Expo + Expo Router, uses Tamagui for UI, and includes Type
 - `bun run screenshots:android -- --list` - list automated Android screenshot targets (connected devices)
 - `bun run screenshots` - capture iOS then Android into `screenshots/<device>/<appearance>/`
 - `bun run ci:quality` - run the complete CI quality pipeline locally
+- `bun run update:production` - publish a compatible JS/assets update to the production EAS Update channel
+
+## Versioning & Releases
+
+`runtimeVersion` is `fingerprint`, so compatible JS/assets changes can ship with `bun run update:production`. Native dependency, Expo SDK, permission, or runtime-impacting changes need a new store build with `bun run eas:android` followed by `bun run submit:android`.
+
+The app checks `/yee/mobile-release-policy` at startup. Raise the backend `minimum_supported_version` or platform build threshold when testers must install a newer Play Store/TestFlight binary before continuing.
 
 ## Code Quality
 
