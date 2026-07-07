@@ -74,7 +74,9 @@ The app is built with Expo + Expo Router, uses Tamagui for UI, and includes Type
 
 `runtimeVersion` is `fingerprint`, so compatible JS/assets changes can ship with `bun run update:production`. Native dependency, Expo SDK, permission, or runtime-impacting changes need a new store build with `bun run eas:android` followed by `bun run submit:android`.
 
-The app checks `/yee/mobile-release-policy` at startup. Raise the backend `minimum_supported_version` or platform build threshold when testers must install a newer Play Store/TestFlight binary before continuing.
+The app checks `/yee/mobile-release-policy` at startup and force-updates any install below the backend's `minimum_supported_version`. That floor is **not** auto-derived from a store release — it is a hand-maintained constant in `YEE_RELEASE_POLICY` in `audit-tools-backend/app/products/mobile_release_policy.py`.
+
+**On every version bump (or when an agent finishes a user-shipping YEE mobile session), review that floor and propose whether it must rise.** Raise it when older installs would break against the current backend — a data/terminology migration, an API-contract or sync change, a dropped/renamed field, a required native capability, or a fix older clients must not skip. Leave it (the default) for backward-compatible changes; a needless raise force-updates every tester. Propose the new floor (or an explicit "no change needed") with a one-line rationale and apply only after confirmation. Full policy: `audit-tools-backend/docs/deployment.md` → "Mobile Release Policy Sources".
 
 ## Code Quality
 
