@@ -65,7 +65,13 @@ function makeSection(
 }
 
 function makeInstrument(sections: readonly InstrumentSectionDefinition[]): NormalizedInstrument {
-    return { sections };
+    return {
+        sections,
+        contextQuestions: [],
+        weighting: { title: "", description: "", options: [], domains: [] },
+        conditionPrompt: "",
+        finalCommentsPrompt: "",
+    };
 }
 
 // ---------------------------------------------------------------------------

@@ -54,8 +54,81 @@ export interface InstrumentSectionDefinition {
     readonly groups: readonly InstrumentPromptGroup[];
 }
 
+/** A visit-context question (step 1), fully backend-supplied. */
+export interface InstrumentContextQuestion {
+    readonly id: string;
+    readonly prompt: string;
+    readonly multiSelect: boolean;
+    readonly options: readonly InstrumentOption[];
+}
+
+/** One domain row on the youth-weighting step (step 2). */
+export interface InstrumentWeightingDomain {
+    readonly key: MobileYeeDomainKey;
+    readonly label: string;
+    readonly prompt: string;
+}
+
+/** The youth-weighting step content: intro + scale + per-domain prompts. */
+export interface InstrumentWeighting {
+    readonly title: string;
+    readonly description: string;
+    readonly options: readonly InstrumentOption[];
+    readonly domains: readonly InstrumentWeightingDomain[];
+}
+
 export interface NormalizedInstrument {
     readonly sections: readonly InstrumentSectionDefinition[];
+    /** Visit-context questions in display order (excludes auto-generated ids). */
+    readonly contextQuestions: readonly InstrumentContextQuestion[];
+    readonly weighting: InstrumentWeighting;
+    /** Shared "If yes, please rate the condition…" follow-up prompt. */
+    readonly conditionPrompt: string;
+    /** Prompt for the overall/final comments field before review & submit. */
+    readonly finalCommentsPrompt: string;
+}
+
+/** Stable ids for the visit-context questions the client binds to draft slices. */
+export const CONTEXT_QUESTION_IDS = {
+    visitFrequency: "visit_frequency",
+    publicAccess: "public_access",
+    openHoursAccess: "open_hours_access",
+    season: "season",
+    weather: "weather",
+} as const;
+
+// Defensive fallbacks for the two short inline prompts, used only if a
+// pre-migration cached instrument omits them. The backend is the source of
+// truth; any fresh fetch overrides these.
+const DEFAULT_CONDITION_PROMPT =
+    "If yes, please rate the condition that this feature or area is in.";
+const DEFAULT_FINAL_COMMENTS_PROMPT = "Overall survey comments";
+
+const DOMAIN_KEYS: readonly MobileYeeDomainKey[] = [
+    "access",
+    "activitySpaces",
+    "amenities",
+    "experienceOfSpace",
+    "aestheticsAndCare",
+    "useAndUsability",
+];
+
+function isDomainKey(value: string): value is MobileYeeDomainKey {
+    return (DOMAIN_KEYS as readonly string[]).includes(value);
+}
+
+function toOptionList(
+    source: readonly { readonly value?: string; readonly label?: string }[] | undefined,
+): readonly InstrumentOption[] {
+    if (!Array.isArray(source)) {
+        return [];
+    }
+    return source
+        .filter((entry) => entry && typeof entry.value === "string")
+        .map((entry) => ({
+            id: String(entry.value),
+            label: readableLabel(entry.label ?? entry.value ?? ""),
+        }));
 }
 
 export function normalizeInstrument(instrument: YeeInstrumentResponse): NormalizedInstrument {
@@ -116,9 +189,9 @@ export function normalizeInstrument(instrument: YeeInstrumentResponse): Normaliz
             const groups = [...grouped.entries()].map(([baseQuestionId, items]) => {
                 const presence = items.find((entry) => entry.item_kind === "presence") ?? items[0];
                 const condition = items.find((entry) => entry.item_kind === "condition") ?? null;
-                const choices = normalizeOptions(presence?.choices ?? {});
-                const presenceAnswers = normalizeOptions(presence?.answers ?? {});
-                const conditionAnswers = normalizeOptions(condition?.answers ?? {});
+                const choices = normalizeOptions(presence?.choices ?? {}, "question");
+                const presenceAnswers = normalizeOptions(presence?.answers ?? {}, "answer");
+                const conditionAnswers = normalizeOptions(condition?.answers ?? {}, "answer");
                 const instruction = normalizeInstruction(presence?.question_text ?? "");
 
                 return {
@@ -142,7 +215,110 @@ export function normalizeInstrument(instrument: YeeInstrumentResponse): Normaliz
         })
         .filter(Boolean) as InstrumentSectionDefinition[];
 
-    return { sections: normalizedSections };
+    return {
+        sections: normalizedSections,
+        contextQuestions: normalizeContextQuestions(instrument),
+        weighting: normalizeWeighting(instrument),
+        conditionPrompt:
+            sanitizeRichText(instrument.condition_prompt ?? "") || DEFAULT_CONDITION_PROMPT,
+        finalCommentsPrompt:
+            sanitizeRichText(instrument.final_comments_prompt ?? "") ||
+            DEFAULT_FINAL_COMMENTS_PROMPT,
+    };
+}
+
+/**
+ * Visit-context questions in display order. Auto-generated ids (auditor_id,
+ * audit_date) and the weighting question are excluded — the client renders those
+ * elsewhere. Each question keeps its backend id so the step can bind it to the
+ * matching draft slice.
+ */
+function normalizeContextQuestions(
+    instrument: YeeInstrumentResponse,
+): readonly InstrumentContextQuestion[] {
+    const raw = Array.isArray(instrument.pre_audit_questions) ? instrument.pre_audit_questions : [];
+    return raw
+        .filter(
+            (question) =>
+                question &&
+                typeof question.id === "string" &&
+                question.auto_generated !== true &&
+                question.id !== "importance_weighting",
+        )
+        .map((question) => ({
+            id: String(question.id),
+            prompt: sanitizeRichText(question.prompt ?? ""),
+            multiSelect: question.multi_select === true,
+            options: toOptionList(question.options),
+        }));
+}
+
+function normalizeWeighting(instrument: YeeInstrumentResponse): InstrumentWeighting {
+    const raw = instrument.weighting ?? null;
+    const domains = (Array.isArray(raw?.domains) ? raw.domains : [])
+        .filter((domain) => domain && typeof domain.key === "string" && isDomainKey(domain.key))
+        .map((domain) => ({
+            key: domain.key as MobileYeeDomainKey,
+            label: readableLabel(domain.label ?? ""),
+            prompt: sanitizeRichText(domain.prompt ?? ""),
+        }));
+
+    return {
+        title: sanitizeRichText(raw?.title ?? ""),
+        description: sanitizeRichText(raw?.description ?? ""),
+        options: toOptionList(raw?.options),
+        domains,
+    };
+}
+
+/** The context question with this id, or `null` if the instrument omits it. */
+export function findContextQuestion(
+    instrument: NormalizedInstrument,
+    id: string,
+): InstrumentContextQuestion | null {
+    return instrument.contextQuestions.find((question) => question.id === id) ?? null;
+}
+
+/** Display label for a single-select context answer, or "Not answered". */
+export function contextAnswerLabel(
+    instrument: NormalizedInstrument,
+    id: string,
+    value: string | null | undefined,
+): string {
+    if (value === null || value === undefined || String(value).length === 0) {
+        return "Not answered";
+    }
+    const option = findContextQuestion(instrument, id)?.options.find(
+        (entry) => entry.id === String(value),
+    );
+    return option?.label ?? String(value);
+}
+
+/** Comma-joined labels for a multi-select context answer, or "Not answered". */
+export function contextAnswerLabelList(
+    instrument: NormalizedInstrument,
+    id: string,
+    values: readonly string[],
+): string {
+    if (values.length === 0) {
+        return "Not answered";
+    }
+    const options = findContextQuestion(instrument, id)?.options ?? [];
+    return values
+        .map((value) => options.find((entry) => entry.id === value)?.label ?? value)
+        .join(", ");
+}
+
+/** Display label for a youth-weighting scale value, or "Not answered". */
+export function weightOptionLabel(
+    instrument: NormalizedInstrument,
+    value: string | null | undefined,
+): string {
+    if (value === null || value === undefined || String(value).trim().length === 0) {
+        return "Not answered";
+    }
+    const option = instrument.weighting.options.find((entry) => entry.id === String(value));
+    return option?.label ?? String(value);
 }
 
 export function getSectionForStep(
@@ -176,6 +352,24 @@ export function isAffirmativeAnswer(
     return label.startsWith("yes") || label.includes("yes,") || label === "yes";
 }
 
+/**
+ * The single unambiguous negative-presence option for a row, or `null`.
+ *
+ * "Not present" is derived from the SAME affirmative semantics the condition
+ * follow-up already uses (the non-affirmative option), never from matching a
+ * literal label like "No" / "Not present". We only return an option when there
+ * is exactly one non-affirmative choice — a clean binary presence question. For
+ * anything ambiguous (multiple negatives, or none) we return `null` and let the
+ * auditor answer manually, so the bulk "mark remaining not present" helper can
+ * never guess wrong.
+ */
+export function getNegativePresenceOption(
+    options: readonly InstrumentOption[],
+): InstrumentOption | null {
+    const negatives = options.filter((option) => !isAffirmativeAnswer(options, option.id));
+    return negatives.length === 1 ? (negatives[0] ?? null) : null;
+}
+
 function normalizeInstruction(text: string): string | null {
     const cleaned = sanitizeRichText(text);
     if (cleaned.length === 0) {
@@ -190,20 +384,38 @@ function normalizeInstruction(text: string): string | null {
     return cleaned;
 }
 
-function normalizeOptions(source: Record<string, RawTextEntry>): readonly InstrumentOption[] {
+/**
+ * Normalize a choice/answer map into display options.
+ *
+ * `kind` decides punctuation: `"question"` prompts (the per-row choice labels)
+ * get a trailing "?" when the source omits one, while `"answer"` options
+ * (Yes / No / Yes, a lot / Poor / Great …) are left verbatim — appending "?" to
+ * an answer produced the reported "Yes?" / "No?" labels.
+ */
+function normalizeOptions(
+    source: Record<string, RawTextEntry>,
+    kind: "question" | "answer",
+): readonly InstrumentOption[] {
     return Object.entries(source).map(([id, value]) => ({
         id,
-        label: ensureReadableLabel(value.Display ?? id),
+        label:
+            kind === "question"
+                ? ensureReadableLabel(value.Display ?? id)
+                : readableLabel(value.Display ?? id),
     }));
 }
 
-function ensureReadableLabel(label: string): string {
+function readableLabel(label: string): string {
     const stripped = sanitizeRichText(label).replace(/\s+/g, " ").trim();
     if (stripped.length === 0) {
         return "Untitled item";
     }
 
-    const normalized = stripped.replace(/example:/gi, "Ex:");
+    return stripped.replace(/example:/gi, "Ex:");
+}
+
+function ensureReadableLabel(label: string): string {
+    const normalized = readableLabel(label);
     return /[?!.]$/.test(normalized) ? normalized : `${normalized}?`;
 }
 

@@ -1,12 +1,6 @@
 import { memo, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
-import {
-    getWeightPrompt,
-    mobileYeeDomainLabels,
-    mobileYeeWeightOptions,
-    type MobileYeeDomainKey,
-} from "lib/yee-mobile-audit-config";
-import type { InstrumentOption } from "lib/yee-mobile-instrument";
+import type { InstrumentOption, InstrumentWeightingDomain } from "lib/yee-mobile-instrument";
 import { useAuditSessionStore } from "stores/yee-audit-session-store";
 import { useSurveyPalette } from "./survey-theme";
 import {
@@ -17,46 +11,53 @@ import {
     SurveyCard,
 } from "./primitives";
 
-const WEIGHT_OPTIONS: InstrumentOption[] = mobileYeeWeightOptions.map((entry) => ({
-    id: entry.value,
-    label: entry.label,
-}));
-const DOMAIN_KEYS = Object.keys(mobileYeeDomainLabels) as MobileYeeDomainKey[];
-
 /**
- * Step 2 — youth weighting. Each domain importance selection is its own
- * self-subscribing row, and the progress meter subscribes to a derived count, so
- * choosing one weight re-renders only that row plus the meter.
+ * Step 2 — youth weighting. The step description, the per-domain prompts, and the
+ * importance scale are all backend-supplied via the cached instrument. Each
+ * domain importance selection is its own self-subscribing row, and the progress
+ * meter subscribes to a derived count, so choosing one weight re-renders only
+ * that row plus the meter.
  */
 export const WeightingStep = memo(function WeightingStep() {
-    const placeName = useAuditSessionStore((state) => state.draft?.placeName ?? "");
+    const title = useAuditSessionStore((state) => state.instrument?.weighting.title ?? "");
+    const description = useAuditSessionStore(
+        (state) => state.instrument?.weighting.description ?? "",
+    );
+    const domains = useAuditSessionStore(
+        useShallow((state) => state.instrument?.weighting.domains ?? []),
+    );
+    const options = useAuditSessionStore(
+        useShallow((state) => state.instrument?.weighting.options ?? []),
+    );
+
     return (
-        <SurveyCard
-            title="Youth weighting"
-            description={`Tell us how important each of the following issues are to you, especially about the play/recreation and green spaces in your community and at ${placeName || "this place"}.`}
-        >
-            {DOMAIN_KEYS.map((domain) => (
-                <WeightRow key={domain} domain={domain} />
+        <SurveyCard title={title || "Youth weighting"} description={description}>
+            {domains.map((domain) => (
+                <WeightRow key={domain.key} domain={domain} options={options} />
             ))}
             <WeightingCommentsField />
-            <WeightingProgress />
+            <WeightingProgress totalCount={domains.length} />
         </SurveyCard>
     );
 });
 
-const WeightRow = memo(function WeightRow({ domain }: { domain: MobileYeeDomainKey }) {
-    const value = useAuditSessionStore((state) => state.draft?.weights[domain]);
+const WeightRow = memo(function WeightRow({
+    domain,
+    options,
+}: {
+    domain: InstrumentWeightingDomain;
+    options: readonly InstrumentOption[];
+}) {
+    const value = useAuditSessionStore((state) => state.draft?.weights[domain.key]);
     const setWeight = useAuditSessionStore((state) => state.setWeight);
     const readOnly = useAuditSessionStore((state) => state.readOnly);
-    const onChange = useCallback((next: string) => setWeight(domain, next), [setWeight, domain]);
+    const onChange = useCallback(
+        (next: string) => setWeight(domain.key, next),
+        [setWeight, domain.key],
+    );
     return (
-        <QuestionCard label={getWeightPrompt(domain)}>
-            <OptionGrid
-                value={value}
-                options={WEIGHT_OPTIONS}
-                onChange={onChange}
-                disabled={readOnly}
-            />
+        <QuestionCard label={domain.prompt}>
+            <OptionGrid value={value} options={options} onChange={onChange} disabled={readOnly} />
         </QuestionCard>
     );
 });
@@ -77,7 +78,7 @@ const WeightingCommentsField = memo(function WeightingCommentsField() {
     );
 });
 
-const WeightingProgress = memo(function WeightingProgress() {
+const WeightingProgress = memo(function WeightingProgress({ totalCount }: { totalCount: number }) {
     const completedCount = useAuditSessionStore(
         useShallow((state) =>
             state.draft === null
@@ -90,7 +91,7 @@ const WeightingProgress = memo(function WeightingProgress() {
             title="Weighting progress"
             helperText="Each domain needs one importance selection before the scored sections."
             completedCount={completedCount}
-            totalCount={DOMAIN_KEYS.length}
+            totalCount={totalCount}
         />
     );
 });

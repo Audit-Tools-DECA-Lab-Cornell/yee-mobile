@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, BackHandler, Platform } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AppState, BackHandler, Platform, View } from "react-native";
 import {
     KeyboardAwareScrollView,
     type KeyboardAwareScrollViewRef,
@@ -27,6 +27,11 @@ import { useAuditSessionStore } from "stores/yee-audit-session-store";
 import { AuditHeader } from "components/audit/AuditHeader";
 import { AuditStepper } from "components/audit/AuditStepper";
 import { AuditFooterNav } from "components/audit/AuditFooterNav";
+import { useAuditConfirm } from "components/audit/AuditConfirmDialog";
+import {
+    AuditRowScrollContext,
+    type AuditRowScrollController,
+} from "components/audit/audit-scroll";
 import { AuditBlockedScreen, AuditSkeleton } from "components/audit/AuditStates";
 import { ContextStep } from "components/audit/ContextStep";
 import { WeightingStep } from "components/audit/WeightingStep";
@@ -48,8 +53,14 @@ export default function AuditShellScreen() {
     const insets = useSafeAreaInsets();
     const params = useLocalSearchParams<{ placeId?: string }>();
     const placeId = typeof params.placeId === "string" ? params.placeId : "";
+    const { requestConfirm, confirmDialog } = useAuditConfirm();
 
     const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
+    // Native node of the scrolled content + a registry of question-row nodes, so
+    // "Jump to next unanswered" can measure a row against the content and scroll
+    // to it — without the shell subscribing to the draft.
+    const contentWrapperRef = useRef<View>(null);
+    const rowNodesRef = useRef<Map<string, View>>(new Map());
     const [footerHeight, setFooterHeight] = useState(0);
     const [navBusy, setNavBusy] = useState(false);
 
@@ -57,6 +68,7 @@ export default function AuditShellScreen() {
         (state) => state.assignedPlaces.find((entry) => entry.id === placeId) ?? null,
     );
     const hasLoadedPlaces = useYeeMobileStore((state) => state.assignedPlaces.length > 0);
+    const isOnline = useYeeMobileStore((state) => state.isOnline);
     const submittedAudit = useYeeMobileStore((state) =>
         getLatestSubmissionForPlace(state.submittedAudits, placeId),
     );
@@ -68,7 +80,7 @@ export default function AuditShellScreen() {
     const close = useAuditSessionStore((state) => state.close);
     const retryLoad = useAuditSessionStore((state) => state.retryLoad);
     const setStep = useAuditSessionStore((state) => state.setStep);
-    const commitManual = useAuditSessionStore((state) => state.commitManual);
+    const commitAndQueueRemote = useAuditSessionStore((state) => state.commitAndQueueRemote);
 
     // Mount once per audit: open the session, close it on unmount.
     useEffect(() => {
@@ -88,12 +100,75 @@ export default function AuditShellScreen() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [placeId, open, close, submittedAudit]);
 
+    // Flush the freshest draft to the remote mirror when the app leaves the
+    // foreground, so work is queued without waiting for the auditor to navigate.
+    // No-op for submitted (read-only) audits and before the session is ready;
+    // commitAndQueueRemote itself guards read-only and never blocks on the network.
+    const editable = submittedAudit === null && loadPhase === "ready";
+    useEffect(() => {
+        if (!editable) {
+            return;
+        }
+        const subscription = AppState.addEventListener("change", (next) => {
+            if (next === "background" || next === "inactive") {
+                void commitAndQueueRemote();
+            }
+        });
+        return () => subscription.remove();
+    }, [editable, commitAndQueueRemote]);
+
+    // On reconnect while editing, enqueue the current draft so the freshest content
+    // drains — not just whatever stale queue items already existed. The root layout
+    // still drives the actual queue drain; single-flight dedupes the two triggers.
+    const wasOnlineRef = useRef(isOnline);
+    useEffect(() => {
+        const reconnected = !wasOnlineRef.current && isOnline;
+        wasOnlineRef.current = isOnline;
+        if (reconnected && editable) {
+            void commitAndQueueRemote();
+        }
+    }, [isOnline, editable, commitAndQueueRemote]);
+
     const scrollToTop = useCallback(() => {
         scrollRef.current?.scrollTo({ y: 0, animated: false });
     }, []);
     const scrollToOffset = useCallback((offset: number) => {
         scrollRef.current?.scrollTo({ y: offset, animated: false });
     }, []);
+
+    // Stable controller: nested rows register their nodes here, and asking to
+    // scroll a row measures it against the scrolled content and scrolls it to the
+    // top. Memoized so the context value never changes → no extra row re-renders.
+    const rowScrollController = useMemo<AuditRowScrollController>(
+        () => ({
+            registerRow: (key, node) => {
+                if (node === null) {
+                    rowNodesRef.current.delete(key);
+                } else {
+                    rowNodesRef.current.set(key, node);
+                }
+            },
+            scrollToRow: (key) => {
+                const node = rowNodesRef.current.get(key);
+                const container = contentWrapperRef.current;
+                if (node == null || container == null) {
+                    return;
+                }
+                // Measure both nodes in window coordinates and scroll by their
+                // delta. On the New Architecture (Fabric) `measureLayout` rejects a
+                // numeric findNodeHandle — it warns "must be called with a ref to a
+                // native component" and no-ops. Measuring in-window and subtracting
+                // the content-wrapper origin yields the same row offset within the
+                // scrolled content and works on both architectures with no handle.
+                container.measureInWindow((_containerX, containerY) => {
+                    node.measureInWindow((_rowX, rowY) => {
+                        scrollToOffset(Math.max(0, rowY - containerY - 8));
+                    });
+                });
+            },
+        }),
+        [scrollToOffset],
+    );
 
     // Content swaps in place; snap to the top so a new step starts at its header.
     useEffect(() => {
@@ -116,12 +191,14 @@ export default function AuditShellScreen() {
     const exitToPlaces = useCallback(async () => {
         setNavBusy(true);
         try {
-            await commitManual();
+            // Awaits only the durable LOCAL write + enqueue (fast MMKV work); the
+            // remote mirror drains in the background and never blocks the exit.
+            await commitAndQueueRemote();
         } finally {
             setNavBusy(false);
             router.replace("/(tabs)/places");
         }
-    }, [commitManual, router]);
+    }, [commitAndQueueRemote, router]);
 
     const goBack = useCallback(() => {
         const previous = getPreviousStep(step);
@@ -135,25 +212,43 @@ export default function AuditShellScreen() {
     const goHome = useCallback(async () => {
         setNavBusy(true);
         try {
-            await commitManual();
+            await commitAndQueueRemote();
         } finally {
             setNavBusy(false);
             router.replace("/(tabs)");
         }
-    }, [commitManual, router]);
+    }, [commitAndQueueRemote, router]);
+
+    const goReview = useCallback(async () => {
+        setNavBusy(true);
+        try {
+            await commitAndQueueRemote();
+        } finally {
+            setNavBusy(false);
+        }
+        router.push(`/audit/${placeId}/review`);
+    }, [commitAndQueueRemote, router, placeId]);
 
     const goNext = useCallback(async () => {
         const { draft, instrument } = useAuditSessionStore.getState();
         if (draft === null) {
             return;
         }
-        const proceed = await confirmStepProgress(step, draft, instrument);
-        if (!proceed) {
-            return;
+        const incompleteMessage = getStepIncompleteMessage(step, draft, instrument);
+        if (incompleteMessage !== null) {
+            const proceed = await requestConfirm({
+                title: "Some questions are still unanswered",
+                message: incompleteMessage,
+                confirmLabel: "Move forward",
+                cancelLabel: "Stay here",
+            });
+            if (!proceed) {
+                return;
+            }
         }
         setNavBusy(true);
         try {
-            await commitManual();
+            await commitAndQueueRemote();
         } finally {
             setNavBusy(false);
         }
@@ -163,7 +258,7 @@ export default function AuditShellScreen() {
         } else {
             setStep(next);
         }
-    }, [step, commitManual, router, placeId, setStep]);
+    }, [step, commitAndQueueRemote, router, placeId, setStep, requestConfirm]);
 
     // Android hardware / gesture back decrements the step (or exits on step 1)
     // instead of popping the whole audit.
@@ -251,27 +346,44 @@ export default function AuditShellScreen() {
                     py="$2"
                     style={{ borderBottomWidth: 1, borderBottomColor: designSystem.colors.border }}
                 >
-                    <AuditStepper activeStep={step} onSelect={goToStep} />
+                    <AuditStepper
+                        activeStep={step}
+                        onSelect={goToStep}
+                        onReview={() => void goReview()}
+                    />
                 </YStack>
 
-                <KeyboardAwareScrollView
-                    ref={scrollRef}
-                    bottomOffset={24}
-                    keyboardDismissMode="on-drag"
-                    keyboardShouldPersistTaps="handled"
-                    style={{ backgroundColor: designSystem.colors.background }}
-                    contentContainerStyle={getResponsiveContentContainerStyle(layout, {
-                        bottomPadding: (footerHeight > 0 ? footerHeight : 96) + 32,
-                        gap: layout.sectionGap,
-                    })}
-                >
-                    {errorMessage !== null ? (
-                        <YStack pb="$3">
-                            <NoticeCard tone="danger" title="Sync note" body={errorMessage} />
-                        </YStack>
-                    ) : null}
-                    <AuditStepContent step={step} />
-                </KeyboardAwareScrollView>
+                <AuditRowScrollContext.Provider value={rowScrollController}>
+                    <KeyboardAwareScrollView
+                        ref={scrollRef}
+                        bottomOffset={24}
+                        keyboardDismissMode="on-drag"
+                        keyboardShouldPersistTaps="handled"
+                        style={{ backgroundColor: designSystem.colors.background }}
+                        contentContainerStyle={getResponsiveContentContainerStyle(layout, {
+                            bottomPadding: (footerHeight > 0 ? footerHeight : 96) + 32,
+                        })}
+                    >
+                        {/* Single measurable content node: row offsets for
+                            "Jump to next unanswered" are measured against this. */}
+                        <View
+                            ref={contentWrapperRef}
+                            collapsable={false}
+                            style={{ width: "100%", gap: layout.sectionGap }}
+                        >
+                            {errorMessage !== null ? (
+                                <YStack pb="$3">
+                                    <NoticeCard
+                                        tone="danger"
+                                        title="Sync note"
+                                        body={errorMessage}
+                                    />
+                                </YStack>
+                            ) : null}
+                            <AuditStepContent step={step} />
+                        </View>
+                    </KeyboardAwareScrollView>
+                </AuditRowScrollContext.Provider>
 
                 <AuditFooterNav
                     busy={navBusy}
@@ -283,6 +395,7 @@ export default function AuditShellScreen() {
                     onNext={() => void goNext()}
                     nextLabel={nextLabel}
                 />
+                {confirmDialog}
             </YStack>
         </>
     );
@@ -300,23 +413,6 @@ function AuditStepContent({ step }: { step: MobileYeeStepNumber }) {
         return <FinalCommentsStep />;
     }
     return <DomainStep step={step} />;
-}
-
-async function confirmStepProgress(
-    step: MobileYeeStepNumber,
-    draft: MobileAuditFormState,
-    instrument: NormalizedInstrument | null,
-): Promise<boolean> {
-    const message = getStepIncompleteMessage(step, draft, instrument);
-    if (message === null) {
-        return true;
-    }
-    return confirmChoice(
-        "Some questions are still unanswered",
-        message,
-        "Move forward",
-        "Stay here",
-    );
 }
 
 function getStepIncompleteMessage(
@@ -357,21 +453,4 @@ function getStepIncompleteMessage(
     }
 
     return null;
-}
-
-async function confirmChoice(
-    title: string,
-    message: string,
-    confirmLabel: string,
-    cancelLabel: string,
-): Promise<boolean> {
-    if (Platform.OS === "web" && typeof globalThis.confirm === "function") {
-        return globalThis.confirm(`${title}\n\n${message}`);
-    }
-    return new Promise<boolean>((resolve) => {
-        Alert.alert(title, message, [
-            { text: cancelLabel, style: "cancel", onPress: () => resolve(false) },
-            { text: confirmLabel, style: "default", onPress: () => resolve(true) },
-        ]);
-    });
 }

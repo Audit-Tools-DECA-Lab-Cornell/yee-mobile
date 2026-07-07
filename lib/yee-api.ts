@@ -31,6 +31,29 @@ export function getApiBaseUrl(): string {
     return DEFAULT_API_BASE_URL;
 }
 
+/**
+ * Per-request timeout tiers (ms). A "false online" device (connected to Wi-Fi
+ * with no real internet) otherwise leaves a `fetch` hanging indefinitely, which
+ * — before this guard — could block a blocking draft PUT and stall navigation.
+ *
+ * - {@link DEFAULT_REQUEST_TIMEOUT_MS}: normal reads/writes (places, audits, state).
+ * - {@link DRAFT_MIRROR_TIMEOUT_MS}: OPTIONAL best-effort work (draft mirror,
+ *   score preview) — kept short so a stalled mirror gives up fast and requeues.
+ * - {@link SUBMIT_TIMEOUT_MS}: the one required, user-critical write — given the
+ *   longest budget so a slow-but-alive backend can still land the submission.
+ *
+ * A timeout/abort is surfaced as {@link YeeMobileApiError} status `0`, so the
+ * existing sync classifier treats it as a retryable transport failure.
+ */
+export const DEFAULT_REQUEST_TIMEOUT_MS = 12_000;
+export const DRAFT_MIRROR_TIMEOUT_MS = 4_000;
+export const SUBMIT_TIMEOUT_MS = 20_000;
+
+interface RequestOptions {
+    /** Override the default timeout for this request. */
+    readonly timeoutMs?: number;
+}
+
 export async function fetchYeeInstrument(): Promise<YeeInstrumentResponse> {
     return getJson<YeeInstrumentResponse>("/yee/instrument");
 }
@@ -60,11 +83,14 @@ export async function saveAuditDraft(
         responses: Record<string, unknown>;
     },
 ): Promise<YeeAuditStateResponse> {
+    // Best-effort remote mirror — short timeout so a stalled PUT gives up fast
+    // and stays queued rather than hanging the background drain.
     return sendAuthedJson<YeeAuditStateResponse>(
         `/yee/places/${placeId}/draft`,
         session,
         "PUT",
         payload,
+        { timeoutMs: DRAFT_MIRROR_TIMEOUT_MS },
     );
 }
 
@@ -76,11 +102,13 @@ export async function previewScore(
         responses: Record<string, unknown>;
     },
 ): Promise<YeeAuditStateResponse["score"]> {
+    // Score preview is optional UI sugar — same short budget as the draft mirror.
     return sendAuthedJson<YeeAuditStateResponse["score"]>(
         "/yee/audits/score",
         session,
         "POST",
         payload,
+        { timeoutMs: DRAFT_MIRROR_TIMEOUT_MS },
     );
 }
 
@@ -107,7 +135,11 @@ export async function submitAudit(
     if (typeof payload.idempotency_key === "string" && payload.idempotency_key.length > 0) {
         body.idempotency_key = payload.idempotency_key;
     }
-    return sendAuthedJson<YeeSubmissionResponse>("/yee/audits", session, "POST", body);
+    // The one required write — give it the longest budget so a slow-but-alive
+    // backend can still land the submission before we classify it as a timeout.
+    return sendAuthedJson<YeeSubmissionResponse>("/yee/audits", session, "POST", body, {
+        timeoutMs: SUBMIT_TIMEOUT_MS,
+    });
 }
 
 export async function fetchSubmission(
@@ -117,20 +149,32 @@ export async function fetchSubmission(
     return getAuthedJson<YeeSubmissionResponse>(`/yee/audits/${submissionId}`, session);
 }
 
-async function getJson<T>(path: string): Promise<T> {
-    return requestJson<T>(path, {
-        method: "GET",
-        headers: {
-            Accept: "application/json",
+async function getJson<T>(path: string, options?: RequestOptions): Promise<T> {
+    return requestJson<T>(
+        path,
+        {
+            method: "GET",
+            headers: {
+                Accept: "application/json",
+            },
         },
-    });
+        options,
+    );
 }
 
-async function getAuthedJson<T>(path: string, session: AuthSession): Promise<T> {
-    return requestJson<T>(path, {
-        method: "GET",
-        headers: buildAuthedHeaders(session),
-    });
+async function getAuthedJson<T>(
+    path: string,
+    session: AuthSession,
+    options?: RequestOptions,
+): Promise<T> {
+    return requestJson<T>(
+        path,
+        {
+            method: "GET",
+            headers: buildAuthedHeaders(session),
+        },
+        options,
+    );
 }
 
 async function sendAuthedJson<T>(
@@ -138,15 +182,20 @@ async function sendAuthedJson<T>(
     session: AuthSession,
     method: "POST" | "PUT",
     body: Record<string, unknown>,
+    options?: RequestOptions,
 ): Promise<T> {
-    return requestJson<T>(path, {
-        method,
-        headers: {
-            ...buildAuthedHeaders(session),
-            "Content-Type": "application/json",
+    return requestJson<T>(
+        path,
+        {
+            method,
+            headers: {
+                ...buildAuthedHeaders(session),
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
         },
-        body: JSON.stringify(body),
-    });
+        options,
+    );
 }
 
 function buildAuthedHeaders(session: AuthSession): HeadersInit {
@@ -156,15 +205,38 @@ function buildAuthedHeaders(session: AuthSession): HeadersInit {
     };
 }
 
-async function requestJson<T>(path: string, init: RequestInit): Promise<T> {
+async function requestJson<T>(
+    path: string,
+    init: RequestInit,
+    options?: RequestOptions,
+): Promise<T> {
     const baseUrl = getApiBaseUrl();
+    const timeoutMs =
+        typeof options?.timeoutMs === "number" && options.timeoutMs > 0
+            ? options.timeoutMs
+            : DEFAULT_REQUEST_TIMEOUT_MS;
+
+    // Abort the fetch if it outruns the timeout so a false-online device cannot
+    // hang the request forever. An abort classifies as a transport failure
+    // (status 0 -> retryable) exactly like a dropped connection.
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     let response: Response;
     try {
-        response = await fetch(`${baseUrl}${path}`, init);
+        response = await fetch(`${baseUrl}${path}`, { ...init, signal: controller.signal });
     } catch (error) {
+        if (controller.signal.aborted) {
+            throw new YeeMobileApiError(
+                "YEE request timed out.",
+                0,
+                `Request exceeded ${timeoutMs}ms and was aborted.`,
+            );
+        }
         const message = error instanceof Error ? error.message : "Network request failed.";
         throw new YeeMobileApiError("Unable to reach YEE service.", 0, message);
+    } finally {
+        clearTimeout(timeoutId);
     }
 
     const text = await response.text();

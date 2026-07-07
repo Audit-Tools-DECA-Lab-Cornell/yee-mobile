@@ -183,9 +183,47 @@ export interface YeeSyncQueueItem {
     readonly failureReason: YeeSyncFailureReason;
 }
 
+export interface YeeInstrumentOptionData {
+    readonly value: string;
+    readonly label: string;
+}
+
+export interface YeeInstrumentPreAuditQuestionData {
+    readonly id: string;
+    readonly title?: string;
+    readonly prompt: string;
+    readonly description?: string;
+    readonly options?: readonly YeeInstrumentOptionData[];
+    readonly multi_select?: boolean;
+    readonly required?: boolean;
+    readonly auto_generated?: boolean;
+}
+
+export interface YeeInstrumentWeightingDomainData {
+    readonly key: string;
+    readonly label: string;
+    readonly prompt: string;
+}
+
+export interface YeeInstrumentWeightingData {
+    readonly title?: string;
+    readonly description?: string;
+    readonly options?: readonly YeeInstrumentOptionData[];
+    readonly domains?: readonly YeeInstrumentWeightingDomainData[];
+}
+
 export interface YeeInstrumentResponse {
     readonly SurveyEntry?: Record<string, unknown>;
     readonly SurveyElements?: unknown[];
     readonly scoring_items?: unknown[];
     readonly section_metadata?: unknown[];
+    readonly sections?: unknown[];
+    /** Visit-context questions (auditor_id/audit_date are auto-generated). */
+    readonly pre_audit_questions?: readonly YeeInstrumentPreAuditQuestionData[];
+    /** Per-domain youth-weighting prompts + scale for the weighting step. */
+    readonly weighting?: YeeInstrumentWeightingData | null;
+    /** Shared "If yes, please rate the condition…" follow-up prompt. */
+    readonly condition_prompt?: string;
+    /** Prompt for the overall/final comments field before review & submit. */
+    readonly final_comments_prompt?: string;
 }

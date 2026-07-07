@@ -369,8 +369,41 @@ describe("syncPendingQueue — backoff window respected", () => {
     });
 });
 
-describe("queueDraftSync — legacy draft save never blocks", () => {
-    it("removes the draft_save item even when the remote save fails", async () => {
+describe("queueDraftSync — remote mirror (best-effort, durable retry)", () => {
+    it("stamps the local draft_version on the queued payload", async () => {
+        await useYeeMobileStore.getState().queueDraftSync(makeDraft("place-1", 3));
+        const queue = await readSyncQueue();
+        expect(queue[0]?.kind).toBe("draft_save");
+        expect(queue[0]?.payload.draft_version).toBe(3);
+    });
+
+    it("preserves attempt/backoff bookkeeping and refreshes draft_version on re-enqueue", async () => {
+        await useYeeMobileStore.getState().queueDraftSync(makeDraft("place-1", 1));
+        const seeded = (await readSyncQueue())[0];
+        if (seeded === undefined) {
+            throw new Error("expected a queued item");
+        }
+        // Simulate a prior failed attempt with a live backoff window.
+        const backedOff = {
+            ...seeded,
+            attempts: 2,
+            failureReason: "network" as const,
+            nextAttemptAtIso: new Date(Date.now() + 60_000).toISOString(),
+        };
+        await upsertSyncQueueItem(backedOff);
+        useYeeMobileStore.setState({ syncQueue: [backedOff] });
+
+        // A fresh edit re-enqueues the SAME item with newer content + version.
+        await useYeeMobileStore.getState().queueDraftSync(makeDraft("place-1", 2));
+
+        const queue = await readSyncQueue();
+        expect(queue).toHaveLength(1);
+        expect(queue[0]?.attempts).toBe(2); // backoff bookkeeping preserved
+        expect(queue[0]?.nextAttemptAtIso).toBe(backedOff.nextAttemptAtIso);
+        expect(queue[0]?.payload.draft_version).toBe(2); // content refreshed
+    });
+
+    it("retains the draft_save item with backoff when the remote mirror fails (local intact)", async () => {
         const draft = makeDraft("place-1");
         await useYeeMobileStore.getState().saveDraftLocally(draft);
         await useYeeMobileStore.getState().queueDraftSync(draft);
@@ -379,13 +412,55 @@ describe("queueDraftSync — legacy draft save never blocks", () => {
 
         await useYeeMobileStore.getState().syncPendingQueue(makeSession());
 
-        // Legacy remote draft save is best-effort: the item is still drained and
-        // the local draft (source of truth) remains intact.
-        expect(await readSyncQueue()).toHaveLength(0);
+        // New policy: the mirror is retryable like any queue item — retained with
+        // backoff so "Queued / Sync issue" stays truthful. Local draft untouched.
+        const queue = await readSyncQueue();
+        expect(queue).toHaveLength(1);
+        expect(queue[0]?.attempts).toBe(1);
+        expect(queue[0]?.failureReason).toBe("server");
+        expect(queue[0]?.nextAttemptAtIso).not.toBeNull();
         expect(await readDraft("place-1")).not.toBeNull();
     });
 
-    it("updates in-memory draft syncState after successful draft_save drain", async () => {
+    it("parks a terminal 4xx draft_save as sync_failed without touching local data", async () => {
+        const draft = makeDraft("place-1");
+        await useYeeMobileStore.getState().saveDraftLocally(draft);
+        await useYeeMobileStore.getState().queueDraftSync(draft);
+
+        saveAuditDraftMock.mockRejectedValue(new YeeMobileApiError("bad", 422, "invalid"));
+
+        await useYeeMobileStore.getState().syncPendingQueue(makeSession());
+
+        const queue = await readSyncQueue();
+        expect(queue).toHaveLength(1);
+        expect(queue[0]?.failureReason).toBe("validation");
+        expect(useYeeMobileStore.getState().draftsByPlace["place-1"]?.syncState).toBe(
+            "sync_failed",
+        );
+        // The on-device draft (source of truth) is never lost on a mirror failure.
+        expect(await readDraft("place-1")).not.toBeNull();
+    });
+
+    it("does NOT mark a newer local draft synced off a stale queued payload (version guard)", async () => {
+        // Enqueue a mirror carrying draft_version 1.
+        await useYeeMobileStore.getState().saveDraftLocally(makeDraft("place-1", 1));
+        await useYeeMobileStore.getState().queueDraftSync(makeDraft("place-1", 1));
+
+        // A newer local edit lands (version 2) BEFORE the mirror drains.
+        await useYeeMobileStore.getState().saveDraftLocally(makeDraft("place-1", 2));
+
+        saveAuditDraftMock.mockResolvedValue({ status: "DRAFT", submission_id: null, score: null });
+        await useYeeMobileStore.getState().syncPendingQueue(makeSession());
+
+        // The PUT landed (item removed), but the newer local draft is NOT stamped
+        // synced — the backend only has the older content.
+        expect(await readSyncQueue()).toHaveLength(0);
+        const draft = useYeeMobileStore.getState().draftsByPlace["place-1"];
+        expect(draft?.version).toBe(2);
+        expect(draft?.syncState).not.toBe("synced");
+    });
+
+    it("updates in-memory draft syncState after a matching-version draft_save drain", async () => {
         const draft = makeDraft("place-1");
         await useYeeMobileStore.getState().saveDraftLocally(draft);
         await useYeeMobileStore.getState().queueDraftSync(draft);
@@ -402,6 +477,27 @@ describe("queueDraftSync — legacy draft save never blocks", () => {
         expect(useYeeMobileStore.getState().syncQueue).toHaveLength(0);
         expect(useYeeMobileStore.getState().draftsByPlace["place-1"]?.syncState).toBe("synced");
         expect((await readDraft("place-1"))?.syncState).toBe("synced");
+    });
+});
+
+describe("queueSubmissionSync — drops the pending draft mirror", () => {
+    it("removes any draft-${placeId} item when a submission is enqueued for that place", async () => {
+        const draft = makeDraft("place-1");
+        await useYeeMobileStore.getState().saveDraftLocally(draft);
+        // A draft mirror is pending...
+        await useYeeMobileStore.getState().queueDraftSync(draft);
+        expect((await readSyncQueue()).some((item) => item.id === "draft-place-1")).toBe(true);
+
+        // ...then the auditor submits: the optional mirror must be dropped so it
+        // can never run after or compete with the final submit.
+        await useYeeMobileStore.getState().queueSubmissionSync(draft, null);
+
+        const queue = await readSyncQueue();
+        expect(queue.some((item) => item.id === "draft-place-1")).toBe(false);
+        expect(queue.some((item) => item.id === "submission-place-1")).toBe(true);
+        expect(useYeeMobileStore.getState().syncQueue.some((i) => i.id === "draft-place-1")).toBe(
+            false,
+        );
     });
 });
 

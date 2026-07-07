@@ -7,7 +7,6 @@ import {
     useState,
     type PropsWithChildren,
 } from "react";
-import { Alert, Platform } from "react-native";
 import {
     KeyboardAwareScrollView,
     type KeyboardAwareScrollViewRef,
@@ -34,24 +33,22 @@ import {
 } from "lib/yee-mobile-draft";
 import { buildMobileAuditProjection } from "lib/yee-mobile-selectors";
 import {
-    getOpenHoursAccessLabel,
-    getPublicAccessLabel,
-    getSeasonLabel,
-    getVisitFrequencyLabel,
-    getWeatherLabelList,
-    getWeightLabel,
     getWeightNumber,
-    mobileYeeDomainLabels,
     mobileYeeSteps,
     type MobileYeeDomainKey,
     type MobileYeeStepNumber,
 } from "lib/yee-mobile-audit-config";
 import {
     answerLabel,
+    contextAnswerLabel,
+    contextAnswerLabelList,
+    CONTEXT_QUESTION_IDS,
     getSectionForStep,
     normalizeInstrument,
+    weightOptionLabel,
     type NormalizedInstrument,
 } from "lib/yee-mobile-instrument";
+import { useAuditConfirm } from "components/audit/AuditConfirmDialog";
 import {
     deriveSubmitStatus,
     findFirstIncompleteStep,
@@ -90,6 +87,7 @@ export default function AuditReviewScreen() {
     const scrollViewRef = useRef<KeyboardAwareScrollViewRef>(null);
     const insets = useSafeAreaInsets();
     const stackHeaderOptions = useYeeStackHeaderOptions();
+    const { requestConfirm, confirmDialog } = useAuditConfirm();
     const [footerHeight, setFooterHeight] = useState(0);
     const placeId = typeof params.placeId === "string" ? params.placeId : "";
     const session = useAuthStore((state) => state.session);
@@ -271,13 +269,13 @@ export default function AuditReviewScreen() {
             return [];
         }
 
-        return (Object.keys(mobileYeeDomainLabels) as MobileYeeDomainKey[]).map((domain) => {
+        return instrument.weighting.domains.map(({ key: domain, label }) => {
             const step = getStepForDomain(domain);
             const section = getSectionForStep(instrument, step);
             if (section === null) {
                 return {
                     domain,
-                    label: mobileYeeDomainLabels[domain],
+                    label,
                     step,
                     rows: [],
                     answeredCount: 0,
@@ -426,12 +424,12 @@ export default function AuditReviewScreen() {
 
         const incomplete = findFirstIncompleteStep(currentDraft, instrument);
         if (incomplete !== null) {
-            const goFix = await confirmChoice(
-                "Audit is incomplete",
-                `${incomplete.label} still has unanswered required fields. Do you want to jump back and fix it now?`,
-                "Go to section",
-                "Stay on review",
-            );
+            const goFix = await requestConfirm({
+                title: "Audit is incomplete",
+                message: `${incomplete.label} still has unanswered required fields. Do you want to jump back and fix it now?`,
+                confirmLabel: "Go to section",
+                cancelLabel: "Stay on review",
+            });
 
             if (goFix) {
                 goToStep(incomplete.step);
@@ -439,12 +437,13 @@ export default function AuditReviewScreen() {
             return;
         }
 
-        const confirmed = await confirmChoice(
-            "Submit audit?",
-            "After submission, this audit will be locked and can no longer be edited on mobile or web.",
-            "Submit",
-            "Cancel",
-        );
+        const confirmed = await requestConfirm({
+            title: "Submit audit?",
+            message:
+                "After submission, this audit will be locked and can no longer be edited on mobile or web.",
+            confirmLabel: "Submit",
+            cancelLabel: "Cancel",
+        });
         if (!confirmed) {
             return;
         }
@@ -606,9 +605,22 @@ export default function AuditReviewScreen() {
 
                     <SurveyPagesCard onJump={goToStep} />
 
-                    <ContextSummaryCard draft={draft} answeredCount={answeredCount} />
+                    {instrument !== null ? (
+                        <>
+                            <ContextSummaryCard
+                                draft={draft}
+                                instrument={instrument}
+                                answeredCount={answeredCount}
+                                onEdit={() => goToStep(1)}
+                            />
 
-                    <WeightingSummaryCard draft={draft} />
+                            <WeightingSummaryCard
+                                draft={draft}
+                                instrument={instrument}
+                                onEdit={() => goToStep(2)}
+                            />
+                        </>
+                    ) : null}
 
                     {reviewSections.map((section) => (
                         <ReviewSectionCard
@@ -644,6 +656,7 @@ export default function AuditReviewScreen() {
                     isSubmitting={isSubmitting}
                     submitLabel={submitActionLabel(submitStatus, isSubmitting)}
                 />
+                {confirmDialog}
             </YStack>
         </>
     );
@@ -976,31 +989,100 @@ const SurveyPagesCard = memo(function SurveyPagesCard({
     );
 });
 
+/** Header row with an Edit affordance, matching ReviewSectionCard's pattern so
+ * Context and Weighting are editable from review just like the domain sections. */
+const SectionEditRow = memo(function SectionEditRow({
+    caption,
+    label,
+    onEdit,
+}: {
+    caption: string;
+    label: string;
+    onEdit: () => void;
+}) {
+    const designSystem = useDesignSystem();
+    const palette = useSurveyPalette();
+    return (
+        <XStack justify="space-between" items="center" gap="$3" flexWrap="wrap">
+            <Paragraph color={designSystem.colors.secondaryForeground}>{caption}</Paragraph>
+            <Button
+                rounded={designSystem.radii.button}
+                borderWidth={1}
+                style={{ backgroundColor: palette.accent, borderColor: palette.accent }}
+                pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                onPress={onEdit}
+            >
+                <Button.Text
+                    color={designSystem.colors.primaryForeground}
+                    fontFamily={designSystem.fonts.bodyBold}
+                >
+                    {label}
+                </Button.Text>
+            </Button>
+        </XStack>
+    );
+});
+
 const ContextSummaryCard = memo(function ContextSummaryCard({
     draft,
+    instrument,
     answeredCount,
+    onEdit,
 }: {
     draft: MobileAuditFormState;
+    instrument: NormalizedInstrument;
     answeredCount: number;
+    onEdit: () => void;
 }) {
     const layout = useResponsiveLayout();
     return (
         <SurveyCard title="Context summary">
+            <SectionEditRow
+                caption="Visit details for this place"
+                label="Edit context"
+                onEdit={onEdit}
+            />
             <SummaryGrid isWideTablet={layout.isWideTablet}>
                 <ReviewSummaryRow
                     label="Visit frequency"
-                    value={getVisitFrequencyLabel(draft.visitFrequency)}
+                    value={contextAnswerLabel(
+                        instrument,
+                        CONTEXT_QUESTION_IDS.visitFrequency,
+                        draft.visitFrequency,
+                    )}
                 />
                 <ReviewSummaryRow
                     label="Open to the public"
-                    value={getPublicAccessLabel(draft.publicAccess)}
+                    value={contextAnswerLabel(
+                        instrument,
+                        CONTEXT_QUESTION_IDS.publicAccess,
+                        draft.publicAccess,
+                    )}
                 />
                 <ReviewSummaryRow
                     label="Open all hours"
-                    value={getOpenHoursAccessLabel(draft.openHoursAccess)}
+                    value={contextAnswerLabel(
+                        instrument,
+                        CONTEXT_QUESTION_IDS.openHoursAccess,
+                        draft.openHoursAccess,
+                    )}
                 />
-                <ReviewSummaryRow label="Season" value={getSeasonLabel(draft.season)} />
-                <ReviewSummaryRow label="Weather" value={getWeatherLabelList(draft.weather)} />
+                <ReviewSummaryRow
+                    label="Season"
+                    value={contextAnswerLabel(
+                        instrument,
+                        CONTEXT_QUESTION_IDS.season,
+                        draft.season,
+                    )}
+                />
+                <ReviewSummaryRow
+                    label="Weather"
+                    value={contextAnswerLabelList(
+                        instrument,
+                        CONTEXT_QUESTION_IDS.weather,
+                        draft.weather,
+                    )}
+                />
                 <ReviewSummaryRow label="Answered audit fields" value={`${answeredCount}`} />
             </SummaryGrid>
         </SurveyCard>
@@ -1009,17 +1091,27 @@ const ContextSummaryCard = memo(function ContextSummaryCard({
 
 const WeightingSummaryCard = memo(function WeightingSummaryCard({
     draft,
+    instrument,
+    onEdit,
 }: {
     draft: MobileAuditFormState;
+    instrument: NormalizedInstrument;
+    onEdit: () => void;
 }) {
     return (
         <SurveyCard title="Youth weighting">
+            <SectionEditRow
+                caption="Domain importance weighting"
+                label="Edit weighting"
+                onEdit={onEdit}
+            />
             <YStack gap="$3">
-                {(Object.keys(mobileYeeDomainLabels) as MobileYeeDomainKey[]).map((domain) => (
+                {instrument.weighting.domains.map((domain) => (
                     <WeightingDomainRow
-                        key={domain}
-                        label={mobileYeeDomainLabels[domain]}
-                        weight={draft.weights[domain]}
+                        key={domain.key}
+                        label={domain.label}
+                        weight={draft.weights[domain.key]}
+                        weightLabel={weightOptionLabel(instrument, draft.weights[domain.key])}
                     />
                 ))}
                 <ReviewSummaryRow
@@ -1034,9 +1126,11 @@ const WeightingSummaryCard = memo(function WeightingSummaryCard({
 const WeightingDomainRow = memo(function WeightingDomainRow({
     label,
     weight,
+    weightLabel,
 }: {
     label: string;
     weight: string;
+    weightLabel: string;
 }) {
     const designSystem = useDesignSystem();
     const palette = useSurveyPalette();
@@ -1073,9 +1167,7 @@ const WeightingDomainRow = memo(function WeightingDomainRow({
                     </Text>
                 </YStack>
             </XStack>
-            <Paragraph color={designSystem.colors.secondaryForeground}>
-                {getWeightLabel(weight)}
-            </Paragraph>
+            <Paragraph color={designSystem.colors.secondaryForeground}>{weightLabel}</Paragraph>
         </YStack>
     );
 });
@@ -1343,24 +1435,6 @@ function normalizeTime(value: string): string {
     }
 
     return "00:00:00";
-}
-
-async function confirmChoice(
-    title: string,
-    message: string,
-    confirmLabel: string,
-    cancelLabel: string,
-): Promise<boolean> {
-    if (Platform.OS === "web" && typeof globalThis.confirm === "function") {
-        return globalThis.confirm(`${title}\n\n${message}`);
-    }
-
-    return await new Promise<boolean>((resolve) => {
-        Alert.alert(title, message, [
-            { text: cancelLabel, style: "cancel", onPress: () => resolve(false) },
-            { text: confirmLabel, style: "default", onPress: () => resolve(true) },
-        ]);
-    });
 }
 
 function getStepForDomain(domain: MobileYeeDomainKey): MobileYeeStepNumber {

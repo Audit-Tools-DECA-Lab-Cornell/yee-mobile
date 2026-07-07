@@ -2,29 +2,18 @@ import { memo } from "react";
 import { YStack } from "tamagui";
 import { useShallow } from "zustand/react/shallow";
 import {
-    openHoursAccessOptions,
-    publicAccessOptions,
-    seasonOptions,
-    visitFrequencyOptions,
-    weatherOptions,
-} from "lib/yee-mobile-audit-config";
-import type { InstrumentOption } from "lib/yee-mobile-instrument";
+    CONTEXT_QUESTION_IDS,
+    findContextQuestion,
+    type InstrumentContextQuestion,
+} from "lib/yee-mobile-instrument";
 import { useAuditSessionStore } from "stores/yee-audit-session-store";
 import { QuestionCard, SelectionButton, SurveyCard, ReadOnlyField, OptionGrid } from "./primitives";
 
-const VISIT_FREQUENCY = toOptions(visitFrequencyOptions);
-const PUBLIC_ACCESS = toOptions(publicAccessOptions);
-const OPEN_HOURS = toOptions(openHoursAccessOptions);
-const SEASONS = toOptions(seasonOptions);
-
-function toOptions(source: readonly { value: string; label: string }[]): InstrumentOption[] {
-    return source.map((entry) => ({ id: entry.value, label: entry.label }));
-}
-
 /**
- * Step 1 — visit context. Each control reads and writes exactly its own draft
- * slice through the session store, so a change to one answer never rebuilds the
- * others.
+ * Step 1 — visit context. Every question prompt and option label now comes from
+ * the cached instrument (backend-supplied); the client only owns the binding of
+ * each question id to its draft slice. Each control reads and writes exactly its
+ * own slice, so a change to one answer never rebuilds the others.
  */
 export const ContextStep = memo(function ContextStep() {
     const placeName = useAuditSessionStore((state) => state.draft?.placeName ?? "");
@@ -47,15 +36,26 @@ export const ContextStep = memo(function ContextStep() {
     );
 });
 
+/** The instrument's context question for `id`, or `null` while uncached. */
+function useContextQuestion(id: string): InstrumentContextQuestion | null {
+    return useAuditSessionStore((state) =>
+        state.instrument === null ? null : findContextQuestion(state.instrument, id),
+    );
+}
+
 const VisitFrequencyQuestion = memo(function VisitFrequencyQuestion() {
+    const question = useContextQuestion(CONTEXT_QUESTION_IDS.visitFrequency);
     const value = useAuditSessionStore((state) => state.draft?.visitFrequency);
     const setValue = useAuditSessionStore((state) => state.setVisitFrequency);
     const readOnly = useAuditSessionStore((state) => state.readOnly);
+    if (question === null) {
+        return null;
+    }
     return (
-        <QuestionCard label="How often have you been to / visited this space in the last 6 months">
+        <QuestionCard label={question.prompt}>
             <OptionGrid
                 value={value}
-                options={VISIT_FREQUENCY}
+                options={question.options}
                 onChange={setValue}
                 disabled={readOnly}
             />
@@ -64,14 +64,18 @@ const VisitFrequencyQuestion = memo(function VisitFrequencyQuestion() {
 });
 
 const PublicAccessQuestion = memo(function PublicAccessQuestion() {
+    const question = useContextQuestion(CONTEXT_QUESTION_IDS.publicAccess);
     const value = useAuditSessionStore((state) => state.draft?.publicAccess);
     const setValue = useAuditSessionStore((state) => state.setPublicAccess);
     const readOnly = useAuditSessionStore((state) => state.readOnly);
+    if (question === null) {
+        return null;
+    }
     return (
-        <QuestionCard label="Is this place open to the public (or can only certain people use it)">
+        <QuestionCard label={question.prompt}>
             <OptionGrid
                 value={value}
-                options={PUBLIC_ACCESS}
+                options={question.options}
                 onChange={setValue}
                 disabled={readOnly}
             />
@@ -80,14 +84,18 @@ const PublicAccessQuestion = memo(function PublicAccessQuestion() {
 });
 
 const OpenHoursQuestion = memo(function OpenHoursQuestion() {
+    const question = useContextQuestion(CONTEXT_QUESTION_IDS.openHoursAccess);
     const value = useAuditSessionStore((state) => state.draft?.openHoursAccess);
     const setValue = useAuditSessionStore((state) => state.setOpenHoursAccess);
     const readOnly = useAuditSessionStore((state) => state.readOnly);
+    if (question === null) {
+        return null;
+    }
     return (
-        <QuestionCard label="Is this place open all hours or is it closed for some hours (Ex: closed after 11pm)">
+        <QuestionCard label={question.prompt}>
             <OptionGrid
                 value={value}
-                options={OPEN_HOURS}
+                options={question.options}
                 onChange={setValue}
                 disabled={readOnly}
             />
@@ -96,30 +104,43 @@ const OpenHoursQuestion = memo(function OpenHoursQuestion() {
 });
 
 const SeasonQuestion = memo(function SeasonQuestion() {
+    const question = useContextQuestion(CONTEXT_QUESTION_IDS.season);
     const value = useAuditSessionStore((state) => state.draft?.season);
     const setValue = useAuditSessionStore((state) => state.setSeason);
     const readOnly = useAuditSessionStore((state) => state.readOnly);
+    if (question === null) {
+        return null;
+    }
     return (
-        <QuestionCard label="What is the current season">
-            <OptionGrid value={value} options={SEASONS} onChange={setValue} disabled={readOnly} />
+        <QuestionCard label={question.prompt}>
+            <OptionGrid
+                value={value}
+                options={question.options}
+                onChange={setValue}
+                disabled={readOnly}
+            />
         </QuestionCard>
     );
 });
 
 const WeatherQuestion = memo(function WeatherQuestion() {
+    const question = useContextQuestion(CONTEXT_QUESTION_IDS.weather);
     const weather = useAuditSessionStore(useShallow((state) => state.draft?.weather ?? []));
     const toggleWeather = useAuditSessionStore((state) => state.toggleWeather);
     const readOnly = useAuditSessionStore((state) => state.readOnly);
+    if (question === null) {
+        return null;
+    }
     return (
-        <QuestionCard label="What is the weather like today">
+        <QuestionCard label={question.prompt}>
             <YStack gap="$2">
-                {weatherOptions.map((option) => (
+                {question.options.map((option) => (
                     <SelectionButton
-                        key={option.value}
+                        key={option.id}
                         label={option.label}
                         multi
-                        selected={weather.includes(option.value)}
-                        onPress={() => toggleWeather(option.value)}
+                        selected={weather.includes(option.id)}
+                        onPress={() => toggleWeather(option.id)}
                         disabled={readOnly}
                     />
                 ))}

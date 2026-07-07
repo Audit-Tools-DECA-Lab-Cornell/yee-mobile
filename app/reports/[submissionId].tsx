@@ -454,11 +454,11 @@ export default function MobileReportDetailScreen() {
                                 </InfoPanel>
                             </XStack>
 
+                            <WeightingSummaryCard rows={rows} />
+
                             <SectionScoreChart rows={rows} />
 
                             <ScoreResultsTable rows={rows} preview={preview} />
-
-                            <WeightingSummaryCard rows={rows} />
 
                             <HighlightsRow rows={rows} />
 

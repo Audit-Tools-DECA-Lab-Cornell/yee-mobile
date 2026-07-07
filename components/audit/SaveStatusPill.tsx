@@ -25,7 +25,27 @@ function resolvePill(
                 text: colors.mutedForeground,
                 icon: "spinner",
             };
-        case "saved":
+        // Durably on-device (source of truth). The positive, reassuring state even
+        // when the cloud mirror hasn't run — the auditor's work is safe.
+        case "saved_local":
+            return {
+                label: "Saved locally",
+                surface: colors.successSoft,
+                border: colors.border,
+                text: colors.successText,
+                icon: "check",
+            };
+        // Local copy safe; cloud mirror in flight.
+        case "syncing":
+            return {
+                label: "Syncing",
+                surface: colors.surfaceMuted,
+                border: colors.border,
+                text: colors.mutedForeground,
+                icon: "spinner",
+            };
+        // Cloud mirror confirmed.
+        case "synced":
             return {
                 label: "Saved",
                 surface: colors.successSoft,
@@ -33,14 +53,25 @@ function resolvePill(
                 text: colors.successText,
                 icon: "check",
             };
+        // Saved on-device; cloud mirror waiting to retry (offline / transient).
         case "queued":
             return {
-                label: "Queued offline",
+                label: "Queued",
                 surface: colors.warningSoft,
                 border: colors.warning,
                 text: colors.warningText,
                 icon: "cloud",
             };
+        // Saved on-device; cloud mirror failed. Not alarming — local copy intact.
+        case "sync_issue":
+            return {
+                label: "Sync issue",
+                surface: colors.warningSoft,
+                border: colors.warning,
+                text: colors.warningText,
+                icon: "alert",
+            };
+        // The only genuinely risky state: a LOCAL write failed.
         case "error":
             return {
                 label: "Save error",

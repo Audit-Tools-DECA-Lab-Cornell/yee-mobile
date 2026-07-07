@@ -1,19 +1,19 @@
 import { create } from "zustand";
 import {
     buildFormStateFromSources,
-    buildParticipantInfo,
     buildStoredDraft,
     type MobileAuditFormState,
 } from "lib/yee-mobile-draft";
 import type { MobileYeeDomainKey, MobileYeeStepNumber } from "lib/yee-mobile-audit-config";
 import {
+    getNegativePresenceOption,
     isAffirmativeAnswer,
     normalizeInstrument,
     type InstrumentPromptRow,
     type NormalizedInstrument,
 } from "lib/yee-mobile-instrument";
 import { findFirstIncompleteStep } from "lib/yee-submit-guard";
-import { fetchYeeInstrument, saveAuditDraft } from "lib/yee-api";
+import { fetchYeeInstrument } from "lib/yee-api";
 import { readInstrumentCache, writeInstrumentCache } from "lib/yee-offline-storage";
 import type { YeeAssignedPlace, YeeLocalDraft } from "lib/yee-types";
 import { useAuthStore } from "stores/auth-store";
@@ -25,8 +25,23 @@ const SURVEY_LOAD_FAILED_MESSAGE = "Unable to load this audit's survey instrumen
 
 /** First paint state of the active audit. */
 export type AuditLoadPhase = "idle" | "loading" | "ready" | "error";
-/** Live persistence feedback surfaced by the save-status pill. */
-export type AuditSaveStatus = "idle" | "saving" | "saved" | "queued" | "error";
+/**
+ * Live persistence feedback surfaced by the save-status pill. The vocabulary is
+ * deliberately local-first: it separates DEVICE durability (the source of truth)
+ * from the best-effort CLOUD mirror, so the auditor is never told "unsaved" when
+ * their work is safely on-device.
+ *
+ * - `idle`        — nothing to report yet.
+ * - `saving`      — a local write is genuinely in progress (used sparingly).
+ * - `saved_local` — durably saved on this device; no cloud mirror confirmed.
+ * - `syncing`     — cloud mirror in flight (device copy already safe).
+ * - `synced`      — cloud mirror confirmed.
+ * - `queued`      — cloud mirror queued for later (offline or transient retry).
+ * - `sync_issue`  — cloud mirror failed; the on-device copy is still intact.
+ * - `error`       — a LOCAL write failed (rare; the only genuinely risky state).
+ */
+export type AuditSaveStatus =
+    "idle" | "saving" | "saved_local" | "syncing" | "synced" | "queued" | "sync_issue" | "error";
 
 export interface AuditSessionState {
     readonly placeId: string | null;
@@ -78,15 +93,32 @@ export interface AuditSessionState {
     setPresenceAnswer: (row: InstrumentPromptRow, answerId: string) => void;
     setConditionAnswer: (row: InstrumentPromptRow, answerId: string) => void;
 
+    /**
+     * Bulk-answer every still-unanswered presence row in the given set with its
+     * negative ("Not present") option, in ONE state update. Rows already answered
+     * are untouched, and rows without a single unambiguous negative option are
+     * skipped (see {@link getNegativePresenceOption}). Clearing a condition
+     * follow-up on a newly-negative row follows the same rule as
+     * {@link setPresenceAnswer}.
+     */
+    markRowsNotPresent: (rows: readonly InstrumentPromptRow[]) => void;
+
     setSectionComment: (domain: MobileYeeDomainKey, value: string) => void;
     setComments: (value: string) => void;
 
     /**
-     * Full persist with the remote mirror / offline queue. Used by Next,
-     * Save & Exit, and before navigating to review. Autosave (local-only) is
-     * automatic; this is the durable, network-aware commit.
+     * Durable LOCAL-only commit: writes the draft to MMKV (source of truth) with
+     * no network and no queue work. Used by the debounced autosave. Navigation
+     * never calls this directly — it uses {@link commitAndQueueRemote}.
      */
-    commitManual: () => Promise<void>;
+    commitLocalOnly: () => Promise<void>;
+    /**
+     * Navigation commit. Awaits the durable LOCAL write only, then fire-and-forgets
+     * the best-effort remote draft mirror (one `draft-${placeId}` queue item,
+     * drained in the background). Used by Next, Home, Save & Exit, review entry,
+     * app-background, and reconnect. Never blocks the caller on the network.
+     */
+    commitAndQueueRemote: () => Promise<void>;
 }
 
 const INITIAL_STATE = {
@@ -102,30 +134,19 @@ const INITIAL_STATE = {
     readOnly: false,
 } satisfies Partial<AuditSessionState>;
 
-/**
- * Fingerprint of the meaningful draft fields. Autosave skips a persist when the
- * fingerprint is unchanged, so setStep / no-op edits never write MMKV. Ported
- * verbatim from the old per-step screen so the change-detection is identical.
- */
-function buildDraftFingerprint(draft: MobileAuditFormState): string {
-    return JSON.stringify({
-        visitFrequency: draft.visitFrequency,
-        publicAccess: draft.publicAccess,
-        openHoursAccess: draft.openHoursAccess,
-        season: draft.season,
-        weather: draft.weather,
-        weights: draft.weights,
-        responses: draft.responses,
-        comments: draft.comments,
-        sectionComments: draft.sectionComments,
-        weightingComments: draft.weightingComments,
-        finishTime: draft.finishTime,
-        totalMinutes: draft.totalMinutes,
-    });
-}
+// ---------------------------------------------------------------------------
+// Dirty tracking — a monotonic revision counter replaces the old whole-draft
+// JSON.stringify() fingerprint. Every real in-memory edit bumps `draftRevision`
+// (O(1)); `lastPersistedRevision` records the revision last durably written to
+// MMKV. Autosave/commit/close compare the two numbers instead of serializing the
+// entire draft on every answer, which was the per-answer overhead we removed.
+// Module refs (not store state) so bumping them never triggers a re-render.
+// ---------------------------------------------------------------------------
 
-/** Fingerprint of the last draft durably committed to MMKV (module ref, no re-render). */
-let lastPersistedFingerprint: string | null = null;
+/** Bumped on every mutation that actually changes the in-memory draft. */
+let draftRevision = 0;
+/** Revision of the draft last durably committed to MMKV. */
+let lastPersistedRevision = 0;
 /** Pending debounced autosave handle. */
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -165,6 +186,9 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
             if (next === state.draft) {
                 return {};
             }
+            // Real edit: bump the dirty counter so autosave/close know there is
+            // unpersisted work without re-serializing the whole draft.
+            draftRevision += 1;
             return { draft: next, hasLocalEdits: true };
         });
     }
@@ -174,7 +198,10 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
 
         open: async (placeId, { place }) => {
             cancelAutosave();
-            lastPersistedFingerprint = null;
+            // Fresh session: both counters at 0 means "the loaded draft is exactly
+            // what is on disk", so no spurious autosave fires before the first edit.
+            draftRevision = 0;
+            lastPersistedRevision = 0;
 
             const mobileStore = useYeeMobileStore.getState();
             const isOnline = mobileStore.isOnline;
@@ -208,7 +235,6 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
                 storedDraft,
                 auditState: null,
             });
-            lastPersistedFingerprint = buildDraftFingerprint(draft);
 
             if (instrument === null && !isOnline) {
                 set({
@@ -233,9 +259,10 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
 
         openReadOnly: async (formState, options) => {
             cancelAutosave();
-            // Fingerprint the loaded state so the guarded autosave (which never
-            // runs in read-only anyway) would treat it as already-persisted.
-            lastPersistedFingerprint = buildDraftFingerprint(formState);
+            // Read-only sessions never persist; reset the counters so a later edit
+            // session starts clean.
+            draftRevision = 0;
+            lastPersistedRevision = 0;
 
             set({
                 ...INITIAL_STATE,
@@ -309,11 +336,12 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
                 !readOnly &&
                 draft !== null &&
                 hasLocalEdits &&
-                buildDraftFingerprint(draft) !== lastPersistedFingerprint
+                draftRevision !== lastPersistedRevision
             ) {
-                void autosavePersistLocal(draft);
+                void autosavePersistLocal(draft, draftRevision);
             }
-            lastPersistedFingerprint = null;
+            draftRevision = 0;
+            lastPersistedRevision = 0;
             set({ ...INITIAL_STATE });
         },
 
@@ -402,6 +430,44 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
                 };
             }),
 
+        markRowsNotPresent: (rows) =>
+            patchDraft((draft) => {
+                let responses = draft.responses;
+                let changed = false;
+                for (const row of rows) {
+                    const current = responses[row.presenceItemId]?.[row.choiceId];
+                    // Only fill rows that are genuinely unanswered.
+                    if (typeof current === "string" && current.length > 0) {
+                        continue;
+                    }
+                    // Derive the negative option from semantics, not label copy; skip
+                    // rows without one unambiguous negative choice.
+                    const negative = getNegativePresenceOption(row.presenceAnswers);
+                    if (negative === null) {
+                        continue;
+                    }
+                    responses = {
+                        ...responses,
+                        [row.presenceItemId]: {
+                            ...(responses[row.presenceItemId] ?? {}),
+                            [row.choiceId]: negative.id,
+                        },
+                        // A negative presence clears any condition follow-up, exactly
+                        // like a manual negative tap in setPresenceAnswer.
+                        ...(row.conditionItemId !== null
+                            ? {
+                                  [row.conditionItemId]: {
+                                      ...(responses[row.conditionItemId] ?? {}),
+                                      [row.choiceId]: "",
+                                  },
+                              }
+                            : {}),
+                    };
+                    changed = true;
+                }
+                return changed ? { ...draft, responses } : draft;
+            }),
+
         setSectionComment: (domain, value) =>
             patchDraft((draft) =>
                 draft.sectionComments[domain] === value
@@ -413,15 +479,43 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
                 draft.comments === value ? draft : { ...draft, comments: value },
             ),
 
-        commitManual: async () => {
+        commitLocalOnly: async () => {
             cancelAutosave();
-            const current = get().draft;
-            if (current === null) {
+            const { draft, readOnly } = get();
+            if (readOnly || draft === null) {
+                return;
+            }
+            // Skip when nothing changed since the last durable write — the whole
+            // point of the revision counter (no whole-draft re-serialization).
+            if (draftRevision === lastPersistedRevision) {
+                return;
+            }
+            const revisionAtWrite = draftRevision;
+            try {
+                await autosavePersistLocal(draft, revisionAtWrite);
+                set({ saveStatus: "saved_local", lastSavedAt: new Date().toISOString() });
+            } catch (error) {
+                set({
+                    saveStatus: "error",
+                    errorMessage:
+                        error instanceof Error ? error.message : "Unable to save locally.",
+                });
+            }
+        },
+
+        commitAndQueueRemote: async () => {
+            cancelAutosave();
+            const { draft: current, readOnly } = get();
+            if (readOnly || current === null) {
                 return;
             }
             const draft = withUpdatedTiming(current);
-            set({ draft, saveStatus: "saving" });
-            await manualPersist(draft, set);
+            // withUpdatedTiming builds a new object outside patchDraft, so it never
+            // bumps draftRevision; the current revision already covers every user
+            // edit, and the timing fields are persisted directly below.
+            const revisionAtWrite = draftRevision;
+            set({ draft });
+            await commitAndQueueRemotePersist(draft, revisionAtWrite, set);
         },
     };
 });
@@ -437,8 +531,12 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
 
 type StoreSet = (partial: Partial<AuditSessionState>) => void;
 
-/** Autosave commit: local-only, no network, no queue. */
-async function autosavePersistLocal(draft: MobileAuditFormState): Promise<void> {
+/**
+ * Autosave commit: local-only, no network, no queue. Records the revision it
+ * persisted (captured by the caller, not read live) so a follow-up edit that
+ * lands mid-write stays correctly marked dirty.
+ */
+async function autosavePersistLocal(draft: MobileAuditFormState, revision: number): Promise<void> {
     const mobileStore = useYeeMobileStore.getState();
     const previousDraft = mobileStore.draftsByPlace[draft.placeId] ?? null;
     const stored = buildStoredDraft(
@@ -448,66 +546,94 @@ async function autosavePersistLocal(draft: MobileAuditFormState): Promise<void> 
         "local_only",
     );
     await mobileStore.saveDraftLocally({ ...stored, syncState: "local_only" });
-    lastPersistedFingerprint = buildDraftFingerprint(draft);
+    lastPersistedRevision = revision;
 }
 
-async function manualPersist(draft: MobileAuditFormState, set: StoreSet): Promise<void> {
+/**
+ * Navigation-time commit: durable LOCAL write first, then enqueue the best-effort
+ * remote mirror and drain it in the BACKGROUND. The caller (Next / Home /
+ * Save & Exit / review / background / reconnect) only ever awaits the local +
+ * enqueue MMKV work — never the network PUT.
+ */
+async function commitAndQueueRemotePersist(
+    draft: MobileAuditFormState,
+    revision: number,
+    set: StoreSet,
+): Promise<void> {
     const session = useAuthStore.getState().session;
     const mobileStore = useYeeMobileStore.getState();
     const isOnline = mobileStore.isOnline;
     const previousDraft = mobileStore.draftsByPlace[draft.placeId] ?? null;
 
+    const localSyncState: YeeLocalDraft["syncState"] =
+        session !== null ? "pending_upload" : "local_only";
     const stored = buildStoredDraft(
         draft,
         previousDraft,
         previousDraft?.scorePreview ?? null,
-        session === null ? "local_only" : isOnline ? "synced" : "pending_upload",
+        localSyncState,
     );
 
-    // Durable local commit first. Honest state is "pending_upload" only while an
-    // online manual save is about to attempt the remote mirror; otherwise local.
-    await mobileStore.saveDraftLocally({
-        ...stored,
-        syncState: session !== null && isOnline ? "pending_upload" : "local_only",
-    });
-    lastPersistedFingerprint = buildDraftFingerprint(draft);
+    // 1) Durable LOCAL commit FIRST — source of truth, before any network work.
+    await mobileStore.saveDraftLocally({ ...stored, syncState: localSyncState });
+    lastPersistedRevision = revision;
+
+    const savedAtIso = new Date().toISOString();
 
     if (session === null) {
-        set({ saveStatus: "saved", lastSavedAt: new Date().toISOString() });
+        set({ saveStatus: "saved_local", lastSavedAt: savedAtIso });
         return;
     }
+
+    // 2) Enqueue the remote mirror as one deterministic draft-${placeId} item.
+    //    This is local MMKV work; awaiting it does NOT touch the network.
+    await mobileStore.queueDraftSync({ ...stored, syncState: "pending_upload" });
 
     if (!isOnline) {
-        await mobileStore.queueDraftSync({ ...stored, syncState: "pending_upload" });
-        set({ saveStatus: "queued", lastSavedAt: new Date().toISOString() });
+        set({ saveStatus: "queued", lastSavedAt: savedAtIso });
         return;
     }
 
-    // Remote draft save is OPTIONAL legacy sync (the web mirror). It never blocks
-    // local recovery: the local draft is already durably committed above, so a
-    // failure here merely queues a best-effort retry.
-    try {
-        const savedState = await saveAuditDraft(draft.placeId, session, {
-            participant_info: buildParticipantInfo(draft),
-            responses: draft.responses,
+    // 3) Online: drain in the BACKGROUND. Navigation is already free; the mirror
+    //    PUT never gates the caller. Reflect the durable outcome onto the pill.
+    set({ saveStatus: "syncing", lastSavedAt: savedAtIso });
+    void mobileStore
+        .syncPendingQueue(session)
+        .then(() => reflectMirrorStatus(draft.placeId, set))
+        .catch(() => {
+            const live = useAuditSessionStore.getState();
+            if (live.placeId === draft.placeId && !live.readOnly) {
+                set({ saveStatus: "queued" });
+            }
         });
-        await mobileStore.saveDraftLocally({
-            ...stored,
-            syncState: "synced",
-            scorePreview: savedState.score,
-            lastKnownBackendStatus: savedState.status,
-            lastKnownSubmissionId: savedState.submission_id,
-        });
-        set({ saveStatus: "saved", lastSavedAt: new Date().toISOString() });
-    } catch (error) {
-        await mobileStore.queueDraftSync({ ...stored, syncState: "pending_upload" });
-        set({
-            saveStatus: "queued",
-            lastSavedAt: new Date().toISOString(),
-            errorMessage:
-                error instanceof Error ? error.message : "Draft saved locally and queued for sync.",
-        });
+}
+
+/**
+ * Map the durable remote-mirror state of `placeId` onto the save-status pill
+ * after a background drain. Reads the mobile store (the source of truth for the
+ * queue and draft syncState) instead of tracking transitions imperatively, and
+ * ignores drains for a place the auditor already left or reopened read-only.
+ */
+function reflectMirrorStatus(placeId: string, set: StoreSet): void {
+    const live = useAuditSessionStore.getState();
+    if (live.placeId !== placeId || live.readOnly) {
+        return;
     }
+    const mobileStore = useYeeMobileStore.getState();
+    const queueItem = mobileStore.syncQueue.find((item) => item.id === `draft-${placeId}`) ?? null;
+
+    if (queueItem === null) {
+        // Drained and removed: the mirror PUT landed (or there was nothing to do).
+        const draft = mobileStore.draftsByPlace[placeId] ?? null;
+        set({ saveStatus: draft?.syncState === "synced" ? "synced" : "saved_local" });
+        return;
+    }
+    if (queueItem.failureReason === "terminal" || queueItem.failureReason === "validation") {
+        set({ saveStatus: "sync_issue" });
+        return;
+    }
+    // Retained for a later retry (offline blip, transient failure, or auth pause).
+    set({ saveStatus: "queued" });
 }
 
 /**
@@ -556,11 +682,21 @@ async function backgroundRefresh(placeId: string, place: YeeAssignedPlace | null
         .loadPlaceAuditState(placeId, session)
         .catch(() => null);
 
-    if (remoteState === null || get().placeId !== placeId || get().hasLocalEdits) {
+    // Local truth wins: never hydrate the remote draft over in-progress edits or
+    // work still waiting in the sync queue. loadPlaceAuditState applies the same
+    // guard to MMKV; this guards the in-memory session on top of it.
+    const mobileStore = useYeeMobileStore.getState();
+    const hasPendingQueueItem = mobileStore.syncQueue.some((item) => item.placeId === placeId);
+    if (
+        remoteState === null ||
+        get().placeId !== placeId ||
+        get().hasLocalEdits ||
+        hasPendingQueueItem
+    ) {
         return;
     }
 
-    const storedDraft = useYeeMobileStore.getState().draftsByPlace[placeId] ?? null;
+    const storedDraft = mobileStore.draftsByPlace[placeId] ?? null;
     const merged = buildFormStateFromSources({
         placeId,
         placeName: resolvePlaceName(place, storedDraft),
@@ -568,7 +704,8 @@ async function backgroundRefresh(placeId: string, place: YeeAssignedPlace | null
         storedDraft,
         auditState: remoteState,
     });
-    lastPersistedFingerprint = buildDraftFingerprint(merged);
+    // The merged draft mirrors what was just written to MMKV: nothing dirty.
+    lastPersistedRevision = draftRevision;
     set({ draft: merged });
 }
 
@@ -592,28 +729,10 @@ useAuditSessionStore.subscribe((state, previousState) => {
     cancelAutosave();
     autosaveTimer = setTimeout(() => {
         autosaveTimer = null;
-        const draft = useAuditSessionStore.getState().draft;
-        if (draft === null) {
-            return;
-        }
-        if (buildDraftFingerprint(draft) === lastPersistedFingerprint) {
-            return;
-        }
-        useAuditSessionStore.setState({ saveStatus: "saving" });
-        void autosavePersistLocal(draft)
-            .then(() => {
-                useAuditSessionStore.setState({
-                    saveStatus: "saved",
-                    lastSavedAt: new Date().toISOString(),
-                });
-            })
-            .catch((error: unknown) => {
-                useAuditSessionStore.setState({
-                    saveStatus: "error",
-                    errorMessage:
-                        error instanceof Error ? error.message : "Unable to autosave locally.",
-                });
-            });
+        // Durable LOCAL-only write. commitLocalOnly is a no-op when nothing has
+        // changed since the last persist (revision guard) and sets the pill to
+        // "saved_local" on success — no per-tap spinner flicker.
+        void useAuditSessionStore.getState().commitLocalOnly();
     }, 500);
 });
 

@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { ChevronLeft, LayoutDashboard } from "components/icons";
 import { useDesignSystem } from "lib/design-system";
@@ -99,14 +99,13 @@ export const AuditHeader = memo(function AuditHeader({
 
 const AuditProgressMeter = memo(function AuditProgressMeter() {
     const designSystem = useDesignSystem();
-    const draft = useAuditSessionStore((state) => state.draft);
-    const instrument = useAuditSessionStore((state) => state.instrument);
-    const completedCount = useMemo(() => {
-        if (draft === null) {
-            return 0;
-        }
-        return getCompletedSteps(draft, instrument).size;
-    }, [draft, instrument]);
+    // Subscribe to the DERIVED count, not the whole draft: the meter then
+    // re-renders only when a step flips complete/incomplete, instead of on every
+    // keystroke or answer tap. (Selector still runs per update, but the render —
+    // the expensive part — is gated by Object.is on the number.)
+    const completedCount = useAuditSessionStore((state) =>
+        state.draft === null ? 0 : getCompletedSteps(state.draft, state.instrument).size,
+    );
     const percentage = Math.round((completedCount / REQUIRED_STEP_COUNT) * 100);
 
     return (

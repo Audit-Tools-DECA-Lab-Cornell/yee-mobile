@@ -8,6 +8,9 @@ export const FinalCommentsStep = memo(function FinalCommentsStep() {
     const value = useAuditSessionStore((state) => state.draft?.comments ?? "");
     const setComments = useAuditSessionStore((state) => state.setComments);
     const readOnly = useAuditSessionStore((state) => state.readOnly);
+    const commentPrompt = useAuditSessionStore(
+        (state) => state.instrument?.finalCommentsPrompt ?? "",
+    );
     const palette = useSurveyPalette();
     return (
         <SurveyCard
@@ -15,7 +18,7 @@ export const FinalCommentsStep = memo(function FinalCommentsStep() {
             description="Add any overall comments you want included before review and submission."
         >
             <CommentField
-                label="Overall survey comments"
+                label={commentPrompt || "Overall survey comments"}
                 value={value}
                 onCommit={setComments}
                 palette={palette}

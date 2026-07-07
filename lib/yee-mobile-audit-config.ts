@@ -71,17 +71,6 @@ export const seasonOptions = [
     { value: "winter", label: "Winter" },
 ] as const;
 
-export const weatherOptions = [
-    { value: "sunny-mostly-sunny", label: "Sunny / Mostly sunny" },
-    { value: "mostly-cloudy-overcast", label: "Mostly cloudy / Overcast" },
-    { value: "rainy-drizzling", label: "Rainy / drizzling" },
-    { value: "windy", label: "Windy" },
-    { value: "snowy-flurries", label: "Snowy / Flurries" },
-    { value: "stormy", label: "Stormy" },
-    { value: "feels-hot", label: "Feels hot / very hot" },
-    { value: "feels-cold", label: "Feels cold / very cold" },
-] as const;
-
 export function getOptionLabel(
     options: readonly { value: string; label: string }[],
     value: string | number | null | undefined,
@@ -123,14 +112,6 @@ export function getOpenHoursAccessLabel(value: string | null | undefined): strin
     return getOptionLabel(openHoursAccessOptions, value);
 }
 
-export function getWeatherLabelList(values: readonly string[]): string {
-    if (values.length === 0) {
-        return "Not answered";
-    }
-
-    return values.map((value) => getOptionLabel(weatherOptions, value)).join(", ");
-}
-
 export function getDomainForStep(step: MobileYeeStepNumber): MobileYeeDomainKey | null {
     switch (step) {
         case 3:
@@ -162,30 +143,15 @@ export function getPreviousStep(step: MobileYeeStepNumber): MobileYeeStepNumber 
     return step > 1 ? ((step - 1) as MobileYeeStepNumber) : null;
 }
 
-export function getWeightPrompt(domain: MobileYeeDomainKey): string {
-    switch (domain) {
-        case "access":
-            return "How important is it to you that you can easily and safely get to these spaces?";
-        case "activitySpaces":
-            return "How important is it to you that these places have the spaces and/or equipment that allow you to do the activities you like (Ex: have spaces for sports/games, for hanging out with friends, for spending quiet time on your own, etc)?";
-        case "amenities":
-            return "How important is it to you that these places have amenities that make the space more comfortable and suitable (like bathrooms, WiFi, garbage bins, places to buy food/drinks, seating for groups, shade, etc)?";
-        case "experienceOfSpace":
-            return "How important is it to you that these places feel pleasant and safe to be in (Ex: feel peaceful, have lots of nature or nice views, feel safe and comfortable, where you will not be bothered or feel out of place, etc)?";
-        case "aestheticsAndCare":
-            return "How important is it to you that these places look nice and well cared for (Ex: have lots of greenery, have gardens or art to look at, are free from litter and graffiti, look like someone is taking good care of it, etc)?";
-        case "useAndUsability":
-            return "How important is it to you that these places are suitable for many activities for youth and/or the community (Ex: allow for lots of different types of activities, have lights that allow for night use, are good for youth programming or dog walking, etc)?";
-    }
-}
-
 export function ensureQuestionMark(text: string): string {
     const trimmed = text.trim();
     if (trimmed.length === 0) {
         return trimmed;
     }
 
-    if (/[?!.]$/.test(trimmed)) {
+    // Already terminated, or already a question mid-string (e.g. a prompt whose
+    // "?" is followed by a parenthetical example). Don't append a second mark.
+    if (/[?!.]$/.test(trimmed) || trimmed.includes("?")) {
         return trimmed;
     }
 

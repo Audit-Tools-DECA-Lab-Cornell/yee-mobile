@@ -276,6 +276,10 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                 payload: {
                     participant_info: draft.participantInfo,
                     responses: draft.responses,
+                    // Stamp the local revision this payload carries. The drain uses
+                    // it to avoid marking a NEWER local edit as synced off the back
+                    // of this (older) mirror PUT — the stale-draft guard.
+                    draft_version: draft.version,
                 },
                 attempts: existing?.attempts ?? 0,
                 lastError: existing?.lastError ?? null,
@@ -389,8 +393,22 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
         const state = await fetchAuditState(placeId, session);
 
         if (state.status === "DRAFT") {
-            const nowIso = new Date().toISOString();
             const previousDraft = get().draftsByPlace[placeId] ?? null;
+            const hasPendingQueueItem = get().syncQueue.some((item) => item.placeId === placeId);
+
+            // Protect local truth: the remote DRAFT is only a mirror. Hydrate it
+            // into local storage ONLY when there is nothing unsynced to clobber —
+            // no local draft, or a fully `synced` one with no pending queue item.
+            // Any local-only / pending / failed draft, or a queued mirror/submit,
+            // means the device holds newer work that must win.
+            const localHasUnsyncedWork =
+                previousDraft !== null &&
+                (previousDraft.syncState !== "synced" || hasPendingQueueItem);
+            if (localHasUnsyncedWork) {
+                return state;
+            }
+
+            const nowIso = new Date().toISOString();
             const localDraft: YeeLocalDraft = {
                 id: previousDraft?.id ?? placeId,
                 schemaVersion: YEE_DRAFT_SCHEMA_VERSION,
@@ -519,6 +537,16 @@ async function queueSubmissionInternal(
         failureReason: existing?.failureReason ?? null,
     };
 
+    // Once a submission is queued, the final submit is authoritative for this
+    // place. Drop any pending draft mirror (`draft-${placeId}`) so an optional
+    // draft PUT can neither run after nor compete with the submission — this is
+    // serialized with the drain, so no draft_save can be mid-flight here.
+    const draftMirrorId = `draft-${draft.placeId}`;
+    const pendingDraftMirror = get().syncQueue.find((entry) => entry.id === draftMirrorId) ?? null;
+    if (pendingDraftMirror !== null) {
+        await removeSyncQueueItem(draftMirrorId);
+    }
+
     await upsertSyncQueueItem(queueItem);
     await writeDraft({
         ...draft,
@@ -559,7 +587,10 @@ async function queueSubmissionInternal(
                     syncState: "pending_upload",
                 },
             },
-            syncQueue: upsertLocalQueue(state.syncQueue, queueItem),
+            syncQueue: upsertLocalQueue(
+                state.syncQueue.filter((entry) => entry.id !== draftMirrorId),
+                queueItem,
+            ),
             submittedAudits: nextSubmittedAudits,
         };
     });
@@ -688,43 +719,57 @@ async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): P
 }
 
 /**
- * Push a queued draft_save to the backend as OPTIONAL legacy sync.
+ * Push a queued draft_save to the backend as the best-effort remote mirror.
  *
- * The local MMKV draft is the source of truth; this remote save is best-effort
- * convenience for the web mirror. A failure here is NOT treated as a sync error
- * (it does not park the item or surface an error) — the item is still removed by
- * the caller. Local recovery never depends on it.
+ * The local MMKV draft is the source of truth; this PUT is a compatibility
+ * mirror for the web/backend. Two invariants:
+ *
+ * 1. **Never blocks local recovery.** The local draft is already durable before
+ *    anything is enqueued, so the worst case here is a delayed mirror.
+ * 2. **Retryable like any other queue item.** A failure THROWS so the caller's
+ *    shared backoff/retention policy parks it as "Queued / Sync issue" instead
+ *    of silently dropping it — the durable-sync UX depends on that honesty.
+ *
+ * On success the CURRENT local draft is stamped `synced` only when it is still
+ * the exact revision this payload carried (`draft_version`). If a newer local
+ * edit bumped the version after enqueue, the backend only has the older content,
+ * so the local draft is left dirty for a fresh `draft-${placeId}` item to mirror.
  */
 async function drainDraftSave(
     item: YeeSyncQueueItem,
     session: AuthSession,
     get: StoreGet,
 ): Promise<YeeLocalDraft | null> {
-    try {
-        const savedState = await saveAuditDraft(item.placeId, session, {
-            participant_info: item.payload.participant_info,
-            responses: item.payload.responses,
-        });
-        const existingDraft = get().draftsByPlace[item.placeId] ?? null;
-        if (existingDraft !== null) {
-            const syncedAtIso = new Date().toISOString();
-            const syncedDraft: YeeLocalDraft = {
-                ...existingDraft,
-                version: existingDraft.version + 1,
-                scorePreview: savedState.score,
-                lastKnownBackendStatus: savedState.status,
-                lastKnownSubmissionId: savedState.submission_id,
-                syncState: "synced",
-                updatedAt: syncedAtIso,
-                lastUpdatedIso: syncedAtIso,
-            };
-            await writeDraft(syncedDraft);
-            return syncedDraft;
-        }
-    } catch {
-        // Legacy remote draft save is best-effort; never block local recovery.
+    // Throws on failure — the caller applies backoff + retention (durable UX).
+    const savedState = await saveAuditDraft(item.placeId, session, {
+        participant_info: item.payload.participant_info,
+        responses: item.payload.responses,
+    });
+
+    const existingDraft = get().draftsByPlace[item.placeId] ?? null;
+    if (existingDraft === null) {
+        return null;
     }
-    return null;
+
+    // Stale-draft guard: a newer local edit (autosave bumped the version after
+    // this item was enqueued) must NOT be marked synced off an older mirror PUT.
+    const queuedVersion = item.payload.draft_version;
+    if (typeof queuedVersion === "number" && existingDraft.version !== queuedVersion) {
+        return null;
+    }
+
+    const syncedAtIso = new Date().toISOString();
+    const syncedDraft: YeeLocalDraft = {
+        ...existingDraft,
+        scorePreview: savedState.score,
+        lastKnownBackendStatus: savedState.status,
+        lastKnownSubmissionId: savedState.submission_id,
+        syncState: "synced",
+        updatedAt: syncedAtIso,
+        lastUpdatedIso: syncedAtIso,
+    };
+    await writeDraft(syncedDraft);
+    return syncedDraft;
 }
 
 /**
