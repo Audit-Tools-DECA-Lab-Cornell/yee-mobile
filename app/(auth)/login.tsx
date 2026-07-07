@@ -14,11 +14,16 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+type DevQuickLoginUser = {
+    name: string;
+    email: string;
+};
+
 /**
  * Dev-only quick-login roster.
  */
 const DEV_QUICK_LOGIN_PASSWORD = process.env.EXPO_PUBLIC_DEV_QUICK_LOGIN_PASSWORD!;
-const DEV_QUICK_LOGIN_USERS = [
+const DEV_QUICK_LOGIN_STATIC_USERS: DevQuickLoginUser[] = [
     { name: "Demo Auditor One", email: "auditor-demo-1@yee.local" },
     { name: "Demo Auditor Two", email: "auditor-demo-2@yee.local" },
     { name: "Demo Auditor Three", email: "auditor-demo-3@yee.local" },
@@ -30,6 +35,35 @@ const DEV_QUICK_LOGIN_USERS = [
     { name: "Summit Community Trust Auditor 2", email: "summit-auditor2@example.org" },
     { name: "Summit Community Trust Auditor 3", email: "summit-auditor3@example.org" },
     { name: "Summit Community Trust Auditor 4", email: "summit-auditor4@example.org" },
+];
+const TEST_AUDITOR_QUICK_LOGIN_DOMAIN = "example.org";
+const TEST_AUDITOR_QUICK_LOGIN_START_INDEX = 1;
+const TEST_AUDITOR_QUICK_LOGIN_END_INDEX = 30;
+
+/**
+ * Build seeded production test auditors: test-auditor-01@example.org … 30.
+ */
+function buildTestAuditorQuickLoginUsers(
+    startIndex: number,
+    endIndex: number,
+): DevQuickLoginUser[] {
+    const users: DevQuickLoginUser[] = [];
+    for (let index = startIndex; index <= endIndex; index += 1) {
+        const paddedIndex = String(index).padStart(2, "0");
+        users.push({
+            name: `Test Auditor ${index}`,
+            email: `test-auditor-${paddedIndex}@${TEST_AUDITOR_QUICK_LOGIN_DOMAIN}`,
+        });
+    }
+    return users;
+}
+
+const DEV_QUICK_LOGIN_USERS: DevQuickLoginUser[] = [
+    ...DEV_QUICK_LOGIN_STATIC_USERS,
+    ...buildTestAuditorQuickLoginUsers(
+        TEST_AUDITOR_QUICK_LOGIN_START_INDEX,
+        TEST_AUDITOR_QUICK_LOGIN_END_INDEX,
+    ),
 ];
 
 /**
@@ -428,7 +462,7 @@ export default function LoginScreen() {
                 modal
                 open={devSheetOpen}
                 onOpenChange={setDevSheetOpen}
-                snapPoints={[60]}
+                snapPoints={[85]}
                 snapPointsMode="percent"
                 dismissOnSnapToBottom
                 zIndex={100_000}
@@ -438,6 +472,7 @@ export default function LoginScreen() {
                     p="$5"
                     pb={insets.bottom + 24}
                     gap="$3"
+                    flex={1}
                     bg={designSystem.colors.background}
                     borderTopLeftRadius={designSystem.radii.lg}
                     borderTopRightRadius={designSystem.radii.lg}
@@ -460,39 +495,46 @@ export default function LoginScreen() {
                             {DEV_QUICK_LOGIN_PASSWORD}
                         </Paragraph>
                     </YStack>
-                    {DEV_QUICK_LOGIN_USERS.map((user) => (
-                        <Button
-                            key={user.email}
-                            height={64}
-                            justify="flex-start"
-                            rounded={designSystem.radii.button}
-                            borderWidth={1}
-                            borderColor={designSystem.colors.border}
-                            bg={designSystem.colors.surface}
-                            pressStyle={{ opacity: 0.9, scale: 0.99 }}
-                            disabled={isSubmitting}
-                            onPress={() => {
-                                void handleQuickLogin(user.email);
-                            }}
-                        >
-                            <YStack gap="$0.5" items="flex-start">
-                                <Text
-                                    color={designSystem.colors.foreground}
-                                    fontFamily={designSystem.fonts.bodyBold}
-                                    fontSize={15}
-                                >
-                                    {user.name}
-                                </Text>
-                                <Paragraph
-                                    color={designSystem.colors.mutedForeground}
-                                    fontFamily={designSystem.fonts.bodyMedium}
-                                    fontSize={13}
-                                >
-                                    {user.email}
-                                </Paragraph>
-                            </YStack>
-                        </Button>
-                    ))}
+                    <ScrollView
+                        style={{ flex: 1 }}
+                        contentContainerStyle={{ gap: 12, paddingBottom: 8 }}
+                        keyboardShouldPersistTaps="handled"
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {DEV_QUICK_LOGIN_USERS.map((user) => (
+                            <Button
+                                key={user.email}
+                                height={64}
+                                justify="flex-start"
+                                rounded={designSystem.radii.button}
+                                borderWidth={1}
+                                borderColor={designSystem.colors.border}
+                                bg={designSystem.colors.surface}
+                                pressStyle={{ opacity: 0.9, scale: 0.99 }}
+                                disabled={isSubmitting}
+                                onPress={() => {
+                                    void handleQuickLogin(user.email);
+                                }}
+                            >
+                                <YStack gap="$0.5" items="flex-start">
+                                    <Text
+                                        color={designSystem.colors.foreground}
+                                        fontFamily={designSystem.fonts.bodyBold}
+                                        fontSize={15}
+                                    >
+                                        {user.name}
+                                    </Text>
+                                    <Paragraph
+                                        color={designSystem.colors.mutedForeground}
+                                        fontFamily={designSystem.fonts.bodyMedium}
+                                        fontSize={13}
+                                    >
+                                        {user.email}
+                                    </Paragraph>
+                                </YStack>
+                            </Button>
+                        ))}
+                    </ScrollView>
                 </Sheet.Frame>
             </Sheet>
         </KeyboardAvoidingView>
