@@ -155,13 +155,11 @@ export default function LoginScreen() {
                                 fontSize={12}
                                 textTransform="uppercase"
                                 letterSpacing={2}
-                                {...(isDev
-                                    ? {
-                                          onPress: () => setDevSheetOpen(true),
-                                          pressStyle: { opacity: 0.6 },
-                                          hitSlop: { top: 12, bottom: 12, left: 12, right: 12 },
-                                      }
-                                    : {})}
+                                {...{
+                                    onPress: () => setDevSheetOpen(true),
+                                    pressStyle: { opacity: 0.6 },
+                                    hitSlop: { top: 12, bottom: 12, left: 12, right: 12 },
+                                }}
                             >
                                 Audit Tools Platform
                             </Paragraph>
