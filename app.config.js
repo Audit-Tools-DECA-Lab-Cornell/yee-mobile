@@ -2,7 +2,7 @@ export default {
     expo: {
         name: "Youth Enabling Environments Audit Tool",
         slug: "audit-tools-yee-mobile",
-        version: "0.7.3",
+        version: "0.8.0",
         orientation: "portrait",
         icon: "./assets/icon.png",
         scheme: "yee-mobile",
@@ -50,6 +50,15 @@ export default {
             ],
             "expo-web-browser",
             "expo-secure-store",
+            "expo-localization",
+            [
+                "@sentry/react-native",
+                {
+                    url: "https://sentry.io/",
+                    organization: process.env.SENTRY_ORG,
+                    project: process.env.SENTRY_PROJECT,
+                },
+            ],
             [
                 "expo-splash-screen",
                 {

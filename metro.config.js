@@ -3,7 +3,7 @@
 // Learn more https://docs.expo.io/guides/customizing-metro
 
 const path = require("path");
-const { getDefaultConfig } = require("expo/metro-config");
+const { getSentryExpoConfig } = require("@sentry/react-native/metro");
 
 const projectRoot = __dirname;
 
@@ -14,7 +14,7 @@ const tamaguiHoistedModules = {
     "@tamagui/web": path.resolve(projectRoot, "node_modules/@tamagui/web"),
 };
 
-const defaultConfig = getDefaultConfig(projectRoot);
+const defaultConfig = getSentryExpoConfig(projectRoot);
 defaultConfig.resolver.useWatchman = false;
 
 /**

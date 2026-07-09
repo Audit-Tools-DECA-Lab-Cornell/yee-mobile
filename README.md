@@ -35,6 +35,27 @@ The app is built with Expo + Expo Router, uses Tamagui for UI, and includes Type
 
     If omitted, the app defaults to `http://127.0.0.1:8000`.
 
+    ### Analytics & error monitoring (optional)
+
+    ```bash
+    # Master switch — analytics/monitoring only run when this is "true"
+    EXPO_PUBLIC_ANALYTICS_ENABLED="true"
+    # PostHog product analytics + full-fidelity session replay
+    EXPO_PUBLIC_POSTHOG_KEY=""
+    EXPO_PUBLIC_POSTHOG_HOST="https://us.i.posthog.com"
+    # Sentry crash/error monitoring
+    EXPO_PUBLIC_SENTRY_DSN=""
+    ```
+
+    All are optional: with `EXPO_PUBLIC_ANALYTICS_ENABLED` unset (or the keys
+    empty) no analytics code runs. **Session replay + Sentry add native modules**,
+    so enabling them requires a fresh dev/preview build (`bun run dev` dev-client
+    or an EAS build) — they do **not** work in Expo Go and cannot ship over OTA.
+
+    For Sentry source-map upload during EAS builds, set these as EAS secrets /
+    environment (build-time only, never `EXPO_PUBLIC_*`):
+    `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN`.
+
 3. Start the Expo dev server:
 
     ```bash

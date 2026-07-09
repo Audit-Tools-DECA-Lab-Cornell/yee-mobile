@@ -34,6 +34,13 @@ import { Appearance, KeyboardAvoidingView, Platform } from "react-native";
 import { useAuthStore } from "stores/auth-store";
 import { usePreferencesStore, type ResolvedTheme } from "stores/preferences-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
+import { identifyUser, resetUser, trackScreen } from "lib/analytics/client";
+import { Sentry, initSentry } from "lib/analytics/sentry";
+
+// Initialise crash/error monitoring as early as possible so startup errors are
+// captured. Configured centrally in lib/analytics/sentry.ts (DSN from
+// EXPO_PUBLIC_SENTRY_DSN); a no-op when the DSN is unset.
+initSentry();
 
 export { ErrorBoundary } from "expo-router";
 
@@ -80,7 +87,7 @@ function buildNavigationTheme(colors: ColorTokens, scheme: ResolvedTheme) {
  */
 const STARTUP_FALLBACK_TIMEOUT_MS = 8000;
 
-export default function RootLayout() {
+function RootLayout() {
     const [startupFallbackElapsed, setStartupFallbackElapsed] = useState(false);
     const [fontsLoaded, fontError] = useFonts({
         "Geist-Regular": Geist_400Regular,
@@ -122,6 +129,9 @@ export default function RootLayout() {
     );
 }
 
+// Wrap the root so Sentry captures render errors and instruments touch/navigation.
+export default Sentry.wrap(RootLayout);
+
 interface ProvidersProps {
     readonly children: React.ReactNode;
 }
@@ -160,6 +170,29 @@ function RootLayoutNav() {
     useHiddenAndroidNavBar(routeKey);
     useEasUpdateBootstrap();
     useBugReportFlushPrompt(session, authStatus === "authenticated");
+
+    // Manual screen tracking (expo-router does not expose the NavigationContainer
+    // that PostHog autocapture needs), keyed on the resolved route.
+    useEffect(() => {
+        trackScreen(routeKey || "index");
+    }, [routeKey]);
+
+    // Keep PostHog + Sentry identity in sync with the auth session. Reacting to
+    // the store's `session` selector covers every login path (password, offline
+    // fallback, signup, restored session) and logout with one effect.
+    useEffect(() => {
+        const user = session?.user;
+        if (user) {
+            identifyUser(user.id, {
+                email: user.email,
+                name: user.name,
+                role: user.accountType,
+                has_auditor_profile: user.hasAuditorProfile,
+            });
+        } else if (authStatus === "unauthenticated") {
+            resetUser();
+        }
+    }, [session, authStatus]);
 
     useEffect(() => {
         void initializeAuth();
