@@ -1,8 +1,14 @@
+const appVersion = process.env.EXPO_APP_VERSION_OVERRIDE ?? "0.7.3";
+
+const runtimeVersion = process.env.EXPO_RUNTIME_VERSION_OVERRIDE ?? {
+    policy: "fingerprint",
+};
+
 export default {
     expo: {
         name: "Youth Enabling Environments Audit Tool",
         slug: "audit-tools-yee-mobile",
-        version: "0.7.3",
+        version: appVersion,
         orientation: "portrait",
         icon: "./assets/icon.png",
         scheme: "yee-mobile",
@@ -73,9 +79,7 @@ export default {
                 projectId: "34a0dc8b-bf74-4b5a-8d76-ac98418eccd3",
             },
         },
-        runtimeVersion: {
-            policy: "fingerprint",
-        },
+        runtimeVersion: runtimeVersion,
         owner: "yee-decalab-cornell",
         githubUrl: "https://github.com/audit-tools-deca-lab-cornell/yee-mobile",
         updates: {
