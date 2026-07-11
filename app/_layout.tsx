@@ -27,7 +27,6 @@ import { StatusBar } from "expo-status-bar";
 import { useBugReportFlushPrompt } from "lib/bug-report/use-flush-prompt";
 import { useDesignSystem, type ColorTokens } from "lib/design-system";
 import { useEasUpdateBootstrap } from "lib/eas-updates";
-import { hydrateDeviceIdentity } from "lib/device-identity";
 import { useReleasePolicyGate } from "lib/release-policy";
 import { useHiddenAndroidNavBar } from "lib/system-bars";
 import { useEffect, useMemo, useState } from "react";
@@ -59,10 +58,6 @@ void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 // Load saved display preferences synchronously before first paint so the app
 // opens directly in the auditor's chosen theme without a flash.
 usePreferencesStore.getState().hydrate();
-
-// Resolve the OS device identifier once at startup so audit metadata can stamp
-// it synchronously later. Best-effort: failures just leave the field empty.
-void hydrateDeviceIdentity().catch(() => undefined);
 
 /**
  * Build a React Navigation theme from the active palette.

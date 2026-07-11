@@ -1,4 +1,3 @@
-import { getDeviceIdentity } from "./device-identity";
 import type { MobileYeeDomainKey } from "./yee-mobile-audit-config";
 import {
     YEE_DRAFT_SCHEMA_VERSION,
@@ -143,16 +142,9 @@ export function buildStoredDraft(
 }
 
 export function buildParticipantInfo(state: MobileAuditFormState): Record<string, unknown> {
-    // Stamped fresh on every save so the payload always reflects the device the
-    // audit was last worked on. tablet_id is the physical label entered in
-    // Settings → Device; the OS id and model are automatic backups.
-    const device = getDeviceIdentity();
     return {
         auditor_id: state.auditorId,
         participant_id: state.participantId,
-        tablet_id: device.tablet_id,
-        os_device_id: device.os_device_id,
-        device_model: device.device_model,
         place_id: state.placeId,
         place_name: state.placeName,
         audit_date: state.auditDate,
