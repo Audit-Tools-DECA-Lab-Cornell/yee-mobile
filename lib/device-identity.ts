@@ -210,3 +210,26 @@ export function getDeviceIdentity(): DeviceIdentity {
         device_model: deviceModel,
     };
 }
+
+/**
+ * Backfill blank device-identity fields in a participant_info payload from the
+ * CURRENT device identity, never overwriting a non-empty captured value.
+ *
+ * Applied at send time in the API layer: a payload stamped before first-launch
+ * hydration finished (or before the tablet was labeled) is frozen in the
+ * offline queue with "" fields, but it drains through the same device later —
+ * so filling the blanks at send keeps the values accurate and rescues queued
+ * audits that would otherwise ship without an id.
+ */
+export function withDeviceIdentityFallback(info: Record<string, unknown>): Record<string, unknown> {
+    const device = getDeviceIdentity();
+    const filled = { ...info };
+    for (const key of ["tablet_id", "os_device_id", "device_model"] as const) {
+        const current = filled[key];
+        const isBlank = typeof current !== "string" || current.length === 0;
+        if (isBlank && device[key].length > 0) {
+            filled[key] = device[key];
+        }
+    }
+    return filled;
+}

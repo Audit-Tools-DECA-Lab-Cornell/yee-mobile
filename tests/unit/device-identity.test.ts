@@ -16,6 +16,7 @@ import {
     hydrateDeviceIdentity,
     readTabletId,
     saveTabletId,
+    withDeviceIdentityFallback,
 } from "lib/device-identity";
 import {
     buildFormStateFromSources,
@@ -84,6 +85,36 @@ describe("buildParticipantInfo device + participant stamping", () => {
         const info = buildParticipantInfo(createEmptyFormState("place-1", "Test Place", "AUD-1"));
         expect(info.participant_id).toBe("");
         expect(info.tablet_id).toBe("");
+    });
+});
+
+describe("withDeviceIdentityFallback send-time backfill", () => {
+    it("fills blank device fields from the current identity", async () => {
+        saveTabletId("TAB-07");
+        await hydrateDeviceIdentity();
+
+        // Payload frozen into the offline queue before hydration/labeling.
+        const queued = { participant_id: "P-042", os_device_id: "", tablet_id: "" };
+        const filled = withDeviceIdentityFallback(queued);
+
+        expect(filled.os_device_id).toBe("test-vendor-id");
+        expect(filled.tablet_id).toBe("TAB-07");
+        expect(filled.device_model).toBe("Test Tablet");
+        expect(filled.participant_id).toBe("P-042");
+        // The queued payload itself is not mutated.
+        expect(queued.os_device_id).toBe("");
+    });
+
+    it("never overwrites a non-empty captured value", async () => {
+        saveTabletId("TAB-99");
+        await hydrateDeviceIdentity();
+
+        const filled = withDeviceIdentityFallback({
+            tablet_id: "TAB-01",
+            os_device_id: "captured-elsewhere",
+        });
+        expect(filled.tablet_id).toBe("TAB-01");
+        expect(filled.os_device_id).toBe("captured-elsewhere");
     });
 });
 
