@@ -1,0 +1,112 @@
+/**
+ * Tests for lib/device-identity.ts and its stamping into audit metadata.
+ *
+ * Covers:
+ * - Tablet label persistence round-trip over the MMKV stub (trimmed, reopens).
+ * - OS device id hydration falling back from Android ID (throws in the test
+ *   mock, as on iOS) to the iOS vendor ID.
+ * - buildParticipantInfo stamping participant_id + device identity keys.
+ * - buildFormStateFromSources restoring participant_id from a stored draft.
+ */
+import { beforeEach, describe, expect, it } from "vitest";
+import {
+    getDeviceIdentity,
+    hydrateDeviceIdentity,
+    readTabletId,
+    saveTabletId,
+} from "lib/device-identity";
+import {
+    buildFormStateFromSources,
+    buildParticipantInfo,
+    createEmptyFormState,
+} from "lib/yee-mobile-draft";
+import { YEE_DRAFT_SCHEMA_VERSION, type YeeLocalDraft } from "lib/yee-types";
+
+beforeEach(() => {
+    saveTabletId("");
+});
+
+describe("tablet label persistence", () => {
+    it("round-trips a saved label and trims whitespace", () => {
+        saveTabletId("  TAB-07  ");
+        expect(readTabletId()).toBe("TAB-07");
+    });
+
+    it("returns an empty string when nothing has been saved", () => {
+        expect(readTabletId()).toBe("");
+    });
+});
+
+describe("hydrateDeviceIdentity", () => {
+    it("falls back to the iOS vendor id when the Android id is unavailable", async () => {
+        await hydrateDeviceIdentity();
+        expect(getDeviceIdentity().os_device_id).toBe("test-vendor-id");
+    });
+
+    it("reports the OS-provided model name", () => {
+        expect(getDeviceIdentity().device_model).toBe("Test Tablet");
+    });
+});
+
+describe("buildParticipantInfo device + participant stamping", () => {
+    it("stamps participant_id and the device identity keys", async () => {
+        saveTabletId("TAB-07");
+        await hydrateDeviceIdentity();
+
+        const state = {
+            ...createEmptyFormState("place-1", "Test Place", "AUD-1"),
+            participantId: "P-042",
+        };
+        const info = buildParticipantInfo(state);
+
+        expect(info.participant_id).toBe("P-042");
+        expect(info.tablet_id).toBe("TAB-07");
+        expect(info.os_device_id).toBe("test-vendor-id");
+        expect(info.device_model).toBe("Test Tablet");
+        // Existing keys are untouched.
+        expect(info.auditor_id).toBe("AUD-1");
+        expect(info.place_id).toBe("place-1");
+    });
+
+    it("stamps empty strings when no label is set", () => {
+        const info = buildParticipantInfo(createEmptyFormState("place-1", "Test Place", "AUD-1"));
+        expect(info.participant_id).toBe("");
+        expect(info.tablet_id).toBe("");
+    });
+});
+
+describe("buildFormStateFromSources participant_id restore", () => {
+    it("restores participant_id from a stored draft", () => {
+        const storedDraft: YeeLocalDraft = {
+            id: "place-1",
+            schemaVersion: YEE_DRAFT_SCHEMA_VERSION,
+            version: 1,
+            placeId: "place-1",
+            updatedAt: new Date().toISOString(),
+            lastUpdatedIso: new Date().toISOString(),
+            participantInfo: { participant_id: "P-042" },
+            responses: {},
+            lastKnownBackendStatus: "DRAFT",
+            lastKnownSubmissionId: null,
+            scorePreview: null,
+            syncState: "local_only",
+        };
+
+        const formState = buildFormStateFromSources({
+            placeId: "place-1",
+            placeName: "Test Place",
+            auditorId: "AUD-1",
+            storedDraft,
+        });
+        expect(formState.participantId).toBe("P-042");
+    });
+
+    it("defaults participant_id to empty when absent from the draft", () => {
+        const formState = buildFormStateFromSources({
+            placeId: "place-1",
+            placeName: "Test Place",
+            auditorId: "AUD-1",
+        });
+        expect(formState.participantId).toBe("");
+    });
+});

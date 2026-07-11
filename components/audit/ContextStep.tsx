@@ -7,7 +7,15 @@ import {
     type InstrumentContextQuestion,
 } from "lib/yee-mobile-instrument";
 import { useAuditSessionStore } from "stores/yee-audit-session-store";
-import { QuestionCard, SelectionButton, SurveyCard, ReadOnlyField, OptionGrid } from "./primitives";
+import { useSurveyPalette } from "./survey-theme";
+import {
+    CommentField,
+    QuestionCard,
+    SelectionButton,
+    SurveyCard,
+    ReadOnlyField,
+    OptionGrid,
+} from "./primitives";
 
 /**
  * Step 1 — visit context. Every question prompt and option label now comes from
@@ -27,6 +35,7 @@ export const ContextStep = memo(function ContextStep() {
         >
             <ReadOnlyField label="Generated auditor ID" value={auditorId} />
             <ReadOnlyField label="Audit date" value={auditDate} />
+            <ParticipantIdField />
             <VisitFrequencyQuestion />
             <PublicAccessQuestion />
             <OpenHoursQuestion />
@@ -42,6 +51,30 @@ function useContextQuestion(id: string): InstrumentContextQuestion | null {
         state.instrument === null ? null : findContextQuestion(state.instrument, id),
     );
 }
+
+/**
+ * Optional free-text participant ID so a study/workshop can link this audit to
+ * the person who completed it. Client-owned (not part of the instrument), so
+ * it renders regardless of the cached instrument version.
+ */
+const ParticipantIdField = memo(function ParticipantIdField() {
+    const value = useAuditSessionStore((state) => state.draft?.participantId ?? "");
+    const setParticipantId = useAuditSessionStore((state) => state.setParticipantId);
+    const readOnly = useAuditSessionStore((state) => state.readOnly);
+    const palette = useSurveyPalette();
+    return (
+        <CommentField
+            label="Participant ID (optional)"
+            value={value}
+            onCommit={setParticipantId}
+            palette={palette}
+            placeholder="e.g. P-042"
+            disabled={readOnly}
+            multiline={false}
+            emptyFallback="No participant ID entered."
+        />
+    );
+});
 
 const VisitFrequencyQuestion = memo(function VisitFrequencyQuestion() {
     const question = useContextQuestion(CONTEXT_QUESTION_IDS.visitFrequency);

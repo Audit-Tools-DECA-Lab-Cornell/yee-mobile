@@ -393,6 +393,8 @@ export const CommentField = memo(function CommentField({
     palette,
     placeholder = "Optional notes",
     disabled = false,
+    multiline = true,
+    emptyFallback = "No comments added.",
 }: {
     label: string;
     value: string;
@@ -401,6 +403,10 @@ export const CommentField = memo(function CommentField({
     placeholder?: string;
     /** View-only: lock the input and show a muted empty placeholder. */
     disabled?: boolean;
+    /** Single-line mode for short identifiers (participant ID, codes). */
+    multiline?: boolean;
+    /** Muted text shown in view-only mode when no value was entered. */
+    emptyFallback?: string;
 }) {
     const designSystem = useDesignSystem();
     const [text, setText] = useState(value);
@@ -475,7 +481,7 @@ export const CommentField = memo(function CommentField({
                     px="$3"
                     py="$3"
                     style={{
-                        minHeight: 56,
+                        minHeight: multiline ? 56 : 48,
                         backgroundColor: palette.inner,
                         borderColor: palette.innerBorder,
                     }}
@@ -488,7 +494,7 @@ export const CommentField = memo(function CommentField({
                         }
                         fontFamily={designSystem.fonts.bodyMedium}
                     >
-                        {trimmed.length > 0 ? trimmed : "No comments added."}
+                        {trimmed.length > 0 ? trimmed : emptyFallback}
                     </Paragraph>
                 </YStack>
             </YStack>
@@ -507,16 +513,16 @@ export const CommentField = memo(function CommentField({
                 value={text}
                 onChangeText={handleChange}
                 onBlur={handleBlur}
-                multiline
+                multiline={multiline}
                 color={designSystem.colors.foreground}
                 placeholder={placeholder}
                 rounded={designSystem.radii.md}
                 borderWidth={1}
                 px="$3"
                 py="$3"
-                verticalAlign="top"
+                verticalAlign={multiline ? "top" : "middle"}
                 style={{
-                    minHeight: 110,
+                    minHeight: multiline ? 110 : 48,
                     backgroundColor: palette.inner,
                     borderColor: palette.innerBorder,
                 }}
