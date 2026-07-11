@@ -95,7 +95,7 @@ describe("withDeviceIdentityFallback send-time backfill", () => {
 
         // Payload frozen into the offline queue before hydration/labeling.
         const queued = { participant_id: "P-042", os_device_id: "", tablet_id: "" };
-        const filled = withDeviceIdentityFallback(queued);
+        const filled = await withDeviceIdentityFallback(queued);
 
         expect(filled.os_device_id).toBe("test-vendor-id");
         expect(filled.tablet_id).toBe("TAB-07");
@@ -109,12 +109,28 @@ describe("withDeviceIdentityFallback send-time backfill", () => {
         saveTabletId("TAB-99");
         await hydrateDeviceIdentity();
 
-        const filled = withDeviceIdentityFallback({
+        const filled = await withDeviceIdentityFallback({
             tablet_id: "TAB-01",
             os_device_id: "captured-elsewhere",
         });
         expect(filled.tablet_id).toBe("TAB-01");
         expect(filled.os_device_id).toBe("captured-elsewhere");
+    });
+
+    it("awaits hydration itself, so even a first-launch send gets the OS id", async () => {
+        // True first launch: fresh module state AND no persisted id in MMKV.
+        vi.resetModules();
+        const mmkv = (await import("react-native-mmkv")) as unknown as {
+            __mmkvStoresById: Map<string, Map<string, string>>;
+        };
+        mmkv.__mmkvStoresById.get("yee.device-identity")?.clear();
+
+        const fresh = await import("lib/device-identity");
+        expect(fresh.getDeviceIdentity().os_device_id).toBe("");
+
+        // No explicit hydrate call — the send-time helper must wait on its own.
+        const filled = await fresh.withDeviceIdentityFallback({ os_device_id: "" });
+        expect(filled.os_device_id).toBe("test-vendor-id");
     });
 });
 

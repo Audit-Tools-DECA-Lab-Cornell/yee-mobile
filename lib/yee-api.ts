@@ -90,7 +90,10 @@ export async function saveAuditDraft(
         `/yee/places/${placeId}/draft`,
         session,
         "PUT",
-        { ...payload, participant_info: withDeviceIdentityFallback(payload.participant_info) },
+        {
+            ...payload,
+            participant_info: await withDeviceIdentityFallback(payload.participant_info),
+        },
         { timeoutMs: DRAFT_MIRROR_TIMEOUT_MS },
     );
 }
@@ -132,7 +135,7 @@ export async function submitAudit(
         place_id: payload.place_id,
         // Queued payloads may have been stamped before device identity resolved
         // (or before the tablet was labeled); fill any blanks at send time.
-        participant_info: withDeviceIdentityFallback(payload.participant_info),
+        participant_info: await withDeviceIdentityFallback(payload.participant_info),
         responses: payload.responses,
     };
     if (typeof payload.idempotency_key === "string" && payload.idempotency_key.length > 0) {

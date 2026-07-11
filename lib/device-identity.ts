@@ -220,8 +220,19 @@ export function getDeviceIdentity(): DeviceIdentity {
  * offline queue with "" fields, but it drains through the same device later —
  * so filling the blanks at send keeps the values accurate and rescues queued
  * audits that would otherwise ship without an id.
+ *
+ * Async so it can await the hydration attempt first: even the very first send
+ * on a fresh install waits for the OS id resolution (an early return when it
+ * is already known) instead of racing it and shipping "".
  */
-export function withDeviceIdentityFallback(info: Record<string, unknown>): Record<string, unknown> {
+export async function withDeviceIdentityFallback(
+    info: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+    try {
+        await hydrateDeviceIdentity();
+    } catch {
+        // Best-effort: an unresolvable id still must never block the send.
+    }
     const device = getDeviceIdentity();
     const filled = { ...info };
     for (const key of ["tablet_id", "os_device_id", "device_model"] as const) {
