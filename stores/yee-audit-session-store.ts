@@ -81,6 +81,7 @@ export interface AuditSessionState {
 
     setStep: (step: MobileYeeStepNumber) => void;
 
+    setParticipantId: (value: string) => void;
     setVisitFrequency: (value: string) => void;
     setPublicAccess: (value: string) => void;
     setOpenHoursAccess: (value: string) => void;
@@ -351,6 +352,10 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
             }
         },
 
+        setParticipantId: (value) =>
+            patchDraft((draft) =>
+                draft.participantId === value ? draft : { ...draft, participantId: value },
+            ),
         setVisitFrequency: (value) =>
             patchDraft((draft) =>
                 draft.visitFrequency === value ? draft : { ...draft, visitFrequency: value },

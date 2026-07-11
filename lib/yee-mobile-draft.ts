@@ -10,6 +10,8 @@ export interface MobileAuditFormState {
     readonly placeId: string;
     readonly placeName: string;
     readonly auditorId: string;
+    /** Optional study/workshop participant ID linking this audit to a person. */
+    readonly participantId: string;
     readonly auditDate: string;
     readonly startTime: string;
     readonly finishTime: string;
@@ -37,6 +39,7 @@ export function createEmptyFormState(
         placeId,
         placeName,
         auditorId,
+        participantId: "",
         auditDate: startedAt.toISOString().slice(0, 10),
         startTime: startedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         finishTime: "",
@@ -80,6 +83,7 @@ export function buildFormStateFromSources(input: {
             asString(draftPayload.auditor_id) ??
             asString(input.auditState?.auditor_generated_id) ??
             input.auditorId,
+        participantId: asString(draftPayload.participant_id) ?? "",
         auditDate: asString(draftPayload.audit_date) ?? base.auditDate,
         startTime: asString(draftPayload.start_time) ?? base.startTime,
         finishTime: asString(draftPayload.finish_time) ?? "",
@@ -140,6 +144,7 @@ export function buildStoredDraft(
 export function buildParticipantInfo(state: MobileAuditFormState): Record<string, unknown> {
     return {
         auditor_id: state.auditorId,
+        participant_id: state.participantId,
         place_id: state.placeId,
         place_name: state.placeName,
         audit_date: state.auditDate,

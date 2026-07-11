@@ -72,6 +72,8 @@ export interface YeeMyAuditItem {
 export interface YeeDraftParticipantInfo extends Record<string, unknown> {
     readonly auditor_id?: string;
     readonly auditor_name?: string;
+    /** Optional study/workshop participant ID linking this audit to a person. */
+    readonly participant_id?: string;
     readonly place_id?: string;
     readonly place_name?: string;
     readonly audit_date?: string;
