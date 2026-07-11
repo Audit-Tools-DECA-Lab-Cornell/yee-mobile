@@ -1,3 +1,4 @@
+import { getDeviceIdentity } from "./device-identity";
 import type { MobileYeeDomainKey } from "./yee-mobile-audit-config";
 import {
     YEE_DRAFT_SCHEMA_VERSION,
@@ -10,6 +11,8 @@ export interface MobileAuditFormState {
     readonly placeId: string;
     readonly placeName: string;
     readonly auditorId: string;
+    /** Optional study/workshop participant ID linking this audit to a person. */
+    readonly participantId: string;
     readonly auditDate: string;
     readonly startTime: string;
     readonly finishTime: string;
@@ -37,6 +40,7 @@ export function createEmptyFormState(
         placeId,
         placeName,
         auditorId,
+        participantId: "",
         auditDate: startedAt.toISOString().slice(0, 10),
         startTime: startedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         finishTime: "",
@@ -80,6 +84,7 @@ export function buildFormStateFromSources(input: {
             asString(draftPayload.auditor_id) ??
             asString(input.auditState?.auditor_generated_id) ??
             input.auditorId,
+        participantId: asString(draftPayload.participant_id) ?? "",
         auditDate: asString(draftPayload.audit_date) ?? base.auditDate,
         startTime: asString(draftPayload.start_time) ?? base.startTime,
         finishTime: asString(draftPayload.finish_time) ?? "",
@@ -138,8 +143,16 @@ export function buildStoredDraft(
 }
 
 export function buildParticipantInfo(state: MobileAuditFormState): Record<string, unknown> {
+    // Stamped fresh on every save so the payload always reflects the device the
+    // audit was last worked on. tablet_id is the physical label entered in
+    // Settings → Device; the OS id and model are automatic backups.
+    const device = getDeviceIdentity();
     return {
         auditor_id: state.auditorId,
+        participant_id: state.participantId,
+        tablet_id: device.tablet_id,
+        os_device_id: device.os_device_id,
+        device_model: device.device_model,
         place_id: state.placeId,
         place_name: state.placeName,
         audit_date: state.auditDate,

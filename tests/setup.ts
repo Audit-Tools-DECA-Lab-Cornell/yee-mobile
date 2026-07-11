@@ -99,6 +99,22 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 }));
 
 // ---------------------------------------------------------------------------
+// expo-application / expo-device mocks
+// Deterministic device identity so lib/device-identity.ts is testable in Node.
+// getAndroidId throws (as on iOS) so tests exercise the vendor-ID fallback.
+// ---------------------------------------------------------------------------
+vi.mock("expo-application", () => ({
+    getAndroidId: () => {
+        throw new Error("getAndroidId is unavailable in tests");
+    },
+    getIosIdForVendorAsync: async () => "test-vendor-id",
+}));
+
+vi.mock("expo-device", () => ({
+    modelName: "Test Tablet",
+}));
+
+// ---------------------------------------------------------------------------
 // @react-native-community/netinfo mock
 // Returns a default "online" state that tests can override via the exported getter.
 // ---------------------------------------------------------------------------

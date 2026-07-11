@@ -72,6 +72,14 @@ export interface YeeMyAuditItem {
 export interface YeeDraftParticipantInfo extends Record<string, unknown> {
     readonly auditor_id?: string;
     readonly auditor_name?: string;
+    /** Optional study/workshop participant ID linking this audit to a person. */
+    readonly participant_id?: string;
+    /** Physical tablet label entered once in Settings → Device. */
+    readonly tablet_id?: string;
+    /** Best-effort OS device identifier (Android ID / iOS vendor ID). */
+    readonly os_device_id?: string;
+    /** Hardware model name reported by the OS. */
+    readonly device_model?: string;
     readonly place_id?: string;
     readonly place_name?: string;
     readonly audit_date?: string;

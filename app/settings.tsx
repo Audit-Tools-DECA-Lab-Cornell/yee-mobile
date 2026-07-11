@@ -1,10 +1,11 @@
-import type { ComponentType } from "react";
+import { useState, type ComponentType } from "react";
 import { ScrollView, Switch } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Button, XStack, YStack } from "tamagui";
+import { Button, Input, XStack, YStack } from "tamagui";
 import { ChevronLeft, LogOut, Monitor, Moon, ShieldCheck, Sun } from "components/icons";
 import { ScaledParagraph, ScaledText, ScreenHeader } from "components/ui";
+import { getDeviceIdentity, readTabletId, saveTabletId } from "lib/device-identity";
 import { useDesignSystem } from "lib/design-system";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useAuthStore } from "stores/auth-store";
@@ -253,6 +254,10 @@ export default function SettingsScreen() {
                     />
                 </Section>
 
+                <Section title="Device" designSystem={designSystem}>
+                    <TabletIdRow designSystem={designSystem} />
+                </Section>
+
                 <Section title="Account" designSystem={designSystem}>
                     <ReadOnlyRow label="Name" value={auditorName} designSystem={designSystem} />
                     <Divider color={colors.border} />
@@ -382,6 +387,71 @@ function SettingsRow({
             </XStack>
             {children}
         </YStack>
+    );
+}
+
+/**
+ * Tablet ID setting: the physical label on this device, entered once and
+ * stamped into every audit's metadata so completed audits can be traced back
+ * to the tablet they were captured on. Device-scoped (like display
+ * preferences), so it persists across sign-ins.
+ */
+function TabletIdRow({ designSystem }: { designSystem: DesignSystem }) {
+    const { colors, fonts, radii } = designSystem;
+    const [tabletId, setTabletId] = useState(() => readTabletId());
+    const [persistFailed, setPersistFailed] = useState(false);
+    const deviceModel = getDeviceIdentity().device_model;
+
+    const commit = (value: string) => {
+        setTabletId(value);
+        setPersistFailed(!saveTabletId(value));
+    };
+
+    return (
+        <SettingsRow
+            label="Tablet ID"
+            description="The ID number written on this tablet. It is attached to every audit submitted from this device so audits can be traced back to it."
+            designSystem={designSystem}
+        >
+            <Input
+                value={tabletId}
+                onChangeText={commit}
+                placeholder="e.g. TAB-07"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                color={colors.foreground}
+                rounded={radii.md}
+                borderWidth={1}
+                px="$3"
+                py="$2.5"
+                mt="$1"
+                style={{
+                    minHeight: 48,
+                    backgroundColor: colors.surfaceMuted,
+                    borderColor: colors.border,
+                }}
+                accessibilityLabel="Tablet ID"
+            />
+            {persistFailed ? (
+                <ScaledParagraph
+                    style={{ color: colors.dangerText }}
+                    fontFamily={fonts.bodyMedium}
+                    fontSize={12}
+                >
+                    Could not save to device storage — this tablet ID will only apply until the app
+                    is closed. Restart the app and try again.
+                </ScaledParagraph>
+            ) : null}
+            {deviceModel.length > 0 ? (
+                <ScaledParagraph
+                    style={{ color: colors.mutedForeground }}
+                    fontFamily={fonts.bodyMedium}
+                    fontSize={12}
+                >
+                    Detected device: {deviceModel}
+                </ScaledParagraph>
+            ) : null}
+        </SettingsRow>
     );
 }
 

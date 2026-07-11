@@ -1044,6 +1044,10 @@ const ContextSummaryCard = memo(function ContextSummaryCard({
             />
             <SummaryGrid isWideTablet={layout.isWideTablet}>
                 <ReviewSummaryRow
+                    label="Participant ID"
+                    value={draft.participantId || "No participant ID entered."}
+                />
+                <ReviewSummaryRow
                     label="Visit frequency"
                     value={contextAnswerLabel(
                         instrument,
