@@ -395,6 +395,7 @@ export const CommentField = memo(function CommentField({
     disabled = false,
     multiline = true,
     emptyFallback = "No comments added.",
+    debounceMs = 400,
 }: {
     label: string;
     value: string;
@@ -407,6 +408,13 @@ export const CommentField = memo(function CommentField({
     multiline?: boolean;
     /** Muted text shown in view-only mode when no value was entered. */
     emptyFallback?: string;
+    /**
+     * Commit debounce. Pass 0 for short identifier fields so every keystroke
+     * lands in the store immediately — a navigation-time save can then never
+     * race a pending debounce and drop the typed value. Long comment fields
+     * keep the default to avoid per-keystroke draft rebuilds.
+     */
+    debounceMs?: number;
 }) {
     const designSystem = useDesignSystem();
     const [text, setText] = useState(value);
@@ -439,12 +447,16 @@ export const CommentField = memo(function CommentField({
             if (timerRef.current !== null) {
                 clearTimeout(timerRef.current);
             }
+            if (debounceMs <= 0) {
+                commit(next);
+                return;
+            }
             timerRef.current = setTimeout(() => {
                 timerRef.current = null;
                 commit(next);
-            }, 400);
+            }, debounceMs);
         },
-        [commit],
+        [commit, debounceMs],
     );
 
     const handleBlur = useCallback(() => {

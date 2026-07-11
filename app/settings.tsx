@@ -399,11 +399,12 @@ function SettingsRow({
 function TabletIdRow({ designSystem }: { designSystem: DesignSystem }) {
     const { colors, fonts, radii } = designSystem;
     const [tabletId, setTabletId] = useState(() => readTabletId());
+    const [persistFailed, setPersistFailed] = useState(false);
     const deviceModel = getDeviceIdentity().device_model;
 
     const commit = (value: string) => {
         setTabletId(value);
-        saveTabletId(value);
+        setPersistFailed(!saveTabletId(value));
     };
 
     return (
@@ -431,6 +432,16 @@ function TabletIdRow({ designSystem }: { designSystem: DesignSystem }) {
                 }}
                 accessibilityLabel="Tablet ID"
             />
+            {persistFailed ? (
+                <ScaledParagraph
+                    style={{ color: colors.dangerText }}
+                    fontFamily={fonts.bodyMedium}
+                    fontSize={12}
+                >
+                    Could not save to device storage — this tablet ID will only apply until the app
+                    is closed. Restart the app and try again.
+                </ScaledParagraph>
+            ) : null}
             {deviceModel.length > 0 ? (
                 <ScaledParagraph
                     style={{ color: colors.mutedForeground }}

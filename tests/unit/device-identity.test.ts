@@ -2,13 +2,15 @@
  * Tests for lib/device-identity.ts and its stamping into audit metadata.
  *
  * Covers:
- * - Tablet label persistence round-trip over the MMKV stub (trimmed, reopens).
+ * - Tablet label persistence round-trip over the MMKV stub (trimmed, reopens),
+ *   including the durable-write success signal.
  * - OS device id hydration falling back from Android ID (throws in the test
- *   mock, as on iOS) to the iOS vendor ID.
+ *   mock, as on iOS) to the iOS vendor ID, and the persisted id being readable
+ *   synchronously on a cold start (fresh module instance).
  * - buildParticipantInfo stamping participant_id + device identity keys.
  * - buildFormStateFromSources restoring participant_id from a stored draft.
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
     getDeviceIdentity,
     hydrateDeviceIdentity,
@@ -28,7 +30,7 @@ beforeEach(() => {
 
 describe("tablet label persistence", () => {
     it("round-trips a saved label and trims whitespace", () => {
-        saveTabletId("  TAB-07  ");
+        expect(saveTabletId("  TAB-07  ")).toBe(true);
         expect(readTabletId()).toBe("TAB-07");
     });
 
@@ -45,6 +47,16 @@ describe("hydrateDeviceIdentity", () => {
 
     it("reports the OS-provided model name", () => {
         expect(getDeviceIdentity().device_model).toBe("Test Tablet");
+    });
+
+    it("reads the persisted OS id synchronously on a cold start", async () => {
+        await hydrateDeviceIdentity();
+
+        // Fresh module instance = new process launch; the id must come from
+        // MMKV without awaiting hydration, so an early save can't stamp "".
+        vi.resetModules();
+        const fresh = await import("lib/device-identity");
+        expect(fresh.getDeviceIdentity().os_device_id).toBe("test-vendor-id");
     });
 });
 

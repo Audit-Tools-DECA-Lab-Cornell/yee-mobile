@@ -72,6 +72,7 @@ const ParticipantIdField = memo(function ParticipantIdField() {
             disabled={readOnly}
             multiline={false}
             emptyFallback="No participant ID entered."
+            debounceMs={0}
         />
     );
 });
