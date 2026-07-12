@@ -1,0 +1,72 @@
+{
+    "platform": "Android Tablet",
+    "screen_id": "Tabs Execute",
+    "screens_reviewed": "Single scroll capture of the Execute tab (light theme) for a submitted place 'Maple Library Plaza': Online StatusBanner, place Card with SUBMITTED badge, a 3-up MetricCard row (Audits/Pending/Score), a 'Report available' Card, and a floating two-button action bar (Start survey / Open report) over the bottom tab bar.",
+    "verdict": "The screen is clean, uses the shared design-system primitives correctly (StatusBanner, Card, ScreenHeader, Badge, MetricCard, AppButton), and routes content through getResponsiveContentContainerStyle so it centers on wide tablets. However it reads as a scaled-up phone layout: body typography is not enlarged for the tablet (the TABLET_TYPOGRAPHY_BASE_SCALE token is defined but never consumed), roughly the bottom half of the canvas is empty with no multi-column / master-detail use of the large screen, and the floating CTA bar is pinned to the raw screen edge inset rather than the centered content track, so it can desync from the cards on wide tablets.",
+    "critical_issues": [],
+    "improvements": [
+        {
+            "id": "tablet-typography-base-scale-unused",
+            "category": "typography",
+            "location": "components/ui/ScaledText.tsx (ScaledText/ScaledParagraph) vs lib/responsive-layout-tokens.ts",
+            "suggestion": "ScaledText/ScaledParagraph only multiply fontSize/lineHeight by the user's preference fontScale; they never apply TABLET_TYPOGRAPHY_BASE_SCALE. The token's own doc comment says the default tablet font should equal phone-at-1.3, but nothing reads it, so all body/eyebrow/metric text renders at phone point sizes on the tablet (visible as small text against the large canvas). Thread isTablet (or a resolved scale) into the scaling helpers so tablet text gets the 1.3 baseline.",
+            "evidence": "core.md ScaledText.tsx lines 2295-2321 scale only by fontScale; responsive-layout-tokens.ts lines 785-792 define TABLET_TYPOGRAPHY_BASE_SCALE=1.3 with a comment describing exactly this intended behavior; image shows phone-sized type on the tablet",
+            "confidence": "high",
+            "inference": false
+        },
+        {
+            "id": "floating-cta-not-on-content-track",
+            "category": "responsive-layout",
+            "location": "app/(tabs)/execute.tsx:184-192",
+            "suggestion": "The absolute action bar positions left/right at layout.screenPaddingHorizontal, but the scroll content uses getResponsiveContentContainerStyle which, on wide tablets, switches to large centered gutters (getAdaptiveHorizontalPadding). The CTAs will hug the screen edges while the cards sit in a centered column, so the buttons no longer align with the content above them on wide tablets. Constrain the action bar to the same content track (center it with maxWidth = contentMaxWidth) instead of the raw horizontal inset.",
+            "evidence": "execute.tsx lines 188-190 use layout.screenPaddingHorizontal; responsive-layout.ts getAdaptiveHorizontalPadding (lines 662-673) centers content with larger gutters on tablet",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "underused-tablet-canvas",
+            "category": "visual-hierarchy",
+            "location": "app/(tabs)/execute.tsx:115-182 (single-column ScrollView)",
+            "suggestion": "Roughly the bottom half of the portrait tablet is empty. The screen is a single stacked column with no tablet adaptation (no two-pane / master-detail, no place-list rail). On a tablet this is a chance for a list-detail split (assigned places list on the left, the selected place's execute detail on the right) which also removes the 'select from the Places tab' round-trip. At minimum, consider a two-column arrangement of the cards to fill the canvas.",
+            "evidence": "image shows large empty area below the 'Report available' card; execute.tsx renders one YStack/ScrollView column with no layout.isTablet branching",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "metric-row-flexwrap-on-tablet",
+            "category": "responsive-layout",
+            "location": "app/(tabs)/execute.tsx:153-160",
+            "suggestion": "The MetricCard row uses XStack flexWrap=\"wrap\" with each MetricCard flex={1}. On the wide centered tablet track the three tiles stretch very wide and short, looking sparse. Consider capping tile width or giving the row a tablet-specific arrangement so the metrics don't become overly elongated.",
+            "evidence": "execute.tsx line 153 (flexWrap wrap) + MetricCard flex={1} (core.md MetricCard.tsx line 2168); image shows wide low metric tiles",
+            "confidence": "low",
+            "inference": true
+        },
+        {
+            "id": "bottom-tabs-vs-nav-rail",
+            "category": "platform-convention",
+            "location": "app/(tabs)/_layout.tsx:1462-1546",
+            "suggestion": "Material guidance on large-screen Android favors a navigation rail (or expanded drawer) over a bottom tab bar. The app uses Tabs (bottom bar) for all sizes; the _layout only nudges tablet styling (icon size 22, item radius/margins) but keeps the bottom bar. A nav rail on tablet would be more idiomatic and free vertical space. Acceptable as a cross-platform Expo Router choice, but worth noting for Android tablet polish.",
+            "evidence": "_layout.tsx uses <Tabs> with tabBarStyle for all widths; only minor tablet tweaks at lines 1478-1483",
+            "confidence": "medium",
+            "inference": false
+        }
+    ],
+    "tamagui_notes": [
+        "Screen correctly composes shared primitives instead of re-rolling them: StatusBanner, Card, ScreenHeader, Badge, MetricCard, AppButton, ScaledParagraph (execute.tsx:126-221). No inline card/badge re-styling found.",
+        "Minor token inconsistency: empty-state branch uses px=\"$4\" py=\"$6\" (execute.tsx:87) and the inline cards use literal fontSize={15} (execute.tsx:168-169) rather than the responsive layout's screenPadding tokens / scaled sizes, but these are small and pass through ScaledParagraph for the body text.",
+        "Card and MetricCard both apply p=\"$4\" / shadows from designSystem; cardPadding token (16) from responsive-layout-tokens is not used here since the primitives hardcode $4 — consistent across the app, not a regression."
+    ],
+    "platform_notes": [
+        "Status bar inset: content goes through getResponsiveContentContainerStyle and the root Stack contentStyle adds paddingTop:20 (app/_layout.tsx:1378); the StatusBanner clears the status bar in the capture — no overlap.",
+        "Android nav bar is hidden via useHiddenAndroidNavBar (lib/system-bars.ts), and the tab bar adds bottom inset through getResponsiveTabBarLayout, so gesture-nav insets are handled.",
+        "Tap targets: AppButton height comes from the shared primitive (not in core.md, inference); the floating CTAs and 48dp-class tab items appear adequately tall in the capture. Could not verify AppButton's exact height because components/ui/AppButton.tsx is absent from the pack and core."
+    ],
+    "not_assessable": [
+        "Exact AppButton min-height / tap-target size (>=48dp) — AppButton.tsx is not included in PACK or CORE.",
+        "Wide-tablet (>=960px) vs narrow-tablet rendering — only one portrait capture provided; the centered-gutter misalignment is reasoned from code, not seen.",
+        "Offline / empty (no selected place) and pending-sync states — only the online submitted state is captured.",
+        "Precise contrast ratios; the green 'Saved on Cloud' / 'ONLINE' on the successSoft banner and muted gray subtitles look within AA at these sizes but were not measured."
+    ],
+    "score": 7,
+    "score_rationale": "Solid and ships with minor polish: shared primitives are used correctly, responsive container logic is wired in, and safe-area/nav-bar insets are handled. It loses points for tablet-specific polish rather than correctness — tablet typography never picks up the defined 1.3 base scale, the large canvas is underused (no list-detail/multi-column), and the floating CTA bar can desync from the centered content track on wide tablets. No broken or off-platform behavior, so it lands at the top of the 7-8 band's lower edge."
+}

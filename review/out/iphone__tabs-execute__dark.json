@@ -1,0 +1,56 @@
+{
+    "platform": "iPhone",
+    "screen_id": "Tabs Execute",
+    "screens_reviewed": "Two scroll captures (07-execute.png top, 08-execute-detail.png slightly scrolled) of app/(tabs)/execute.tsx in dark theme, showing the submitted 'Maple Library Plaza' place: ONLINE StatusBanner, header Card with SUBMITTED badge, a 3-up metric row (Audits/Pending/Score), a 'Report available' card, and a fixed bottom CTA row (Start survey / Open report) above the tab bar.",
+    "verdict": "A clean, well-composed execute screen that correctly leans on the shared primitives (StatusBanner, Card, ScreenHeader, Badge, MetricCard, AppButton) with no inline re-styling of those components — the route file passes only tokens and layout props. The main real issue is the fixed bottom CTA bar using a hardcoded bottom:16 with no safe-area inset, which is a thin-margin risk on home-indicator iPhones; everything else is solid with minor polish opportunities.",
+    "critical_issues": [],
+    "improvements": [
+        {
+            "id": "cta-bar-ignores-bottom-inset",
+            "category": "safe-area",
+            "location": "app/(tabs)/execute.tsx:184-192 (absolute XStack with bottom: 16)",
+            "suggestion": "The floating CTA row is positioned with a hardcoded bottom: 16 and does not add useSafeAreaInsets().bottom. It sits above the system tab bar (which does add insets.bottom in (tabs)/_layout.tsx via getResponsiveTabBarLayout), so it is not clipped, but on home-indicator devices the gap to the tab bar / indicator is fixed rather than inset-aware. Read insets via react-native-safe-area-context and set bottom={Math.max(16, insets.bottom)} (or position relative to the tab bar height) so the buttons keep a consistent clearance across notched and non-notched phones. Pair this with raising bottomPadding (currently 92, execute.tsx:123) if the inset grows.",
+            "evidence": "execute.tsx:184-192 hardcodes bottom: 16; Provider.tsx and (tabs)/_layout.tsx both consume useSafeAreaInsets, so the inset value is available here too.",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "metric-row-no-wrap-budget-on-scaled-text",
+            "category": "responsive-layout",
+            "location": "app/(tabs)/execute.tsx:153-160 (XStack gap=\"$3\" flexWrap=\"wrap\" with three MetricCard flex={1})",
+            "suggestion": "Three MetricCards each flex={1} share a single phone row and fit comfortably at default scale (visible in both captures). With flexWrap=\"wrap\" and a large accessibility fontScale, a card could wrap to its own full-width row and create an uneven 2+1 layout, since MetricCard has no minWidth. Acceptable as-is, but consider a minWidth or an explicit responsive columns count so the grid degrades to a clean 1-per-row rather than 2+1 at the largest text sizes.",
+            "evidence": "execute.tsx:153 flexWrap=\"wrap\"; MetricCard.tsx:2167 uses flex={1} with no minWidth; ScaledText multiplies fontSize by fontScale (ScaledText.tsx:2285-2287).",
+            "confidence": "low",
+            "inference": true
+        },
+        {
+            "id": "report-card-icon-mismatch",
+            "category": "platform-convention",
+            "location": "app/(tabs)/execute.tsx:162-172 (CloudOff icon next to 'Report available')",
+            "suggestion": "For a submitted place the lower card shows the title 'Report available' but keeps the CloudOff (cloud-off) icon used for the offline-capture state. The icon semantically reads as 'no connection / offline' next to a 'report is ready' message while the banner above says ONLINE. Swap to a report/file icon (e.g. FileText or CheckCircle2 from components/icons) when isSubmitted is true to match the copy.",
+            "evidence": "execute.tsx:164 renders CloudOff unconditionally; line 170 switches the text to 'Report available' when isSubmitted; icons.tsx:280 maps CloudOff to feather 'cloud-off'.",
+            "confidence": "medium",
+            "inference": false
+        }
+    ],
+    "tamagui_notes": [
+        "No inline re-styling of shared primitives: the route uses StatusBanner, Card, ScreenHeader, Badge, MetricCard, AppButton and ScaledParagraph as-is, passing only token-driven props (execute.tsx:126-181), which matches design_system_components_used.",
+        "Spacing uses Tamagui space tokens consistently (gap=\"$3\", gap=\"$1\", items/px=\"$2.5\") rather than raw numbers, except the absolute CTA bar which uses raw left/right=layout.screenPaddingHorizontal and bottom:16 — intentional since those need the responsive horizontal value, not a token (execute.tsx:187-191).",
+        "The header card body text color is set via style={{ color: tone.text }} on a ScaledParagraph (execute.tsx:139-141); tone.text comes from getPlaceStatusTone with the live dark palette, so it stays theme-correct.",
+        "bottomPadding: 92 (execute.tsx:123) is a reasonable manual reserve for the 52pt AppButton row plus its 16pt bottom offset; if the CTA gains a safe-area inset this constant should track it."
+    ],
+    "platform_notes": [
+        "Top safe area is handled upstream, not in this route: the screen passes no topInset/includeTopPadding to getResponsiveContentContainerStyle, relying on ScrollView contentInsetAdjustmentBehavior=\"automatic\" plus the root Stack contentStyle paddingTop:20 (app/_layout.tsx:1376-1379). In both captures the ONLINE banner clears the Dynamic Island, so this reads fine on iPhone.",
+        "Thumb reach: the two primary CTAs are pinned to the bottom of the screen spanning full width (execute.tsx:184-222), which is good one-handed reach; the destructive/primary 'Open report' is on the right (dominant-thumb side).",
+        "Both AppButtons are 52pt tall (AppButton.tsx:1691), clearing the 44pt iOS minimum tap target.",
+        "The empty-state branch (execute.tsx:85-95) uses px=\"$4\" py=\"$6\" with no safe-area inset and is not exercised by these screenshots, so its notch clearance is not assessable here."
+    ],
+    "not_assessable": [
+        "Offline / pending-sync visual states (StatusBanner warning tone, 'Resume audit' draft CTA) — only the online/submitted state is captured.",
+        "Empty-state screen (no place selected) — not shown in either capture.",
+        "Exact contrast ratios; the dark palette pairs (mutedForeground #A7A99F on surface #1E201C, success #7FBFA3 accent text) appear comfortably above AA but are estimated, not measured.",
+        "Behavior of the Alert offline-readiness modal triggered from openAuditForPlace (execute.tsx:227-230)."
+    ],
+    "score": 8,
+    "score_rationale": "Solid, ships with minor polish: faithful use of the shared design system with no token or primitive violations, correct typography/spacing, and adequate tap targets and thumb reach. Held below 9 by the bottom CTA bar's hardcoded bottom:16 that ignores the bottom safe-area inset (a real but non-clipping margin risk on home-indicator iPhones) and the semantically mismatched CloudOff icon on the 'Report available' card."
+}

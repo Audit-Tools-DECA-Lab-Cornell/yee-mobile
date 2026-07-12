@@ -1,0 +1,72 @@
+{
+    "platform": "iPhone",
+    "screen_id": "Tabs Index",
+    "screens_reviewed": "Two scroll captures of app/(tabs)/index.tsx (Dashboard): top (03-home.png) showing header, Dashboard title, sync banner, offline-ready banner, 2x2 metric grid, and the dark 'Your assigned places' workflow card; and scrolled (04-home-assigned-places.png) showing the 'Assigned places' list of three place cards above the bottom tab bar.",
+    "verdict": "A polished, legible dashboard with clear hierarchy, good spacing rhythm (YStack gap $6 / 28px section gap), and correct safe-area clearance under the Dynamic Island and home indicator. The main concern is design-system consistency: the screen hand-rolls MetricCard, ActionButton, EmptyStateCard, and the two status banners inline even though shared primitives for all of them exist in components/ui, and the local MetricCard uses a percentage+minWidth sizing scheme that can wrap awkwardly on narrow phones. No broken layout or off-platform behavior.",
+    "critical_issues": [],
+    "improvements": [
+        {
+            "id": "reuse-shared-metriccard",
+            "category": "other",
+            "location": "app/(tabs)/index.tsx local MetricCard (lines 595-647) vs components/ui/MetricCard.tsx",
+            "suggestion": "Replace the local MetricCard with the shared components/ui/MetricCard.tsx. The shared tile uses flex={1} (clean equal columns), fontSize 24/lineHeight 28, and standard border tokens; the local copy diverges with width=\"48%\", minWidth 160, fontSize 30, and a colored border per tone. design_system_components_used lists only ScaledParagraph/ScaledText, confirming the shared MetricCard primitive is bypassed here.",
+            "evidence": "tabs-index.md index.tsx:601-647; core.md components/ui/MetricCard.tsx:2164-2204",
+            "confidence": "high",
+            "inference": false
+        },
+        {
+            "id": "metric-grid-wrap-narrow-phones",
+            "category": "responsive-layout",
+            "location": "app/(tabs)/index.tsx MetricCard width/minWidth (lines 606-611)",
+            "suggestion": "The grid uses width=\"48%\" with style.minWidth: 160. On a ~390pt screen (content 360 after 2x15 padding) two 48% cards (~173pt) fit two-per-row as shown. On smaller phones (e.g. 320pt wide -> content ~290, 48% ~139 < 160 so minWidth wins) the two 160pt cards plus the $3 gap exceed the row and collapse to one-per-row, breaking the intended 2x2 grid. Prefer flex={1} on a fixed two-column XStack (or the shared MetricCard) instead of percentage+minWidth so the grid stays 2-up at all phone widths.",
+            "evidence": "index.tsx:606-611 (width \"48%\", minWidth 160) with parent XStack gap=\"$3\" flexWrap=\"wrap\" at index.tsx:300; PHONE screenPaddingHorizontal=15 in responsive-layout-tokens.ts:795",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "reuse-shared-banners-and-buttons",
+            "category": "other",
+            "location": "app/(tabs)/index.tsx sync banner (211-253), offline-ready banner (255-298), ActionButton (656-690), EmptyStateCard (697-723)",
+            "suggestion": "Several inline blocks duplicate shared primitives: the connectivity banner overlaps components/ui/StatusBanner.tsx, the empty list block overlaps components/ui/EmptyState.tsx, and the status pills overlap components/ui/Badge.tsx. Consolidating onto these reduces token drift (e.g. the inline banner re-derives surface/border colors that StatusBanner already centralizes).",
+            "evidence": "index.tsx:211-298, 697-723; core.md StatusBanner.tsx:2412, EmptyState.tsx:1810, Badge.tsx:1576",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "blue-tone-falls-through-to-primary",
+            "category": "color-contrast",
+            "location": "app/(tabs)/index.tsx MetricCard tone=\"blue\" (line 301)",
+            "suggestion": "The 'Places' metric passes tone=\"blue\", but getMetricTone (lib/design-system.ts:528-542) only handles green/purple/orange and otherwise returns the primary tone, so 'Places/4' renders in dark primary green rather than a distinct blue. Either add a blue branch to getMetricTone (info/sky tokens exist) or drop the unused tone value so the four tiles read as intentionally colored.",
+            "evidence": "index.tsx:301 vs core.md lib/design-system.ts:528-542 (no \"blue\" case); screenshot 03-home.png shows PLACES/4 in dark green like the default tone",
+            "confidence": "high",
+            "inference": false
+        },
+        {
+            "id": "fixed-bottom-padding",
+            "category": "spacing",
+            "location": "app/(tabs)/index.tsx contentContainerStyle bottomPadding: 132 (line 117)",
+            "suggestion": "bottomPadding is a hard-coded 132 rather than derived from the dynamic tab-bar height (getResponsiveTabBarLayout) plus insets.bottom. It clears the tab bar in both screenshots, but on devices with a taller home-indicator inset or on tablet (taller buttonHeight) the gap can drift. Consider computing bottom padding from tabBarLayout.height + a fixed margin.",
+            "evidence": "index.tsx:117; getResponsiveTabBarLayout in responsive-layout.ts:703-718 already computes height from buttonHeight + insets",
+            "confidence": "low",
+            "inference": true
+        }
+    ],
+    "tamagui_notes": [
+        "ScaledText/ScaledParagraph are used consistently for all text (imported aliased as Text/Paragraph at index.tsx:25), so numeric fontSize values respect the auditor's font-scale preference (ScaledText.tsx:2295). Good.",
+        "The screen reads colors via the useDesignSystem() hook (index.tsx:39) rather than Tamagui theme tokens; values like rgba(255,255,255,0.78) on the dark workflow card (index.tsx:322) and borderColor rgba(71,203,175,0.18) (index.tsx:314) are raw literals not tied to a palette token, so they will not shift with theme.",
+        "Heading sizes are inline numeric literals (Dashboard fontSize 34 at index.tsx:197, workflow card 26 at index.tsx:333, section 21 at index.tsx:391) rather than Tamagui font-size tokens; intentional for this design but means typography scale lives in the screen, not the config."
+    ],
+    "platform_notes": [
+        "Safe-area top: index.tsx ScrollView relies on contentInsetAdjustmentBehavior=\"automatic\" (line 113) plus the root Stack contentStyle paddingTop:20 (_layout.tsx:1378); it does not pass topInset to getResponsiveContentContainerStyle. In 03-home.png the avatar/Dashboard header clears the Dynamic Island with comfortable margin, so top inset is handled.",
+        "Bottom safe area: tab bar paddingBottom adds insets.bottom via getResponsiveTabBarLayout (responsive-layout.ts:710), and the home-indicator area is respected under the HOME/PLACES/EXECUTE/REPORTS bar in both shots.",
+        "Thumb reach: primary CTAs are spread vertically (workflow-card actions mid-screen, per-place Start/Continue/View report buttons in the list); all are reachable. The header refresh/settings buttons are 42x42 (index.tsx:157-189) — above the 44pt guideline only by 2pt, acceptable but at the small end for top-corner targets."
+    ],
+    "not_assessable": [
+        "Exact WCAG contrast ratios (e.g. violet 'DRAFTS 0' numeral on white surface, mutedForeground body on surface) are estimated from tokens, not measured; none appeared clearly below AA in the light theme screenshots.",
+        "Loading and error runtime states (Spinner at index.tsx:396, errorMessage block at 245, Alert on incomplete offline setup at 537) are not shown in these captures.",
+        "Behavior at narrow phone widths (<360pt) for the metric grid wrap is inferred from the sizing math, not observed; the screenshots are at standard width.",
+        "Offline / empty-list appearance (EmptyStateCard, WifiOff banner) not captured."
+    ],
+    "score": 8,
+    "score_rationale": "Solid, ships-with-minor-polish. Hierarchy, spacing, typography, and iPhone safe-area handling are all correct and the screen is fully on-platform with no broken layout. Points come off for design-system consistency (inline MetricCard/ActionButton/EmptyState/banners duplicating existing shared primitives), a percentage+minWidth metric grid that can wrap on narrow phones, an unused tone=\"blue\" that silently falls back to primary, and a hard-coded bottom padding — all real but non-blocking."
+}

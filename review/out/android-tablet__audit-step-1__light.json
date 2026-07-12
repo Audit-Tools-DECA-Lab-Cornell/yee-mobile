@@ -1,0 +1,67 @@
+{
+    "platform": "Android Tablet",
+    "screen_id": "Audit · step 1",
+    "screens_reviewed": "Single scroll capture of the audit wizard step 1 (Context) on an Android tablet in light theme, showing the place header, step progress chip, 9-step pill navigator, the Visit details card (read-only auditor ID + date, and the first multi-choice question), and the fixed bottom Back / Save & exit / Next footer.",
+    "verdict": "A clean, calm green-on-cream wizard that is functionally complete and reads well; it correctly opts into responsive gutters/content-max-width via useResponsiveLayout + getResponsiveContentContainerStyle, and the footer respects gesture-nav insets. The main weaknesses are Android-specific: the whole screen renders fixed phone-sized typography (it never applies TABLET_TYPOGRAPHY_BASE_SCALE and bypasses the shared ScaledText primitives), and it makes no large-screen layout adaptation (single centered column, no list-detail or rail), so on a tablet it reads as a scaled-up phone form.",
+    "critical_issues": [],
+    "improvements": [
+        {
+            "id": "no-tablet-typography-scale",
+            "category": "typography",
+            "location": "app/audit/[placeId]/[step].tsx — all text nodes (e.g. StepHeader title fontSize={30} line 614, Card title fontSize={22} line 1094, QuestionCard label fontSize={16} line 1169, Step pill fontSize={11} line 605)",
+            "suggestion": "Font sizes are hard-coded literals and never multiplied by TABLET_TYPOGRAPHY_BASE_SCALE (1.3) even though layout.isTablet is available from useResponsiveLayout(). The design system explicitly intends tablet body text to render ~1.3x larger for legibility (lib/responsive-layout-tokens.ts:792). On this Android tablet the title and option labels read small for the canvas. Derive sizes from layout (e.g. multiply by the tablet base scale when layout.isTablet) instead of fixed numbers.",
+            "evidence": "core.md lib/responsive-layout-tokens.ts:792 (TABLET_TYPOGRAPHY_BASE_SCALE = 1.3) vs audit-placeId-step.md:614,1094,1169,605 fixed fontSize; image shows phone-scale type on a tablet width",
+            "confidence": "high"
+        },
+        {
+            "id": "bypasses-scaledtext-no-accessibility-scaling",
+            "category": "typography",
+            "location": "app/audit/[placeId]/[step].tsx:22-23 (imports Text/Paragraph from tamagui and the static `designSystem`)",
+            "suggestion": "Every label uses tamagui's raw Text/Paragraph instead of the shared ScaledText/ScaledParagraph, so explicit numeric fontSize is not multiplied by the auditor's stored fontScale preference (components/ui/ScaledText.tsx:2295-2321). The pack's `design_system_components_used: (none)` confirms no shared primitives are used. Swap to ScaledText/ScaledParagraph (as other CORE components do, e.g. ScreenHeader.tsx) so the accessibility text-size slider affects this field-heavy audit form.",
+            "evidence": "audit-placeId-step.md:22-23, design_system_components_used line; core.md components/ui/ScaledText.tsx:2295",
+            "confidence": "high"
+        },
+        {
+            "id": "static-designsystem-no-live-theme",
+            "category": "color-contrast",
+            "location": "app/audit/[placeId]/[step].tsx:23 (`import { designSystem } from \"lib/design-system\"`)",
+            "suggestion": "The screen reads the static light-only `designSystem` constant rather than `useDesignSystem()`, so it will not re-render on theme or dyslexic-font preference changes (lib/design-system.ts:453-510). Not visible in this light capture, but it means dark mode / dyslexic font won't apply to the audit wizard. Switch to useDesignSystem() and pass colors down, consistent with the rest of the app.",
+            "evidence": "audit-placeId-step.md:23 vs core.md lib/design-system.ts:477-510 (getDesignSystem honors theme + dyslexicFont)",
+            "confidence": "medium"
+        },
+        {
+            "id": "no-large-screen-layout-adaptation",
+            "category": "responsive-layout",
+            "location": "app/audit/[placeId]/[step].tsx StepHeader pill row (lines 669-703) and single-column ContextStep (lines 717-808)",
+            "suggestion": "On the tablet canvas the screen is a single centered form column with a wrapping row of 9 step pills. No list-detail, multi-column, or persistent step-rail adaptation is used despite the extra width. A vertical step rail / sidebar (or a 2-column card layout for short read-only fields like Auditor ID + Audit date) would use the tablet space better than stacking and wrapping. Form content is intentionally width-constrained (formMaxWidth), so keep the inputs narrow but consider relocating step navigation to a rail.",
+            "evidence": "image (wide single column, pills wrap to two rows); core.md lib/responsive-layout-tokens.ts supportRailWidth tokens exist but are unused here",
+            "confidence": "medium"
+        },
+        {
+            "id": "selection-rows-spacing-tap-target",
+            "category": "tap-target",
+            "location": "app/audit/[placeId]/[step].tsx SelectionButton (lines 1287-1317), py=\"$3\" px=\"$3.5\"",
+            "suggestion": "Option rows are built from a pressable XStack with token padding (py=\"$3\") rather than the responsive formOptionHeight (48-52dp on tablet, lib/responsive-layout-tokens.ts). The rendered single-line rows look comfortable and likely clear 48dp, but they don't key off layout.formOptionHeight, so they don't grow on larger tablets. Consider applying a minHeight from layout.formOptionHeight to guarantee the Android 48dp target across tablet tiers.",
+            "evidence": "audit-placeId-step.md:1287-1294; core.md formOptionHeight tokens 48/52 (lib/responsive-layout-tokens.ts:824,842)",
+            "confidence": "low"
+        }
+    ],
+    "tamagui_notes": [
+        "Screen hand-rolls all styling inline from the static `designSystem` object and a local SurveyPalette (audit-placeId-step.md:1787-1805) instead of using any shared ui/* primitive — the pack's `design_system_components_used: (none)` line confirms this; the consequence is the missing ScaledText/useDesignSystem behaviors flagged above.",
+        "SelectionButton intentionally avoids tamagui's Button so labels can wrap (comment at audit-placeId-step.md:1284-1286) — a justified deviation, not a bug.",
+        "Footer Next button color comes from nextTone.stepText which resolves to designSystem.colors.primary (#10231F) with white text — primaryForeground on primary is high-contrast (visible in image)."
+    ],
+    "platform_notes": [
+        "Android nav bar is hidden app-wide via useHiddenAndroidNavBar (core.md lib/system-bars.ts:1069); the footer pads paddingBottom={bottomInset + 12} (audit-placeId-step.md:1680) so primary actions clear gesture insets — good.",
+        "Native stack header uses headerTitleAlign 'left' on Android (useYeeStackHeaderOptions.ts:1998-1999), matching Material left-aligned titles; the visible 'audit/[placeId]' title is the raw route name because this capture renders the default Stack screen title rather than the YeeStackHeaderTitle (the route param wasn't resolved to a label in the screenshot harness).",
+        "No iOS-ported chevrons in the footer — Back uses an arrow-left Feather icon (components/icons.tsx) which is platform-neutral; acceptable on Android."
+    ],
+    "not_assessable": [
+        "Dark-theme and dyslexic-font rendering of this screen (only a light capture provided; the static designSystem concern is inferred from code, not seen).",
+        "Exact dp of the option-row tap targets and exact WCAG contrast ratios (estimated only).",
+        "Runtime states not shown: loading spinner, error NoticeCard, the condition follow-up sub-card, and the step-2..9 layouts.",
+        "Whether the wrapped 9-pill navigator overflows or scrolls on narrower tablet widths than this capture."
+    ],
+    "score": 7,
+    "score_rationale": "Solid and shippable with minor polish: layout is responsive at the container level, insets are handled, and the visual design is clean and on-brand. It loses points for two real, code-confirmed gaps that matter on a tablet — fixed phone-sized typography that never applies TABLET_TYPOGRAPHY_BASE_SCALE and bypasses the shared ScaledText accessibility primitives — plus the absence of any genuine large-screen layout adaptation. None are broken or off-platform, so this sits at the top of the 7-8 band."
+}

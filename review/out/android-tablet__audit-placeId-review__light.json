@@ -1,0 +1,72 @@
+{
+    "platform": "Android Tablet",
+    "screen_id": "Audit Placeid Review",
+    "screens_reviewed": "Two scroll captures of app/audit/[placeId]/review.tsx in light theme on an Android tablet: (1) top of the route showing the title, chip row, 'Submitted' status banner, Quick actions, Survey pages, and the start of Context summary, plus the fixed bottom footer; (2) a lower scroll position showing the Youth weighting tiles and the first Access review section with answer pills.",
+    "verdict": "A functional, content-complete review screen that correctly centers and max-width-constrains its scroll content on the tablet via getResponsiveContentContainerStyle, so it never stretches edge-to-edge. The main weaknesses are tablet-specific: it is a single centered phone-style column with no multi-column/grid use of the wide canvas, its body text bypasses the shared ScaledText primitives and the tablet typography base scale, and the fixed footer aligns to raw screen padding while the cards above use wider adaptive gutters, leaving the Back/Submit buttons visibly out of line with the content column.",
+    "critical_issues": [],
+    "improvements": [
+        {
+            "id": "bypasses-scaledtext-primitives",
+            "category": "typography",
+            "location": "app/audit/[placeId]/review.tsx:22-23 (and Text/Paragraph usages throughout, e.g. 499-509, 1004-1010, 1020-1035)",
+            "suggestion": "This screen imports Text and Paragraph straight from 'tamagui' and uses the static `designSystem` token set instead of the shared ScaledText/ScaledParagraph + useDesignSystem hook that the rest of the UI kit uses (core.md ScaledText.tsx scales explicit numeric fontSize/lineHeight by the user's fontScale preference). As a result the auditor's text-size and dyslexic-font preferences do not affect any text on this final-submit screen. Swap to `import { ScaledParagraph as Paragraph, ScaledText as Text } from 'components/ui/ScaledText'` and read tokens via `useDesignSystem()` as the other ui/* components do.",
+            "evidence": "review.tsx:22-23 vs core.md components/ui/ScaledText.tsx:2295-2321 and lib/design-system.ts:501-510",
+            "confidence": "high",
+            "inference": false
+        },
+        {
+            "id": "fixed-font-sizes-no-tablet-scale",
+            "category": "responsive-layout",
+            "location": "app/audit/[placeId]/review.tsx:502 (fontSize={30}), :1007 (fontSize={22}), default body sizes",
+            "suggestion": "Headings use hardcoded pixel sizes (30 for the page title, 22 for section titles) and body text uses Tamagui defaults, none of which respond to the tablet tier. The design system defines TABLET_TYPOGRAPHY_BASE_SCALE = 1.3 (responsive-layout-tokens.ts:792) precisely so default tablet text reads larger without raising the accessibility slider, but this screen never applies it. On the tablet the body copy and answer-pill text look small relative to the available width. Derive sizes from the responsive layout / fontScale instead of fixed literals.",
+            "evidence": "review.tsx:502,1007 vs lib/responsive-layout-tokens.ts:785-792; image 2 answer pills and body copy read small for the canvas",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "footer-not-aligned-to-content-track",
+            "category": "responsive-layout",
+            "location": "app/audit/[placeId]/review.tsx:757-771 (footer paddingHorizontal) vs :493-496 (scroll content container)",
+            "suggestion": "The scroll content is laid out with getResponsiveContentContainerStyle, which on tablet uses getAdaptiveHorizontalPadding to center the column with wide symmetric gutters (responsive-layout.ts:662-673). The fixed bottom footer instead uses raw `layout.screenPaddingHorizontal` (28-36px), so the Back/Submit buttons span almost edge-to-edge while the cards above are centered in a narrower track. In image 1 the footer buttons are noticeably wider than and not aligned with the content column. Wrap the footer's inner XStack in the same centered max-width track (reuse getContentTrackInnerWidth / the content container style) so the actions line up under the cards.",
+            "evidence": "review.tsx:767 (paddingHorizontal: layout.screenPaddingHorizontal) vs review.tsx:493 + responsive-layout.ts:662-673; image 1 footer vs card alignment",
+            "confidence": "high",
+            "inference": false
+        },
+        {
+            "id": "single-column-underuses-tablet-canvas",
+            "category": "responsive-layout",
+            "location": "app/audit/[placeId]/review.tsx:484-755 (whole scroll body as one YStack column)",
+            "suggestion": "The entire review is one vertically stacked column. On the tablet this is a scaled-up phone layout: Quick actions, Survey pages, Context summary, and the per-section review cards could use the spare width (e.g. a two-pane split with the summary/quick-actions/score rail beside the section review list, or a multi-column grid for the Survey-page jump buttons and the Youth-weighting tiles). The layout tokens already expose twoPaneGap and supportRailWidth (responsive-layout-tokens.ts) for exactly this. As-is the wide canvas is mostly empty gutter.",
+            "evidence": "image 1 and image 2 show a single centered column with large empty side margins; review.tsx has no isTablet/isWideTablet column branching",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "edit-section-button-tap-target",
+            "category": "tap-target",
+            "location": "app/audit/[placeId]/review.tsx:663-681 ('Edit section' button) and :1093-1121 (StepJumpButton)",
+            "suggestion": "The 'Edit section' button and the Survey-page jump buttons rely on default Button sizing plus small py padding ($2.5) rather than the responsive formOptionHeight/compactControlHeight tokens (which target 48-52px on tablet, >=48dp Material guidance). Verify rendered height meets 48dp; if not, set minHeight to layout.formOptionHeight so these stay comfortable Android tap targets.",
+            "evidence": "review.tsx:663-681,1104-1121; responsive-layout-tokens.ts:812-846 formOptionHeight/compactControlHeight",
+            "confidence": "low",
+            "inference": true
+        }
+    ],
+    "tamagui_notes": [
+        "review.tsx:22-23 uses raw tamagui Text/Paragraph and the static `designSystem` constant rather than the shared ScaledText/ScaledParagraph + useDesignSystem hook used across components/ui/*; this is the most consistency-relevant deviation on the screen and disables font-scale/dyslexic preferences here.",
+        "pack header line `design_system_components_used: (none)` is accurate — the screen hand-rolls every card, chip, badge-like pill, and summary row (SectionCard, Chip, AnswerPill, SummaryRow at review.tsx:980-1091) inline instead of reusing Badge/StatusBanner/ScreenHeader from the kit (core.md). The hand-rolled Chip/AnswerPill duplicate Badge.tsx styling.",
+        "Content centering is correct: getResponsiveContentContainerStyle (review.tsx:493) constrains the scroll body to contentMaxWidth with adaptive gutters, so the screen does not stretch edge-to-edge — good tablet behavior, only the footer (review.tsx:767) is left out of that track.",
+        "Section colors are intentionally unified (getReviewThemeByStep returns the primary tone for every section, review.tsx:1244-1250), so the visually muted/identical section cards are by-design, not a bug."
+    ],
+    "platform_notes": [
+        "Android nav bar: the root mounts useHiddenAndroidNavBar (core.md lib/system-bars.ts) and the footer pads with insets.bottom + 12 (review.tsx:769), so gesture-nav inset is handled; image 1/2 show the status bar respected at top via the Stack contentStyle paddingTop.",
+        "No iOS-ported chevrons leak in here — the back/submit footer uses ArrowLeft/Send Feather icons (review.tsx:781,808) which are platform-neutral; acceptable on Android.",
+        "Material adaptation is thin: this remains a centered phone column rather than a list-detail/grid layout that Android tablets favor (see single-column-underuses-tablet-canvas)."
+    ],
+    "not_assessable": [
+        "Exact rendered tap-target heights for Edit section / Survey-page buttons (depends on Button line-height + padding at runtime; flagged as low-confidence inference).",
+        "Exact contrast ratios; the warning-colored 'Context still needs required answers...' line (review.tsx:543, color warning #C89A57) on the white Quick-actions card looks borderline for AA body text but cannot be measured precisely from the screenshot.",
+        "Cross-screen submit flow (queued/submitted/retry states routed via reconcileAfterSync) — only the 'Submitted' state is shown in these captures; other banner/footer-label states (Queued, Retry, Sign in) are not assessable from these images."
+    ],
+    "score": 7,
+    "score_rationale": "Solid and content-complete with correct safe-area/nav-bar handling and proper centered max-width content on the tablet, so it is far from broken or off-platform. It loses points for tablet polish: it bypasses the shared ScaledText typography primitives (disabling user text-size/dyslexic preferences), applies no tablet typography scale, leaves the footer misaligned with the content track, and uses a single scaled-up phone column instead of adapting to the wide canvas. These are real but non-blocking, landing it at solid/minor-polish (7)."
+}

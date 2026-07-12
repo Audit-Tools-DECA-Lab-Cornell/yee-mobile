@@ -1,0 +1,73 @@
+{
+    "platform": "Android Tablet",
+    "screen_id": "Tabs Places",
+    "screens_reviewed": "Single scroll capture of the Places (\"My Audits\") tab in light theme on an Android tablet: header, three summary tiles (Drafts/Submitted/Queued), an offline-readiness banner, and a vertical stack of place cards (Maple Library Plaza, North School Commons, South Transit Plaza) above the bottom tab bar.",
+    "verdict": "Functionally complete and visually clean, but it reads as a scaled-up phone layout rather than a tablet-adapted one: place cards stack in a single full-width column with no grid or list-detail split, and the defined tablet typography boost is never applied so text looks small on the large canvas. Material large-screen conventions (navigation rail) are also skipped in favor of a bottom tab bar. Nothing is broken; the issues are adaptation and density.",
+    "critical_issues": [
+        {
+            "id": "single-column-no-grid-on-tablet",
+            "category": "responsive-layout",
+            "location": "app/(tabs)/places.tsx place card list",
+            "issue": "Place cards render as one full-width vertical column on the tablet canvas. The screen only centers content within contentMaxWidth via getResponsiveContentContainerStyle; there is no isTablet branch that switches to a 2-up grid or a list-detail (master-detail) layout, so a wide tablet shows tall single cards with large empty horizontal bands and excessive scrolling.",
+            "evidence": "places.tsx:153-296 (placeViews.map renders a flat YStack list, no column/grid logic); contentMaxWidth tablet values at responsive-layout-tokens.ts:779-780; screenshot shows full-width stacked cards",
+            "confidence": "high",
+            "inference": false,
+            "fix": "When layout.isTablet, render placeViews in a responsive grid (e.g. wrap cards in an XStack with flexWrap=\"wrap\" and per-card flexBasis \"48%\"/maxWidth), or adopt a list-detail split (place list pane + selected-place detail pane) using layout.twoPaneGap/supportRailWidth already provided by responsive-layout-tokens.ts."
+        },
+        {
+            "id": "tablet-typography-base-scale-unused",
+            "category": "typography",
+            "location": "components/ui/ScaledText.tsx + app/(tabs)/places.tsx text",
+            "issue": "TABLET_TYPOGRAPHY_BASE_SCALE (1.3) is defined and exported to make default tablet text legible, but ScaledText/ScaledParagraph only multiply explicit sizes by the user fontScale preference, never by the tablet base scale. places.tsx passes raw fixed sizes (32/17/12 etc.), so on a tablet the body text and labels render at phone point sizes and look undersized for the canvas.",
+            "evidence": "ScaledText.tsx scaleSize uses only fontScale (core.md:2285-2304); constant defined at responsive-layout-tokens.ts:792 and re-exported responsive-layout.ts:610 but not consumed in places.tsx:81-95,174-202; screenshot shows small body/label text relative to large surface",
+            "confidence": "medium",
+            "inference": false,
+            "fix": "Fold the tablet base scale into the scaled text path (e.g. have ScaledText read useResponsiveLayout and multiply by TABLET_TYPOGRAPHY_BASE_SCALE when isTablet, or pass a layout-aware effective scale), so default tablet type sizes up without the user touching the accessibility slider."
+        }
+    ],
+    "improvements": [
+        {
+            "id": "summary-tiles-overstretch",
+            "category": "visual-hierarchy",
+            "location": "app/(tabs)/places.tsx SummaryTile / summary XStack",
+            "suggestion": "The three summary tiles use flex={1} with only minWidth:102, so on a wide tablet they stretch into very wide, short cards with a tiny number floating left and large dead space. Cap tile width (maxWidth) or give the summary row its own constrained track so the metrics stay compact and grouped.",
+            "evidence": "places.tsx:98-106 (XStack flexWrap) and 351-360 (flex:1, minWidth:102); screenshot shows three wide tiles spanning the full width",
+            "confidence": "medium"
+        },
+        {
+            "id": "material-nav-rail-on-large-screen",
+            "category": "platform-convention",
+            "location": "app/(tabs)/_layout.tsx",
+            "suggestion": "On Android large screens Material guidance favors a navigation rail over a bottom tab bar. The layout uses expo-router Tabs (bottom bar) for every width. Consider a rail on tablet widths for better reachability and convention fit; this is a shared tab-layout change, not Places-specific.",
+            "evidence": "app/(tabs)/_layout.tsx:1462-1546 (Tabs bottom bar, only icon size/label tweaks for isTablet); screenshot bottom nav",
+            "confidence": "medium"
+        },
+        {
+            "id": "ios-ported-action-buttons-fit",
+            "category": "responsive-layout",
+            "location": "app/(tabs)/places.tsx ActionButton row",
+            "suggestion": "Action buttons (Start audit / View report) sit left-aligned in a flexWrap XStack and stay small on the wide card, leaving large empty card width. On tablet, consider right-aligning the primary action or giving the action row a max content width so the card does not feel sparse.",
+            "evidence": "places.tsx:261-290 action XStack; screenshot shows small buttons with wide empty space to the right",
+            "confidence": "low"
+        }
+    ],
+    "tamagui_notes": [
+        "Screen correctly uses the shared ScaledParagraph/ScaledText primitives (places.tsx:15) rather than raw tamagui Text/Paragraph, matching design_system_components_used.",
+        "Colors and radii come from useDesignSystem tokens throughout (places.tsx:108-118,161-167), no hardcoded hex; good token discipline.",
+        "Content container is built from getResponsiveContentContainerStyle (places.tsx:74), so tablet gutter centering works, but the inner content remains single-column."
+    ],
+    "platform_notes": [
+        "Android tablet: layout is a centered phone-style single column; misses grid / list-detail adaptation the large canvas affords (places.tsx list).",
+        "System/gesture-nav insets handled: useHiddenAndroidNavBar hides the Android nav bar (system-bars.ts) and tab bar paddingBottom adds bottomInset (responsive-layout.ts getResponsiveTabBarLayout), so bottom content clears gesture nav.",
+        "Tap targets: ActionButton is a tamagui Button with no explicit minHeight; default Button sizing plus tablet buttonHeight tokens generally clear 48dp, but height is not pinned in places.tsx so this is not guaranteed (places.tsx:399-423).",
+        "Bottom tab bar used instead of a Material navigation rail on large screen (app/(tabs)/_layout.tsx)."
+    ],
+    "not_assessable": [
+        "Exact rendered point sizes / whether the small-looking text actually falls below a legibility threshold (depends on device dp and active fontScale, not visible).",
+        "Tap-target dp of Start audit / View report buttons (Button has no explicit minHeight in places.tsx; runtime measured height unknown).",
+        "Empty-state and offline-incomplete alert states (EmptyStateCard / Alert paths) are not shown in this capture.",
+        "Precise contrast ratios; no text/background pair here appeared clearly below WCAG AA."
+    ],
+    "score": 6,
+    "score_rationale": "Usable and polished with clear, code-confirmed problems: it does not adapt to the tablet (single-column list with no grid/list-detail, places.tsx) and the defined tablet typography scale is never applied (ScaledText.tsx), so the screen reads as a stretched phone UI rather than a tablet layout. No broken or off-platform behavior, tokens and shared primitives are used correctly, and insets are handled, keeping it in the mid 5-6 band rather than lower."
+}

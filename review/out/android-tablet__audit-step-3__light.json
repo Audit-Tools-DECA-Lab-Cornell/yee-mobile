@@ -1,0 +1,66 @@
+{
+    "platform": "Android Tablet",
+    "screen_id": "Audit · step 3",
+    "screens_reviewed": "Two scroll captures of the same route app/audit/[placeId]/[step].tsx at step 3 (Access domain): 08-audit-domain.png (top: step header, step pills, section intro, first question) and 09-audit-domain-questions.png (mid-list: condition follow-up plus three more SelectionButton question cards, ending at the fixed footer nav).",
+    "verdict": "The Access step renders as a single narrow content column on a large Android tablet canvas, with no multi-column, list/detail, or grid use even though the codebase has a full tablet breakpoint system. The content is centered and capped at a readable max width, which is acceptable, but the screen is essentially a scaled-up phone wizard and the native stack header shows the raw route pattern \"audit/[placeId]\" instead of the place/step title. Visual hierarchy and contrast within the card are solid.",
+    "critical_issues": [
+        {
+            "id": "stack-header-shows-route-pattern",
+            "category": "navigation",
+            "location": "Native stack header bar (both images, top) vs app/_layout.tsx:1384 and app/audit/[placeId]/[step].tsx:231-243",
+            "issue": "The header title reads the literal route pattern \"audit/[placeId]\" instead of the intended place name / step title. The screen builds a custom headerTitle via YeeStackHeaderTitle (step.tsx:235-241) with stackHeaderOptions setting headerShown:true, but the root Stack registers the route with headerShown:false (app/_layout.tsx:1384). The visible result is an unstyled default header echoing the unresolved dynamic segment, which looks broken and gives no wayfinding (no place, no \"Step 3 of 9\" in the bar).",
+            "evidence": "both images show 'audit/[placeId]' in the header; app/_layout.tsx:1384 `<Stack.Screen name=\"audit/[placeId]\" options={{ headerShown: false }} />` conflicts with step.tsx:233 spreading stackHeaderOptions (headerShown:true) and a custom headerTitle",
+            "confidence": "medium",
+            "inference": true,
+            "fix": "Resolve the header ownership: either drop headerShown:false on the audit route in app/_layout.tsx so the per-screen Stack.Screen headerTitle (YeeStackHeaderTitle) wins, or ensure the [step].tsx Stack.Screen options actually override the parent. Confirm headerTitle renders YeeStackHeaderTitle with headerLabels.primary/secondary so the bar shows the place name and step instead of the raw segment."
+        }
+    ],
+    "improvements": [
+        {
+            "id": "no-tablet-multicolumn-adaptation",
+            "category": "responsive-layout",
+            "location": "app/audit/[placeId]/[step].tsx:423-507 (single KeyboardAwareScrollView column) and getResponsiveContentContainerStyle usage at 434-437",
+            "suggestion": "On a large Android tablet the audit wizard is a single centered column; the spare horizontal width is only converted into gutters (getResponsiveContentContainerStyle / getAdaptiveHorizontalPadding in lib/responsive-layout.ts:662-673). Consider a tablet-only two-pane layout: persistent step navigator / progress rail on the left (the layout tokens already expose supportRailWidth and twoPaneGap in lib/responsive-layout-tokens.ts:818-845) and the question cards on the right, or a two-column grid of SelectionButton question cards. This better uses the canvas and reduces vertical scrolling on a domain with many rows.",
+            "evidence": "step.tsx renders one YStack/scrollview column with no layout.isTablet branch; responsive-layout-tokens.ts:818 defines supportRailWidth/twoPaneGap that this screen never reads",
+            "confidence": "high"
+        },
+        {
+            "id": "option-rows-full-width-on-wide-canvas",
+            "category": "responsive-layout",
+            "location": "OptionGrid / SelectionButton (step.tsx:1244-1318); visible in 09-audit-domain-questions.png",
+            "suggestion": "Single-choice answer options (Yes/No, Poor/Acceptable/Great) stack full-bleed across the entire content width, so short labels like 'No?' span the whole card. On tablet, lay short option sets in a horizontal row or 2-up grid so the choice group reads as a compact control rather than a tall stack, tightening the vertical rhythm.",
+            "evidence": "09-audit-domain-questions.png shows 'Poor?/Acceptable?/Great?' and 'Yes/No' each on its own full-width row; OptionGrid maps options into a vertical YStack gap=$2 (step.tsx:1255-1270) with no tablet row variant",
+            "confidence": "medium"
+        },
+        {
+            "id": "step-pills-wrap-untargetable-grouping",
+            "category": "navigation",
+            "location": "StepHeader step pill row (step.tsx:669-703); visible in 08-audit-domain.png",
+            "suggestion": "The nine step pills wrap onto two rows with minWidth:108 (step.tsx:686). On a tablet they could sit on a single horizontal scroll row or, better, become the left rail navigator. As-is they consume significant vertical space above the actual questions.",
+            "evidence": "08-audit-domain.png shows pills wrapping (Context/Weighting/Access on row 1, Activity Spaces/Amenities/... on rows 2-3); flexWrap='wrap' at step.tsx:669",
+            "confidence": "high"
+        }
+    ],
+    "tamagui_notes": [
+        "This route hand-rolls every surface inline (Card, QuestionCard, SectionIntroCard, SelectionButton, CommentField, NoticeCard, SectionProgressCard) with designSystem.* tokens instead of the shared ui/* primitives; PACK declares design_system_components_used: (none). The shared Card (components/ui/Card.tsx), Field/FieldInput (components/ui/Field.tsx), ProgressBar (components/ui/ProgressBar.tsx) and Notice/Error states exist and cover most of these. Reusing them would unify radii/padding (the local Card uses radii.xl + p=$4 while ui/Card uses radii.lg) and reduce drift.",
+        "SelectionButton is intentionally an XStack-not-Button (documented at step.tsx:1284-1286 to allow label wrapping). The comment is grounded, so this is a reasonable deviation rather than an oversight.",
+        "step.tsx imports `designSystem` (the static light token set, lib/design-system.ts:453) rather than the live useDesignSystem hook, so this screen does not react to dark-mode/dyslexic/font-scale preferences the rest of the app honors (e.g. ui/Card, YeeStackHeaderTitle all use useDesignSystem). For a light-theme capture it looks correct, but it is a theming inconsistency.",
+        "The fixed FooterNav (step.tsx:1667-1768) uses layout.screenPaddingHorizontal for its padding but the scroll content uses getResponsiveContentContainerStyle's adaptive gutters; on a wide tablet the footer buttons stretch edge-to-edge while the content column is centered, so the Back/Save/Next row is not aligned with the card column above it."
+    ],
+    "platform_notes": [
+        "Android nav: the app uses bottom tabs at the app root (app/(tabs)/_layout.tsx) but this audit route is a pushed stack screen, so no nav-rail-vs-bottom-nav concern applies here; the screen is a full-screen wizard.",
+        "lib/system-bars.ts hides the Android navigation bar (useHiddenAndroidNavBar in app/_layout.tsx:1295); the footer uses insets.bottom + 12 (step.tsx:1680) so the action row should clear the gesture area. The capture does not show a system nav bar, consistent with the hidden-nav-bar behavior.",
+        "Tap targets: SelectionButton rows use py=$3 px=$3.5 plus wrapping text, and footer Buttons inherit Tamagui Button height; both visibly exceed the 48dp Android minimum in the captures.",
+        "iOS-ported affordances: option rows are checkbox/radio-style full-width rows (not iOS chevrons or sheets), which is acceptable on Android; nothing obviously iOS-only is ported here.",
+        "Status bar shows 10:05 and system icons rendering over the cream background with dark content (StatusBar style 'dark' at app/_layout.tsx:1369), which reads correctly in light theme."
+    ],
+    "not_assessable": [
+        "Exact device px width / which tablet tier (isNarrowTablet vs isWideTablet) this capture used — the screenshot is downscaled, so I cannot confirm the precise contentMaxWidth/gutter values from createResponsiveLayoutTokens.",
+        "Whether the header-pattern title is the native default header (parent Stack) or a momentary state during navigation — settling this needs a runtime check of which Stack.Screen options win for audit/[placeId].",
+        "Dark theme, font-scale, and dyslexic-font rendering (only the light capture was provided).",
+        "Exact WCAG contrast ratios; the primary-green selected rows (white text on #10231F) and body text on cream appear comfortably above AA but were not measured.",
+        "Runtime states: validation alerts (confirmStepProgress), saving spinner, offline NoticeCard, and the condition follow-up animation are not shown."
+    ],
+    "score": 6,
+    "score_rationale": "Usable with clear problems. Typography, spacing, contrast, and tap targets within the card column are solid (7-8 quality), but the screen does not adapt to the large Android tablet canvas (single centered column, no rail/grid despite available tokens) and the navigation header shows the raw route pattern 'audit/[placeId]' instead of a resolved title, which reads as broken wayfinding. These pull it to the middle of the 5-6 band."
+}
