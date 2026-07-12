@@ -341,6 +341,8 @@ export default function ReportsScreen() {
             contentContainerStyle={getResponsiveContentContainerStyle(layout, {
                 bottomPadding: 132,
                 gap: layout.sectionGap,
+                // Content-light report list: cap at the readable column on tablet.
+                maxWidth: layout.readableMaxWidth,
             })}
         >
             <ScreenHeader

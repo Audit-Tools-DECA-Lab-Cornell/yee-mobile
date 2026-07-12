@@ -301,10 +301,10 @@ export default function AuditViewScreen() {
     }
 
     const isLastStep = getNextStep(step) === null;
-    const footerContentWidth = getContentTrackInnerWidth(
-        layout,
-        layout.isTablet ? layout.readableMaxWidth : layout.formMaxWidth,
-    );
+    // Match the editable audit shell: cap the read-only walkthrough at the form
+    // column and align the footer to the same track.
+    const formTrackMaxWidth = layout.formMaxWidth;
+    const footerContentWidth = getContentTrackInnerWidth(layout, formTrackMaxWidth);
 
     return (
         <>
@@ -327,6 +327,7 @@ export default function AuditViewScreen() {
                     contentContainerStyle={getResponsiveContentContainerStyle(layout, {
                         bottomPadding: (footerHeight > 0 ? footerHeight : 96) + 32,
                         gap: layout.sectionGap,
+                        maxWidth: formTrackMaxWidth,
                     })}
                 >
                     <AuditStepContent step={step} />

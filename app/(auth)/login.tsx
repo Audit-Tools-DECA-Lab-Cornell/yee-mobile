@@ -168,6 +168,8 @@ export default function LoginScreen() {
                     getResponsiveContentContainerStyle(layout, {
                         bottomPadding: 64,
                         topInset: insets.top,
+                        // Auth form: cap at the form column, not the content track.
+                        maxWidth: layout.formMaxWidth,
                     }),
                     { flexGrow: 1, justifyContent: "center" },
                 ]}

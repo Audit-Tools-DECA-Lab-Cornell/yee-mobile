@@ -147,6 +147,9 @@ export default function ExecuteScreen() {
             contentContainerStyle={getResponsiveContentContainerStyle(layout, {
                 bottomPadding: 132,
                 gap: layout.sectionGap,
+                // Content-light detail: cap at the readable column so it centers
+                // instead of stretching to the full content track on tablet.
+                maxWidth: layout.readableMaxWidth,
             })}
         >
             <ScreenHeader
