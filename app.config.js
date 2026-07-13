@@ -2,7 +2,7 @@ export default {
     expo: {
         name: "Youth Enabling Environments Audit Tool",
         slug: "audit-tools-yee-mobile",
-        version: "0.8.1",
+        version: "0.8.2",
         orientation: "portrait",
         icon: "./assets/icon.png",
         scheme: "yee-mobile",
