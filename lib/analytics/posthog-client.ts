@@ -20,9 +20,14 @@ export function getPostHogClient(): PostHog | null {
     if (!client) {
         client = new PostHog(POSTHOG_KEY, {
             host: POSTHOG_HOST,
-            // Session replay requires the optional native replay package, which is
-            // intentionally not installed because it conflicts with the PostHog plugin.
-            enableSessionReplay: false,
+            // Session replay is provided by @posthog/react-native-plugin, the renamed
+            // replacement for posthog-react-native-session-replay in SDK 4.47.0+.
+            enableSessionReplay: true,
+            sessionReplayConfig: {
+                maskAllTextInputs: false,
+                maskAllImages: false,
+                maskAllSandboxedViews: false,
+            },
             // App open/backgrounded/updated events for retention + funnels.
             captureAppLifecycleEvents: true,
         });
