@@ -301,10 +301,8 @@ export default function AuditViewScreen() {
     }
 
     const isLastStep = getNextStep(step) === null;
-    const footerContentWidth = getContentTrackInnerWidth(
-        layout,
-        layout.isTablet ? layout.readableMaxWidth : layout.formMaxWidth,
-    );
+    const formTrackMaxWidth = layout.isTablet ? layout.readableMaxWidth : layout.formMaxWidth;
+    const footerContentWidth = getContentTrackInnerWidth(layout, formTrackMaxWidth);
 
     return (
         <>

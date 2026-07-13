@@ -40,7 +40,6 @@
         "expo-web-browser": "~55.0.17",
         "patch-package": "^8.0.1",
         "posthog-react-native": "^4.54.5",
-        "posthog-react-native-session-replay": "^1.6.0",
         "react": "19.2.0",
         "react-dom": "19.2.0",
         "react-native": "0.83.6",

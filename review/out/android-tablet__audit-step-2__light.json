@@ -1,0 +1,80 @@
+{
+    "platform": "Android Tablet",
+    "screen_id": "Audit · step 2",
+    "screens_reviewed": "Single scroll capture of audit step 2 (Weighting) at portrait tablet width (~600px). Shows the native stack header, step header with progress chip + step pills, and the 'Youth weighting' card with single-column choice questions.",
+    "verdict": "The weighting step is functional and on-brand, with a clear step header, a tappable step-pill rail, and readable choice cards. The main weaknesses are tablet-specific: form content uses the wide contentMaxWidth (1040) rather than the formMaxWidth (600) token, so single-column option buttons stretch into long, awkward rows; the screen also hand-rolls every card/button/progress primitive inline and reads the static light-only design tokens instead of the live hook. The native stack header literally prints the route placeholder 'audit/[placeId]' as the back label.",
+    "critical_issues": [
+        {
+            "id": "header-shows-raw-route-placeholder",
+            "category": "navigation",
+            "location": "Native stack header (top of screen) / app/_layout.tsx:1384",
+            "issue": "The header back area renders the literal route segment 'audit/[placeId]' instead of a human title. The audit/[placeId] Stack.Screen sets headerShown:false at the group level, so the child [step] screen's native back affordance falls back to the unresolved route name, which is what the screenshot shows at top-left.",
+            "evidence": "image (top-left text 'audit/[placeId]'); app/_layout.tsx:1384 registers `name=\"audit/[placeId]\"` with headerShown:false and no title; the per-step header is supplied via Stack.Screen in [step].tsx:231-243 but the back-destination label is unset.",
+            "confidence": "medium",
+            "inference": true,
+            "fix": "Set a `title` (or `headerBackTitle`/`headerTitle`) on the audit/[placeId] Stack.Screen in app/_layout.tsx so the back affordance shows e.g. 'Audit' instead of the raw '[placeId]' route token, or ensure the parent group provides a resolved title."
+        }
+    ],
+    "improvements": [
+        {
+            "id": "form-uses-content-maxwidth-not-form-maxwidth",
+            "category": "responsive-layout",
+            "location": "[step].tsx:434-437 (getResponsiveContentContainerStyle call)",
+            "suggestion": "The scroll container omits `maxWidth`, so it defaults to contentMaxWidth (1040 on narrow tablet) instead of the form-oriented formMaxWidth (600). The single-column SelectionButton rows therefore stretch the full content track, leaving short option labels like 'Very important to me' floating in a very wide pill with large trailing whitespace. Pass `maxWidth: layout.formMaxWidth` to the container options so the questionnaire keeps a comfortable reading/measure width on tablet.",
+            "evidence": "lib/responsive-layout-tokens.ts:782 (NARROW_TABLET_FORM_MAX_WIDTH=600) and :779 (NARROW_TABLET_CONTENT_MAX_WIDTH=1040); [step].tsx:434 calls getResponsiveContentContainerStyle without maxWidth, so resolveMaxWidth falls back to contentMaxWidth (responsive-layout.ts:743).",
+            "confidence": "high"
+        },
+        {
+            "id": "options-single-column-wastes-tablet-width",
+            "category": "responsive-layout",
+            "location": "OptionGrid / [step].tsx:1244-1271 and SelectionButton :1273-1318",
+            "suggestion": "OptionGrid always stacks options vertically in a single column (YStack). On a tablet this leaves large horizontal whitespace beside short choice labels. Consider a responsive wrap (XStack flexWrap with a min option width) for short scale options so 2-3 fit per row on tablet, tightening vertical scroll length on the large canvas. Long labels can still flow full-width.",
+            "evidence": "[step].tsx:1256 OptionGrid wraps options in a plain YStack with no tablet branching; image shows full-width single-column buttons with trailing empty space.",
+            "confidence": "medium"
+        },
+        {
+            "id": "hand-rolled-primitives-bypass-ui-library",
+            "category": "other",
+            "location": "[step].tsx Card/SelectionButton/CommentField/SectionProgressCard/FooterNav",
+            "suggestion": "The pack declares design_system_components_used: (none). The screen re-implements Card (vs components/ui/Card.tsx), the selection/footer buttons (vs components/ui/Button.tsx AppButton with its 52pt target), the comment Input (vs components/ui/Field.tsx FieldInput), and the progress track (vs components/ui/ProgressBar.tsx) entirely inline. Adopting the shared primitives would unify radii, the 56pt input frame, and the AA-tuned tones, and reduce drift from the rest of the app.",
+            "evidence": "review/packs/audit-placeId-step.md line 4 (design_system_components_used: (none)); shared equivalents exist in core.md (Card.tsx:1752, Button.tsx:1678, Field.tsx:1983, ProgressBar.tsx:2243).",
+            "confidence": "high"
+        },
+        {
+            "id": "static-tokens-not-live-hook",
+            "category": "color-contrast",
+            "location": "[step].tsx:23 (import { designSystem }) used throughout",
+            "suggestion": "Every sub-component reads the static module-level `designSystem` (light-only) constant rather than the live `useDesignSystem()` hook used elsewhere (e.g. _layout.tsx, ui/* primitives). On this light screenshot it renders correctly, but the whole audit wizard will not follow the auditor's dark-theme or font-scale/dyslexic-font preferences. Switch the sub-components to consume useDesignSystem() so the audit flow honors stored preferences.",
+            "evidence": "[step].tsx:23 imports the static `designSystem`; lib/design-system.ts:501 documents useDesignSystem() as the hook for live theme/fontScale/dyslexic switching; LoadingScreen/Card/etc all reference designSystem.colors.* directly.",
+            "confidence": "high"
+        },
+        {
+            "id": "tablet-typography-base-scale-not-applied",
+            "category": "typography",
+            "location": "[step].tsx font sizes (StepHeader :614 fontSize={30}, Card :1094 fontSize={22}, SelectionButton text :1306)",
+            "suggestion": "Type sizes are fixed pixel values and the screen does not apply TABLET_TYPOGRAPHY_BASE_SCALE (1.3) or the user fontScale (the static designSystem has no fontScale). Body option labels stay at phone sizing on the larger tablet canvas. Route text through ScaledText/useDesignSystem so tablet base scale and accessibility sizing apply.",
+            "evidence": "lib/responsive-layout-tokens.ts:792 defines TABLET_TYPOGRAPHY_BASE_SCALE=1.3 but [step].tsx never references it; fixed fontSize literals throughout.",
+            "confidence": "medium"
+        }
+    ],
+    "tamagui_notes": [
+        "[step].tsx:23 uses the static `designSystem` constant instead of useDesignSystem(); the audit wizard will not react to dark theme or fontScale/dyslexic preferences (visible-symptom-free on this light capture but a real divergence from core.md ui/* primitives).",
+        "Card (:1072), QuestionCard (:1149), SelectionButton (:1273), CommentField (:1320), SectionProgressCard (:1364) re-declare styling that exists in components/ui/Card.tsx, Field.tsx and ProgressBar.tsx — inline reimplementation of shared primitives.",
+        "Heavy use of inline `style={{ ... }}` for colors/borders/boxShadow instead of Tamagui theme tokens; acceptable given the palette comes from design-system.ts, but it bypasses Tamagui's token system and media-query styling.",
+        "Container max-width defaults to contentMaxWidth (1040) at [step].tsx:434 even though formMaxWidth (600) exists specifically for questionnaire-style content."
+    ],
+    "platform_notes": [
+        "Android system nav bar is hidden via useHiddenAndroidNavBar (lib/system-bars.ts:1069, called in _layout.tsx:1295); the screenshot's bottom footer (Back / Save & exit / Next) is the in-app FooterNav with paddingBottom = insets.bottom + 12 ([step].tsx:1680), which clears gesture insets correctly.",
+        "FooterNav buttons use a wrapping XStack (flexWrap) of three flex:1 buttons; at this tablet width all three fit on one row with comfortable height — tap targets (py:$3 + text) exceed the 48dp Android minimum.",
+        "App uses bottom-tab navigation app-wide ((tabs)/_layout.tsx) rather than a Material nav rail; this is a known cross-platform choice, not specific to this screen. The step-pill rail ([step].tsx:669-703) is the in-screen wizard navigation and reads fine on tablet.",
+        "Step pills set minWidth:108 ([step].tsx:686) and wrap onto two rows here; tap targets are adequate (py:$2 + 11px text within a 108px-wide pill)."
+    ],
+    "not_assessable": [
+        "Exact contrast ratios (estimated only); the selected dark-green pill 'Somewhat important to me' with white text and the cream surface body text both appear comfortably above AA, no pair flagged.",
+        "Dark-theme rendering of this screen (static tokens mean it would not switch) — cannot verify from a single light capture.",
+        "Behavior of the autosave/sync flow, Alert confirmations, and the 'Section unavailable' fallback (runtime states not shown).",
+        "How the layout responds at wide-tablet/landscape widths (>=960px) — only the ~600px portrait capture is provided."
+    ],
+    "score": 7,
+    "score_rationale": "Solid, readable, on-brand questionnaire that works on the tablet with correct safe-area/footer handling and accessible tap targets — no broken or off-platform behavior. Held back from 8+ by tablet-specific polish gaps: form content uses the wide contentMaxWidth instead of formMaxWidth so options stretch awkwardly, single-column options waste the large canvas, the wizard hand-rolls shared ui/* primitives, and the static light-only tokens plus the raw 'audit/[placeId]' header label are real (mostly minor) defects rather than blockers."
+}

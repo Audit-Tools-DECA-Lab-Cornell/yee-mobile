@@ -1,0 +1,65 @@
+{
+    "platform": "iPhone",
+    "screen_id": "Tabs Reports",
+    "screens_reviewed": "Two scroll captures of the same Reports tab in light theme. 15-reports.png (top): 'Reports' header + subtitle, two metric cards (Average / Top score), the Current report card with sync label, total-raw-score progress bar and primary CTA, the Report list with one entry and its own 'Open report' CTA, and the start of the web-dashboard hint footer. 16-reports-list.png (scrolled down): metric cards cropped at top, the full Current report card, the same single-entry Report list ('Maple Library Plaza', uploaded), and the complete web-dashboard hint footer above the tab bar. Both captures show the same single uploaded submission; the report list contains exactly one row across both positions.",
+    "verdict": "On iPhone the Reports tab reads as a clean, token-driven, well-structured card stack with correct safe-area handling at top and bottom and good visual hierarchy. The one real defect is light-theme contrast: the success-green used for the 'uploaded' sync label and the list score is roughly 3:1 on white surfaces, which fails WCAG AA for the small/normal-sized text it is applied to. Everything else is solid polish-level.",
+    "critical_issues": [
+        {
+            "id": "success-green-text-below-aa-light",
+            "category": "color-contrast",
+            "location": "app/(tabs)/reports.tsx:164-174 (sync label), 261-286 (list score + sync label); lib/design-system.ts:310 (core.md, success #5E9C83)",
+            "issue": "The success color (#5E9C83) is applied as small/normal-sized text on white-ish surfaces: the 12px 'uploaded' sync label under Current report (reports.tsx:171), the list-row score percentage (reports.tsx:270-278, ~14px bodyBold), and the list-row 'uploaded' label (reports.tsx:284). #5E9C83 on surface #FFFFFF / input #FBFCFE computes to ~3.0-3.1:1, which is below the WCAG AA 4.5:1 threshold for normal-sized text. The 'uploaded' green and the green '64%' in the report list visibly read as low-contrast in both captures.",
+            "evidence": "15-reports.png and 16-reports-list.png (faint green 'uploaded' + list '64%'); reports.tsx:166-173 success color on 12px text; reports.tsx:270-278 success on list score; design-system.ts:310 success=#5E9C83, surface=#FFFFFF (core.md)",
+            "confidence": "medium",
+            "inference": false,
+            "fix": "Darken the light-theme success token (e.g. ~#3F7D63 to reach >=4.5:1 on white) or use a dedicated darker successForeground token for text while keeping #5E9C83 for fills/progress bars; alternatively render the sync state via the shared Badge (components/ui/Badge.tsx, core.md:1551) with a successSoft surface so the green sits on a tinted chip rather than bare text on white."
+        }
+    ],
+    "improvements": [
+        {
+            "id": "metric-value-success-large-text-marginal",
+            "category": "color-contrast",
+            "location": "app/(tabs)/reports.tsx:97-102, 376-383",
+            "suggestion": "The Top-score MetricCard value renders at 30px in success green via style={{ color: accentColor }} (accentColor=success at reports.tsx:100). At ~3:1 on white this just barely clears the AA large-text threshold (3:1) but has no margin. If the success token is darkened for the contrast fix above, this value benefits automatically; otherwise consider routing metric coloring through the shared getMetricTone helper (lib/design-system.ts:528-542, core.md) so the value sits on a successSoft surface or uses a tone-paired text color rather than bare accent-on-white.",
+            "evidence": "reports.tsx:100 accentColor success, 377-381 30px value; design-system.ts:310/528-542 (core.md)",
+            "confidence": "low",
+            "inference": false
+        },
+        {
+            "id": "metric-card-not-via-shared-tone-helper",
+            "category": "visual-hierarchy",
+            "location": "app/(tabs)/reports.tsx:91-102, 364-398",
+            "suggestion": "MetricCard hand-rolls its accent by passing a raw color string into style={{ color: accentColor }} (reports.tsx:377) instead of using getMetricTone (lib/design-system.ts:528-542, core.md), which already pairs accent/surface/text per tone. Not a defect, but routing through the helper keeps metric coloring consistent with the rest of the app and makes the success/primary pairing theme-correct in one place.",
+            "evidence": "reports.tsx:94/100 accentColor primary/success, 377 raw color; design-system.ts:528-542 getMetricTone (core.md)",
+            "confidence": "low",
+            "inference": false
+        },
+        {
+            "id": "report-row-tap-affordance",
+            "category": "tap-target",
+            "location": "app/(tabs)/reports.tsx:242-323",
+            "suggestion": "Each report-list row shows its content (name, date, score, progress) but the only tappable element is the full-width 'Open report' Button (reports.tsx:306-322); the surrounding card is not pressable. On a phone the larger card surface is the natural thumb target. Consider making the whole row a pressable that navigates to /reports/${audit.id} (the button can remain as an explicit affordance), which enlarges the effective tap target and matches common mobile list patterns. The existing Button itself is a standard Tamagui Button with default height, so it meets the ~44pt minimum.",
+            "evidence": "reports.tsx:242-323 row is a plain YStack; only the inner Button (306) handles onPress; both captures show a single row whose only affordance is the inner button",
+            "confidence": "medium",
+            "inference": false
+        }
+    ],
+    "tamagui_notes": [
+        "Token-clean: spacing/radii/colors flow through designSystem tokens (radii.lg/md/full/button, colors.surface/border/input/primary/mutedSurface, $space gaps $4/$3/$2.5/$1.5) rather than literals — reports.tsx:71-348. The only raw pixels are progress-bar heights (10/6), bottomPadding 132, and explicit fontSizes/letterSpacing, all reasonable.",
+        "Shared primitives used as intended: ScaledParagraph/ScaledText aliased as Paragraph/Text (reports.tsx:14) matching design_system_components_used; no hand-rolled raw tamagui Text for body copy. ScaledText/ScaledParagraph scale numeric fontSize/lineHeight by the user's fontScale (ScaledText.tsx:2295-2321, core.md), so the screen honors the accessibility text-size preference.",
+        "Symptom: the success color token is reused for both fills (progress bars, where contrast is irrelevant) and small text labels (where it fails AA on white). A separate text-safe success shade would let both uses stay token-driven."
+    ],
+    "platform_notes": [
+        "iPhone safe-area top: header 'Reports' clears the Dynamic Island in 15-reports.png; handled via Stack contentStyle paddingTop:20 (app/_layout.tsx:1376-1379, core.md) plus contentInsetAdjustmentBehavior=\"automatic\" on the ScrollView (reports.tsx:64). No status-bar overlap.",
+        "iPhone safe-area bottom: bottomPadding:132 (reports.tsx:68) clears the bottom tab bar (height derived from getResponsiveTabBarLayout including insets.bottom, (tabs)/_layout.tsx, core.md) and the home indicator; 16-reports-list.png shows the footer hint sitting clear above the tab bar with comfortable margin.",
+        "Thumb reach: the primary 'Open selected report' CTA is full-width inside the Current report card, mid-screen and easily reachable; the secondary list CTA likewise spans the row width.",
+        "Compact fit: screen uses lib/responsive-layout (getResponsiveContentContainerStyle) for phone padding/gutters rather than fixed values; on phone widths this yields the standard 15pt horizontal padding (responsive-layout-tokens.ts:794-796, core.md). No tablet-only critique applies on iPhone."
+    ],
+    "not_assessable": [
+        "Exact WCAG contrast ratios are estimated from token hex values, not measured; the success-green-on-white pairing is flagged because it is clearly in the ~3:1 range, but the precise ratio and any anti-aliasing/rendering effects were not instrumented.",
+        "A populated/long report list and the pending_upload warning-tone rows (reports.tsx:166-168, 272-274) are not exercised by the seed data: both captures show only one uploaded submission, so list scrolling, row separators at length, and the warning (amber) sync state were not observed.",
+        "Empty state ('No submitted audits yet', reports.tsx:106-128) is not shown, since the captured data has at least one submission."
+    ],
+    "score": 7,
+    "score_rationale": "Solid with minor polish on iPhone: token-clean, correct shared-primitive usage, good hierarchy, and properly handled top/bottom safe areas and thumb-reachable CTAs. One real, code-confirmed contrast defect (success-green text below AA on white surfaces) keeps it from the 8-9 band; it is localized and easily fixed by darkening the light-theme success text token or moving sync labels into tinted badges."
+}

@@ -1,5 +1,4 @@
 import { memo } from "react";
-import { YStack } from "tamagui";
 import { useShallow } from "zustand/react/shallow";
 import {
     CONTEXT_QUESTION_IDS,
@@ -11,7 +10,7 @@ import { useSurveyPalette } from "./survey-theme";
 import {
     CommentField,
     QuestionCard,
-    SelectionButton,
+    MultiOptionGrid,
     SurveyCard,
     ReadOnlyField,
     OptionGrid,
@@ -167,18 +166,12 @@ const WeatherQuestion = memo(function WeatherQuestion() {
     }
     return (
         <QuestionCard label={question.prompt}>
-            <YStack gap="$2">
-                {question.options.map((option) => (
-                    <SelectionButton
-                        key={option.id}
-                        label={option.label}
-                        multi
-                        selected={weather.includes(option.id)}
-                        onPress={() => toggleWeather(option.id)}
-                        disabled={readOnly}
-                    />
-                ))}
-            </YStack>
+            <MultiOptionGrid
+                values={weather}
+                options={question.options}
+                onToggle={toggleWeather}
+                disabled={readOnly}
+            />
         </QuestionCard>
     );
 });

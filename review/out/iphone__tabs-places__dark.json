@@ -1,0 +1,56 @@
+{
+    "platform": "iPhone",
+    "screen_id": "Tabs Places",
+    "screens_reviewed": "Two scroll captures of app/(tabs)/places.tsx in dark theme: 05-places.png (top: 'My Audits' header, Drafts/Submitted/Queued summary tiles, offline-readiness banner, first two place cards) and 06-places-list.png (further down the same list: remaining 'Not started' place cards plus the bottom tab bar).",
+    "verdict": "A clean, well-structured list screen that renders the warm dark palette faithfully (background #141513, surface #1E201C, green primary #7FBFA3, amber warning) and correctly uses the shared ScaledText/ScaledParagraph primitives matching design_system_components_used. The main concerns are top safe-area handling driven by a fixed root paddingTop rather than the Dynamic Island inset, and a confusing CTA that offers 'Start audit' on an already-submitted place. Otherwise spacing, hierarchy, and contrast read well.",
+    "critical_issues": [
+        {
+            "id": "submitted-card-start-audit-cta",
+            "category": "navigation",
+            "location": "Maple Library Plaza card (image 05-places.png) / places.tsx action row",
+            "issue": "A card whose status badge reads SUBMITTED still renders the primary 'Start audit' button alongside 'View report'. The action label only switches to 'Continue draft' for draft status; every non-draft status (including submitted) falls through to 'Start audit', so a finished audit invites the auditor to start over with no warning.",
+            "evidence": "places.tsx:263-272 (label is 'Continue draft' only when view.status === 'draft', else 'Start audit'); image 05-places.png shows SUBMITTED badge with both 'Start audit' and 'View report'.",
+            "confidence": "high",
+            "inference": false,
+            "fix": "Branch the primary action on submitted status too — e.g. hide the primary button or relabel it 'Re-open audit'/'Edit submission' when view.status === 'submitted', leaving 'View report' as the primary affordance for submitted places."
+        }
+    ],
+    "improvements": [
+        {
+            "id": "top-safe-area-uses-fixed-padding",
+            "category": "safe-area",
+            "location": "Top of screen ('My Audits' header) / app/_layout.tsx Stack contentStyle + places.tsx ScrollView",
+            "suggestion": "The 'My Audits' title clears the status bar via a fixed contentStyle paddingTop:20 on the root Stack plus the ScrollView's contentInsetAdjustmentBehavior='automatic', not the real top inset. On non-notch reachability the fixed 20 is arbitrary and on larger Dynamic Island devices it is not derived from useSafeAreaInsets().top. Consider passing topInset (useSafeAreaInsets().top) into getResponsiveContentContainerStyle (the option exists) and removing the hard-coded paddingTop:20 from the root Stack so spacing tracks the device inset.",
+            "evidence": "app/_layout.tsx:1374-1380 (contentStyle paddingTop:20); places.tsx:72-77 (getResponsiveContentContainerStyle called with no topInset); responsive-layout.ts:619-627,758-762 (topInset option supported but unused here).",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "summary-tile-min-width-fixed",
+            "category": "responsive-layout",
+            "location": "Drafts/Submitted/Queued summary tiles (image 05-places.png) / SummaryTile",
+            "suggestion": "Summary tiles use a hard-coded minWidth:102 inside a flexWrap XStack. At the largest accessibility font scale the tile value (fontSize 26) plus uppercase label could wrap awkwardly; the three tiles stay on one row on a standard iPhone but the fixed 102 is a magic number rather than a token. Consider sourcing the min width from a layout token for consistency with the responsive-layout system.",
+            "evidence": "places.tsx:354 (minWidth:102 inline); places.tsx:98 (XStack flexWrap='wrap').",
+            "confidence": "low",
+            "inference": false
+        }
+    ],
+    "tamagui_notes": [
+        "Dark palette renders correctly: card surface #1E201C on #141513 background, green primary #7FBFA3 on the 'Start audit' button, amber warning #E0B873 on 'Ready for offline capture', and the success-toned 'READY FOR OFFLINE USE' banner all match darkColors in lib/design-system.ts (lines 342-374).",
+        "Consistency check passes: places.tsx:15 imports ScaledParagraph/ScaledText (aliased Paragraph/Text), matching design_system_components_used; all body and heading text on the screen routes through these scaled primitives (ScaledText.tsx:2295-2321) so the font-scale preference is respected.",
+        "Spacing leans on Tamagui space tokens ($1.5/$3/$4 gaps, p='$4', px='$3') rather than raw numbers in most places, which is consistent with the token system; the few inline raw values (width:4 accent bar, minWidth:102, fixed paddingTop:20 in root) are the exceptions noted above.",
+        "ActionButton (places.tsx:399-423) uses the raw Tamagui Button with design-system colors but sets no explicit height; in the screenshot the buttons appear comfortably >=44pt, so this reads fine, but the height is left to Tamagui's default rather than the buttonHeight token from responsive-layout-tokens.ts."
+    ],
+    "platform_notes": [
+        "Bottom tab bar (image 06-places-list.png) sits above the home indicator; getResponsiveTabBarLayout adds 8 + insets.bottom paddingBottom (responsive-layout.ts:703-718), so the home-indicator inset is handled on the bottom edge. The ScrollView reserves bottomPadding:132 (places.tsx:75) so list content clears the tab bar.",
+        "Primary CTAs ('Start audit') sit inside each card mid-screen rather than at a fixed bottom bar; thumb reach is fine for the first card but lower cards require scrolling — acceptable for a list-of-cards pattern.",
+        "Status bar style is driven by resolvedTheme (app/_layout.tsx:1369 -> 'light' in dark mode), so the white clock/time and signal glyphs read correctly against the dark background in both captures."
+    ],
+    "not_assessable": [
+        "Exact WCAG contrast ratios (mutedForeground #A7A99F secondary text on surface #1E201C) are estimated only; the muted address/timestamp text looks slightly low-contrast but appears to clear AA for body text — not flagged as a hard failure.",
+        "Empty state (EmptyStateCard) and offline 'Online sync needed' warning banner variant are not shown in these captures (the device is online and has assigned places), so those runtime states cannot be visually verified.",
+        "Behaviour of the offline Alert.alert path (places.tsx:303-306) when isOnline is false and isOfflineReady is false is not exercised in these screenshots."
+    ],
+    "score": 8,
+    "score_rationale": "Solid, on-platform dark-mode list screen with correct palette, correct use of the shared scaled-text primitives, and proper bottom safe-area handling — minor polish only. Held below 9 by one genuine UX bug (a submitted card still offering 'Start audit') and a top safe-area inset that relies on a fixed root paddingTop instead of the real Dynamic Island inset."
+}

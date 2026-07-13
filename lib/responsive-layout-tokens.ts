@@ -36,6 +36,7 @@ const PHONE_LAYOUT_TOKENS = {
     sectionGap: 20,
     cardPadding: 16,
     buttonHeight: 52,
+    controlHeight: 56,
     formOptionHeight: 42,
     compactControlHeight: 36,
     queueCardMinHeight: 0,
@@ -43,18 +44,23 @@ const PHONE_LAYOUT_TOKENS = {
     heroCardMinHeight: 0,
 } as const;
 
+// Narrow-tablet floor (600dp). This band is where the primary device — the
+// Samsung Tab S5e at ~800dp — and iPad 11" (834dp) live, so it is calibrated for
+// real ~800dp use rather than as a waypoint to the 960 wide-tablet MAX: padding
+// and section spacing are kept denser here so the 1.3x type does not read airy.
 const TABLET_LAYOUT_TOKENS_MIN = {
-    screenPaddingHorizontal: 28,
-    screenPaddingVertical: 24,
+    screenPaddingHorizontal: 24,
+    screenPaddingVertical: 20,
     contentMaxWidth: NARROW_TABLET_CONTENT_MAX_WIDTH,
     formMaxWidth: NARROW_TABLET_FORM_MAX_WIDTH,
     readableMaxWidth: TABLET_READABLE_MAX_WIDTH,
     twoPaneGap: 24,
     homePageSupportRailWidth: 250,
     supportRailWidth: 240,
-    sectionGap: 28,
+    sectionGap: 24,
     cardPadding: 16,
     buttonHeight: 56,
+    controlHeight: 56,
     formOptionHeight: 48,
     compactControlHeight: 44,
     queueCardMinHeight: 152,
@@ -74,6 +80,7 @@ const TABLET_LAYOUT_TOKENS_MAX = {
     sectionGap: 32,
     cardPadding: 16,
     buttonHeight: 60,
+    controlHeight: 62,
     formOptionHeight: 52,
     compactControlHeight: 46,
     queueCardMinHeight: 168,
@@ -81,8 +88,6 @@ const TABLET_LAYOUT_TOKENS_MAX = {
     heroCardMinHeight: 208,
 } as const;
 
-const LEGACY_PHONE_CONTROL_HEIGHT = 52;
-const LEGACY_TABLET_CONTROL_HEIGHT = 56;
 const LEGACY_PHONE_STAT_CARD_MIN_HEIGHT = 0;
 const LEGACY_TABLET_STAT_CARD_MIN_HEIGHT = 140;
 
@@ -256,7 +261,13 @@ export function createResponsiveLayoutTokens(width: number): ResponsiveLayoutTok
                   tabletWidthProgress,
               )
             : PHONE_LAYOUT_TOKENS.formOptionHeight,
-        controlHeight: isTablet ? LEGACY_TABLET_CONTROL_HEIGHT : LEGACY_PHONE_CONTROL_HEIGHT,
+        controlHeight: isTablet
+            ? interpolateLayoutValue(
+                  TABLET_LAYOUT_TOKENS_MIN.controlHeight,
+                  TABLET_LAYOUT_TOKENS_MAX.controlHeight,
+                  tabletWidthProgress,
+              )
+            : PHONE_LAYOUT_TOKENS.controlHeight,
         compactControlHeight: isTablet
             ? interpolateLayoutValue(
                   TABLET_LAYOUT_TOKENS_MIN.compactControlHeight,

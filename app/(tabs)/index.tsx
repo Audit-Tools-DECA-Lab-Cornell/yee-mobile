@@ -13,8 +13,13 @@ import {
     UserRound,
     WifiOff,
 } from "components/icons";
-import { Button, Spinner, XStack, YStack } from "tamagui";
-import { ScaledParagraph as Paragraph, ScaledText as Text, ScreenHeader } from "components/ui";
+import { Button, XStack, YStack } from "tamagui";
+import {
+    BrandSpinner,
+    ScaledParagraph as Paragraph,
+    ScaledText as Text,
+    ScreenHeader,
+} from "components/ui";
 import { useDesignSystem, getMetricTone, getPlaceStatusTone } from "lib/design-system";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
@@ -387,9 +392,7 @@ export default function DashboardScreen() {
                     >
                         Assigned places
                     </Text>
-                    {status === "loading" ? (
-                        <Spinner color={designSystem.colors.primary} size="small" />
-                    ) : null}
+                    {status === "loading" ? <BrandSpinner size="sm" /> : null}
                 </XStack>
 
                 {placeViews.length === 0 ? (

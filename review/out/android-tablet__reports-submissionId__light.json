@@ -1,0 +1,66 @@
+{
+    "platform": "Android Tablet",
+    "screen_id": "Reports Submissionid",
+    "screens_reviewed": "Three scroll captures (top/early/end) of app/reports/[submissionId].tsx on an Android tablet in portrait, light theme: report overview header, hero card, Submission details + Context panels, Score by section chart, Score results table, Section weighting, highlights, and comment blocks, with a fixed Share / Back to My Audits footer.",
+    "verdict": "The report renders cleanly and is fully legible: cards, the grouped bar chart, the score table, and the weighting meters all read well and the fixed footer keeps both CTAs in reach. The screen is responsive-aware (centered content track, flexWrap two-column panels) but is essentially a scaled-up phone layout — on this tablet width the paired InfoPanels/CommentBlocks collapse to a single column, leaving the wide content track underused, and the navigation header shows the raw route path instead of the place name.",
+    "critical_issues": [
+        {
+            "id": "header-shows-raw-route-name",
+            "category": "navigation",
+            "location": "Stack header (top of every capture)",
+            "issue": "The native stack header reads the literal route segment 'reports/[submissionId]' instead of the intended place name / 'Report' title. The screen builds a custom headerTitle via YeeStackHeaderTitle (buildReportHeaderLabels) and app/_layout.tsx registers the route with title: \"Report\", yet neither is showing — the user sees a developer-facing route path.",
+            "evidence": "image 13/14/15 header text 'reports/[submissionId]'; reports/[submissionId].tsx:178-190 sets headerTitle via YeeStackHeaderTitle; app/_layout.tsx:1385-1388 sets title: \"Report\"",
+            "confidence": "high",
+            "inference": false,
+            "fix": "Ensure the per-screen Stack.Screen options actually apply on Android (the in-screen <Stack.Screen> can race the root registration). Set a non-empty headerTitle/title at the root registration and confirm headerTitle render runs; verify buildReportHeaderLabels returns a primary string so the header never falls back to the route id."
+        }
+    ],
+    "improvements": [
+        {
+            "id": "tablet-content-not-multicolumn",
+            "category": "responsive-layout",
+            "location": "Submission details + Context (image 13), Highlights + Comment blocks (image 15)",
+            "suggestion": "On this tablet width the paired panels wrap to a single stacked column because they rely on flexWrap plus per-child minWidth (InfoPanel minWidth 280, CommentBlock minWidth 250, MetricCard minWidth 150) rather than an explicit tablet grid. The result is a centered phone-width column inside a much wider canvas. Drive column count from layout.isTablet / twoPaneGap so panels reliably sit two-up (and comments 2–3 up) on tablets.",
+            "evidence": "reports/[submissionId].tsx:315 XStack flexWrap=\"wrap\" with InfoPanel minWidth:280 (line 541), 413/436 comment XStack with CommentBlock minWidth:250 (line 982); contentMaxWidth 1040–1200 from responsive-layout-tokens.ts:779-780",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "fixed-px-typography-no-tablet-scale",
+            "category": "typography",
+            "location": "Headings and body throughout (Report overview 30px, Audit results 28px, card titles 20px, body Paragraphs default)",
+            "suggestion": "Headings use hard-coded fontSize values (30/28/24/20/18) and most body text uses Tamagui defaults, none multiplied by TABLET_TYPOGRAPHY_BASE_SCALE (1.3) or designSystem.fontScale. The screen reads as a phone layout enlarged only by viewport, so the type hierarchy is the phone hierarchy. Consider scaling fixed sizes by the tablet base scale for a deliberate large-screen rhythm.",
+            "evidence": "reports/[submissionId].tsx:266 fontSize={30}, :523 fontSize={28}, :892 fontSize={20}, :551 fontSize={18}; responsive-layout-tokens.ts:792 TABLET_TYPOGRAPHY_BASE_SCALE = 1.3 is defined but not consumed here",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "static-design-system-ignores-theme",
+            "category": "other",
+            "location": "Entire screen",
+            "suggestion": "The screen imports the static `designSystem` (light tokens) instead of the live `useDesignSystem()` hook, so it cannot follow the user's theme/font-scale/dyslexia preferences. Fine for this light capture, but it means dark mode and accessibility text scaling never reach this report. Adopt useDesignSystem() like the shared header components do.",
+            "evidence": "reports/[submissionId].tsx:19 imports static designSystem; lib/design-system.ts:501 useDesignSystem() is the live alternative used by useYeeStackHeaderOptions.ts:1168",
+            "confidence": "high",
+            "inference": false
+        }
+    ],
+    "tamagui_notes": [
+        "design_system_components_used: (none) — this screen hand-rolls every surface (Card, InfoPanel, MetricCard, MetricRow, CommentBlock, ChartBar, ImportanceMeter) as local YStack/XStack with inline borderColor/boxShadow/radii rather than reusing shared ui/* primitives (e.g. Badge/ScaledText in core.md). High duplication risk and it bypasses ScaledText font-scaling.",
+        "Spacing mixes Tamagui space tokens (p=\"$4\", gap=\"$3\") with raw pixel literals (minWidth 280/250/150, ImportanceMeter width 22/height 8, ChartBar height 14) — reports/[submissionId].tsx:541, 982, 922, 609-610, 803.",
+        "Footer paddingHorizontal uses layout.screenPaddingHorizontal but the scroll content uses getResponsiveContentContainerStyle's adaptive centered gutters; on a wide tablet the footer buttons can sit edge-to-edge while content is centered, a slight misalignment (reports/[submissionId].tsx:462 vs :257)."
+    ],
+    "platform_notes": [
+        "Android tablet correctly uses bottom tab navigation app-wide ((tabs)/_layout.tsx) — but this is a pushed stack detail route with its own header and a fixed bottom action bar, so Material list-detail (master report list beside detail) is not attempted; acceptable for a drill-in but a missed large-screen opportunity.",
+        "Icons are Feather (components/icons.tsx) — BarChart3/CloudOff are platform-neutral, no iOS-only chevrons leaking into the body here; the only chevron is the system back affordance in the native Android header.",
+        "Footer paddingBottom uses insets.bottom + 12 (reports/[submissionId].tsx:464); the captured device has the Android nav bar hidden via lib/system-bars.ts, so the two CTAs clear the gesture area. Tap targets: Tamagui Button default height comfortably exceeds 48dp.",
+        "Status bar area at top is clear; content sits below the native header so no notch/status-bar overlap."
+    ],
+    "not_assessable": [
+        "Exact WCAG contrast ratios (estimated only); the muted green percentage labels and mutedForeground body text appear adequate but were not measured.",
+        "Dark theme and accessibility font-scale rendering (screen uses static light tokens; only the light capture is available).",
+        "The pending-upload, offline-note, and report-unavailable states (none shown in these captures).",
+        "Behaviour of the Share native sheet and 'Back to My Audits' navigation (runtime/cross-screen)."
+    ],
+    "score": 7,
+    "score_rationale": "Solid, fully usable report with clean cards, a readable chart/table, and reachable CTAs — 7–8 band. Held to 7 by one real navigation defect (header shows the raw 'reports/[submissionId]' route path) plus large-screen polish gaps: paired panels collapse to a single column so the wide tablet canvas is underused, and fixed-px typography is not scaled for tablet. None are layout-breaking, so it stays out of the 5–6 band."
+}

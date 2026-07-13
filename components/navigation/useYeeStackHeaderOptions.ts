@@ -12,7 +12,7 @@ export function useYeeStackHeaderOptions() {
 
         return {
             headerShown: true,
-            headerBackButtonDisplayMode: "generic",
+            headerBackButtonDisplayMode: "minimal",
             headerBackButtonMenuEnabled: true,
             headerBackVisible: true,
             headerShadowVisible: false,

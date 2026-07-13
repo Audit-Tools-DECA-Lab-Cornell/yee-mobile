@@ -20,8 +20,8 @@ export function getPostHogClient(): PostHog | null {
     if (!client) {
         client = new PostHog(POSTHOG_KEY, {
             host: POSTHOG_HOST,
-            // Full-fidelity session replay: no masking, per product decision for the
-            // pilot. Recording must also be enabled in the PostHog project settings.
+            // Session replay is provided by @posthog/react-native-plugin, the renamed
+            // replacement for posthog-react-native-session-replay in SDK 4.47.0+.
             enableSessionReplay: true,
             sessionReplayConfig: {
                 maskAllTextInputs: false,

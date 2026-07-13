@@ -1,0 +1,51 @@
+{
+    "platform": "iPad",
+    "screen_id": "Tabs Places",
+    "screens_reviewed": "Single screenshot (04-places.png) of the Places/\"My Audits\" tab in dark theme: header + subtitle, three summary tiles (Drafts/Submitted/Queued), offline-readiness banner, and a single-column list of place cards (Maple Library Plaza, North School Commons, South Transit Plaza, Westside Youth Hub) above the bottom tab bar.",
+    "verdict": "The screen is a clean, well-structured single-column list that reuses the shared ScaledText/ScaledParagraph primitives and the responsive content container, so it is functional and on-brand on iPad. However it reads as a scaled-up phone layout: it never applies the tablet typography base scale, never offers a multi-column grid or list-detail split for the abundant horizontal space, and the card list stays one column. Typography and spacing are correct per the design system, but the large-canvas adaptation expected on iPad is largely missing.",
+    "critical_issues": [],
+    "improvements": [
+        {
+            "id": "tablet-typography-base-scale-unused",
+            "category": "typography",
+            "location": "app/(tabs)/places.tsx (Text/Paragraph usages, e.g. lines 81-95, 174-185) via components/ui/ScaledText.tsx",
+            "suggestion": "Text on this screen only multiplies explicit sizes by the user's fontScale preference; it never applies TABLET_TYPOGRAPHY_BASE_SCALE (1.3), which the design system defines specifically so default iPad text is immediately legible. The header (fontSize 32), body, and card titles therefore render at phone sizes on the larger canvas. Fold layout.isTablet into a scale (e.g. multiply numeric sizes by TABLET_TYPOGRAPHY_BASE_SCALE when layout.isTablet) at the screen or ScaledText level so tablet copy scales up as intended.",
+            "evidence": "core.md:792 defines TABLET_TYPOGRAPHY_BASE_SCALE = 1.3 with a comment that it should apply on tablet; core.md:2295-2304 ScaledText only uses fontScale; places.tsx:17,29-30 imports useResponsiveLayout but never feeds isTablet into typography. Image shows small phone-scale type on iPad.",
+            "confidence": "medium"
+        },
+        {
+            "id": "single-column-no-grid-or-detail",
+            "category": "responsive-layout",
+            "location": "app/(tabs)/places.tsx:146-298 (placeViews.map renders a single YStack column)",
+            "suggestion": "The place list is a single stacked column even though iPad offers room for a 2-column card grid or a list-detail (master list + audit preview) split. A list of short status cards is the canonical iPad multi-column / master-detail opportunity. Consider wrapping cards in a flexWrap XStack (or a columns prop gated on layout.isWideTablet) so wide iPads show two columns, and/or route selection to a side detail pane rather than full navigation.",
+            "evidence": "places.tsx:153-296 maps each view into a full-width YStack inside a single YStack (line 146); image shows one column with wide empty horizontal space. responsive-layout-tokens.ts exposes twoPaneGap/isWideTablet (core.md:974-980, 942-943) that are unused here.",
+            "confidence": "medium"
+        },
+        {
+            "id": "summary-tiles-overstretch-on-wide-canvas",
+            "category": "responsive-layout",
+            "location": "app/(tabs)/places.tsx:98-106, 351-361 (SummaryTile flex=1, minWidth 102)",
+            "suggestion": "The three summary tiles are flex=1 with only minWidth 102, so on a wide iPad they stretch to very large pills with a small number floating in a lot of empty space. Add a maxWidth per tile or cap the row width so the tiles stay compact and legible on the large canvas.",
+            "evidence": "places.tsx:352-354 sets flex={1} minWidth:102 with no max; image shows tiles already quite wide relative to their tiny values.",
+            "confidence": "low"
+        }
+    ],
+    "tamagui_notes": [
+        "places.tsx correctly uses getResponsiveContentContainerStyle (line 74) which centers and width-constrains content on tablet via contentMaxWidth and adaptive gutters (responsive-layout.ts:739-769), so the screen is not edge-to-edge unbounded — good baseline iPad handling.",
+        "Screen consistently routes all text through the shared ScaledText/ScaledParagraph primitives (places.tsx:15) matching design_system_components_used; no hand-rolled raw tamagui Text/Paragraph for body copy.",
+        "Spacing uses $space tokens ($1.5/$3/$4) and radii from designSystem.radii rather than magic numbers, consistent with the core design system.",
+        "Status/tone colors come from getPlaceStatusTone and the resolved dark palette (places.tsx:154-157, design-system.ts:551-568) rather than inline hex — consistent."
+    ],
+    "platform_notes": [
+        "iPad large-canvas adaptation is the main gap: width is constrained but the layout, typography scale, and information density are essentially the phone design enlarged, not an iPad-native master-detail or grid.",
+        "Safe area: the tab bar and header rely on getResponsiveContentContainerStyle + contentInsetAdjustmentBehavior=\"automatic\" (places.tsx:72); the (tabs)/_layout adds bottom inset to the tab bar (responsive-layout.ts:703-718). No safe-area clipping visible in the screenshot.",
+        "Tap targets: ActionButtons and tab bar items appear adequately sized; on tablet buttonHeight interpolates to 56-60 (responsive-layout-tokens.ts:825/843), meeting >=44pt."
+    ],
+    "not_assessable": [
+        "Exact rendered pixel sizes / true iPad point sizes — the capture appears downscaled, so absolute legibility and whether content hits contentMaxWidth (1040) on a real device cannot be confirmed from this image alone.",
+        "Behavior of the list-detail/grid in landscape vs portrait and split-view multitasking (not shown).",
+        "Precise contrast ratios for the muted status/sync labels on surfaceMuted; no pair looked clearly below AA but values are estimated."
+    ],
+    "score": 6,
+    "score_rationale": "Usable and design-system-consistent with no critical defects, but it is a scaled-up phone layout: the defined tablet typography base scale is never applied and there is no multi-column/list-detail use of the iPad canvas — clear, fixable large-screen-adaptation problems that keep it out of the 7-8 band."
+}

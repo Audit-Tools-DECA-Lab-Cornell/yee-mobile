@@ -1,6 +1,7 @@
 import { memo } from "react";
-import { Spinner, Text, XStack } from "tamagui";
+import { Text, XStack } from "tamagui";
 import { Check, CloudOff, TriangleAlert } from "components/icons";
+import { BrandSpinner } from "components/ui";
 import { useDesignSystem } from "lib/design-system";
 import { useAuditSessionStore, type AuditSaveStatus } from "stores/yee-audit-session-store";
 
@@ -112,7 +113,7 @@ export const SaveStatusPill = memo(function SaveStatusPill() {
             style={{ backgroundColor: pill.surface, borderColor: pill.border }}
         >
             {pill.icon === "spinner" ? (
-                <Spinner size="small" color={pill.text} />
+                <BrandSpinner size="xs" color={pill.text} />
             ) : pill.icon === "check" ? (
                 <Check size={13} color={pill.text} />
             ) : pill.icon === "cloud" ? (

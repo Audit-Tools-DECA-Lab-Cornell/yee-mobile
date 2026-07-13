@@ -12,7 +12,7 @@ import {
     ScreenHeader,
 } from "components/ui";
 import { AssignedPlaceCard } from "components/AssignedPlaceCard";
-import { useDesignSystem } from "lib/design-system";
+import { getScoreBandTone, useDesignSystem } from "lib/design-system";
 import { toScorePercentage } from "lib/yee-mobile-reporting";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
@@ -147,6 +147,9 @@ export default function ExecuteScreen() {
             contentContainerStyle={getResponsiveContentContainerStyle(layout, {
                 bottomPadding: 132,
                 gap: layout.sectionGap,
+                // Content-light detail: cap at the readable column so it centers
+                // instead of stretching to the full content track on tablet.
+                maxWidth: layout.readableMaxWidth,
             })}
         >
             <ScreenHeader
@@ -449,11 +452,11 @@ function SubmittedAuditCard({
                 </YStack>
                 <YStack items="flex-end" gap="$0.5">
                     <Text
-                        color={
-                            isPending
+                        style={{
+                            color: isPending
                                 ? designSystem.colors.warningText
-                                : designSystem.colors.successText
-                        }
+                                : getScoreBandTone(percentage, designSystem.scoreBands).text,
+                        }}
                         fontFamily={designSystem.fonts.headingBold}
                         fontSize={20}
                     >
