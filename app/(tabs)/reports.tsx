@@ -50,6 +50,7 @@ export default function ReportsScreen() {
     const averageScore = projection.averageScore;
     const topSubmission = projection.topSubmission;
     const focusedSubmission = projection.focusedSubmission;
+    const hasReports = sortedAudits.length > 0;
     const scrollToOffset = useCallback((offset: number) => {
         scrollViewRef.current?.scrollTo({ y: offset, animated: false });
     }, []);
@@ -64,11 +65,16 @@ export default function ReportsScreen() {
         <XStack gap="$3">
             <MetricCard
                 label="Average score"
-                value={`${toScorePercentage(averageScore)}%`}
+                value={hasReports ? `${toScorePercentage(averageScore)}%` : "--"}
                 textColor={
-                    getScoreBandTone(toScorePercentage(averageScore), designSystem.scoreBands).text
+                    hasReports
+                        ? getScoreBandTone(
+                              toScorePercentage(averageScore),
+                              designSystem.scoreBands,
+                          ).text
+                        : designSystem.colors.mutedForeground
                 }
-                helperText="Across all reports"
+                helperText={hasReports ? "Across all reports" : "No reports yet"}
             />
             <MetricCard
                 label="Top score"
