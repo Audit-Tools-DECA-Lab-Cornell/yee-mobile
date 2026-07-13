@@ -333,11 +333,7 @@ export default function AuditShellScreen() {
         );
     }
 
-    // Survey forms read best in a capped column (formMaxWidth = 600 on tablet,
-    // 560 on phone) rather than the full readable/content track; the footer
-    // shares the same track via getContentTrackInnerWidth so its buttons stay
-    // aligned under the form at every width.
-    const formTrackMaxWidth = layout.formMaxWidth;
+    const formTrackMaxWidth = layout.isTablet ? layout.readableMaxWidth : layout.formMaxWidth;
     const footerContentWidth = getContentTrackInnerWidth(layout, formTrackMaxWidth);
     const nextLabel = step === 9 ? "Review Audit" : "Next";
 
@@ -366,7 +362,6 @@ export default function AuditShellScreen() {
                         style={{ backgroundColor: designSystem.colors.background }}
                         contentContainerStyle={getResponsiveContentContainerStyle(layout, {
                             bottomPadding: (footerHeight > 0 ? footerHeight : 96) + 32,
-                            maxWidth: formTrackMaxWidth,
                         })}
                     >
                         {/* Single measurable content node: row offsets for

@@ -1,9 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { CheckCircle2, LayoutList, RefreshCcw } from "components/icons";
-import { YeeStackHeaderTitle } from "components/navigation/YeeStackHeaderTitle";
-import { useYeeStackHeaderOptions } from "components/navigation/useYeeStackHeaderOptions";
-import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
+import { Button, Paragraph, Text, XStack, YStack, ZStack } from "tamagui";
 import { useDesignSystem } from "lib/design-system";
 import { useResponsiveLayout } from "lib/responsive-layout";
 import { buildAuditSubmittedHeaderLabels } from "lib/yee-navigation-labels";
@@ -19,7 +17,6 @@ export default function AuditSubmittedScreen() {
         submissionId?: string;
     }>();
     const layout = useResponsiveLayout();
-    const stackHeaderOptions = useYeeStackHeaderOptions();
     const { assignedPlaces, draftsByPlace, submittedAudits, syncQueue } = useYeeMobileStore(
         useShallow((state) => ({
             assignedPlaces: state.assignedPlaces,
@@ -63,13 +60,7 @@ export default function AuditSubmittedScreen() {
         <>
             <Stack.Screen
                 options={{
-                    ...stackHeaderOptions,
-                    headerTitle: () => (
-                        <YeeStackHeaderTitle
-                            primary={headerLabels.primary}
-                            secondary={headerLabels.secondary}
-                        />
-                    ),
+                    headerShown: false,
                 }}
             />
             <YStack
