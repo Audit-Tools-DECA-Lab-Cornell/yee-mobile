@@ -8,7 +8,7 @@
         "upgrade:tamagui": "bunx npm-check-updates -u '*tamagui*' '@tamagui/*' && bun install",
         "start": "bunx expo start -c",
         "android": "expo run:android",
-        "ios": "expo run:ios",
+        "ios": "expo run:ios --no-build-cache",
         "build": "expo export --platform all",
         "build:android": "expo export --platform android",
         "build:ios": "expo export --platform ios",
