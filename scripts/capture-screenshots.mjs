@@ -760,9 +760,10 @@ function buildDynamicRoutes(discovery) {
 
     if (isResolvedPlace(discovery.firstPlace)) {
         const placeId = encodeURIComponent(discovery.firstPlace.id);
-        routes.auditContext = `/audit/${placeId}`;
-        routes.auditWeighting = `/audit/${placeId}`;
-        routes.auditDomain = `/audit/${placeId}`;
+        const auditRoute = `/audit/${placeId}`;
+        routes.auditContext = withScreenshotAuditStep(auditRoute, 1);
+        routes.auditWeighting = withScreenshotAuditStep(auditRoute, 2);
+        routes.auditDomain = withScreenshotAuditStep(auditRoute, 3);
         routes.auditReview = `/audit/${placeId}/review`;
     }
 
@@ -817,6 +818,17 @@ function dynamicReportTarget(file, route, note) {
 
 function unresolved(file, reason, note) {
     return { file, route: "", requiresAuth: true, skipReason: reason, note };
+}
+
+/**
+ * Select an audit step without reintroducing step IDs into the route path.
+ *
+ * The audit shell consumes this development-only parameter after AuditStore has
+ * loaded the draft and selected its normal resume step.
+ */
+function withScreenshotAuditStep(route, step) {
+    const delimiter = route.includes("?") ? "&" : "?";
+    return `${route}${delimiter}__screenshotAuditStep=${encodeURIComponent(String(step))}`;
 }
 
 function withScreenshotScroll(route, scrollY, scrollDelayMs = null) {
