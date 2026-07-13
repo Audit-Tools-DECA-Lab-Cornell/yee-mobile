@@ -1,0 +1,61 @@
+{
+    "platform": "iPad",
+    "screen_id": "Audit Placeid Review",
+    "screens_reviewed": "Two scroll captures of app/audit/[placeId]/review.tsx in dark theme on iPad: top (header, intro, chips, submitted banner, Quick actions, Survey pages, Context summary, Youth weighting) and a lower position (Youth weighting tail, Access review section with question rows).",
+    "verdict": "A clean, readable single-column review screen that correctly constrains its scroll content to a centered tablet track and uses the shared responsive padding tokens. The main iPad weaknesses are that this dense, sectioned content stays a one-column phone layout with no multi-column/two-pane use of the wide canvas, and the sticky footer spans full screen width while the content above it is centered, breaking visual alignment. Body typography also relies on Tamagui defaults rather than the tablet base-scale, so secondary text reads small for the canvas.",
+    "critical_issues": [
+        {
+            "id": "footer-full-width-vs-centered-content",
+            "category": "responsive-layout",
+            "location": "Sticky bottom footer (Back / Submit bar)",
+            "issue": "The scroll content is centered to contentMaxWidth via getResponsiveContentContainerStyle, but the absolutely-positioned footer spans the entire iPad width with only screenPaddingHorizontal gutters. On the wide iPad canvas the Back/Submit buttons stretch edge-to-edge and no longer line up with the centered card column above them, and each button becomes an unusually wide tap target.",
+            "evidence": "review.tsx:493 (content uses getResponsiveContentContainerStyle -> centered maxWidth) vs review.tsx:757-770 (footer position:absolute left:0 right:0, paddingHorizontal: layout.screenPaddingHorizontal only); visible in image 10/11 where footer runs full width under centered cards",
+            "confidence": "high",
+            "inference": false,
+            "fix": "Wrap the footer XStack in a centered container matching the content track (alignSelf:'center', maxWidth: layout.contentMaxWidth + screenPaddingHorizontal*2, or reuse getContentTrackInnerWidth) so the action bar aligns with the cards instead of spanning the full iPad width."
+        }
+    ],
+    "improvements": [
+        {
+            "id": "no-multicolumn-on-ipad",
+            "category": "responsive-layout",
+            "location": "Whole review scroll (Context summary grid, Youth weighting, Survey pages, review sections)",
+            "suggestion": "On iPad this remains a single stacked column inside a ~1040px track, leaving large empty gutters and forcing long scrolls through many short cards. The SummaryGrid (review.tsx:1016) and Youth weighting list (review.tsx:586-635) are natural 2-column candidates on tablet (layout.isTablet), and Survey pages / review sections could use a master-detail or two-pane layout. None of the layout.isTablet / isWideTablet flags from responsive-layout-tokens.ts are consulted in this route to adapt column count.",
+            "evidence": "review.tsx has no isTablet/isWideTablet branching for column layout; SummaryGrid is YStack-only (review.tsx:1016-1018); contrast with available tokens twoPaneGap/supportRailWidth in responsive-layout-tokens.ts:812-846",
+            "confidence": "high"
+        },
+        {
+            "id": "tablet-typography-not-scaled",
+            "category": "typography",
+            "location": "Body / Paragraph / SummaryRow / chip text throughout",
+            "suggestion": "The core defines TABLET_TYPOGRAPHY_BASE_SCALE = 1.3 to make tablet text immediately legible, but this route sets only fixed fontSize values (e.g. title 30 review.tsx:502, card title 22 review.tsx:1007, label 11 review.tsx:1026/1056) and leaves Paragraph/Text at Tamagui defaults with no tablet multiplier. On the large iPad canvas the secondary/muted body copy and 11px uppercase labels read small relative to the available space.",
+            "evidence": "responsive-layout-tokens.ts:792 (TABLET_TYPOGRAPHY_BASE_SCALE) is never imported/used in review.tsx; fixed fontSize at review.tsx:502, review.tsx:1007, review.tsx:1026, review.tsx:1056; visible small body/label text in image 10",
+            "confidence": "medium"
+        },
+        {
+            "id": "many-thin-section-cards",
+            "category": "visual-hierarchy",
+            "location": "Quick actions, Survey pages, Context summary, Score preview, Final comments cards",
+            "suggestion": "Each concern is its own full-width card with generous p=$4 padding, producing a long ladder of low-density cards on a screen that has horizontal room to spare. Grouping related metadata (Context summary + Score preview) side by side, or using the tablet supportRailWidth for the quick-actions/jump controls, would reduce vertical scroll and use the canvas.",
+            "evidence": "SectionCard p=\"$4\" (review.tsx:996); sequential cards review.tsx:523-748; image 10 shows tall single-column stack",
+            "confidence": "medium"
+        }
+    ],
+    "tamagui_notes": [
+        "Pack declares design_system_components_used: (none); the screen hand-rolls Chip, Badge-like AnswerPill, SectionCard, and action Buttons inline with designSystem.* style objects (review.tsx:1076-1091 Chip, 1039-1074 AnswerPill) instead of the shared components/ui primitives (e.g. Badge.tsx exists in core). Consistency risk: these reimplement pill/badge styling rather than reusing the design-system component.",
+        "Route imports the static `designSystem` (light/default token set) from lib/design-system (review.tsx:23) rather than the theme-aware useDesignSystem() hook; rendering is dark (StatusBar light, dark bg visible), so dark colors are reaching the screen via the Provider theme, but mixing the static token module with a dark render is fragile — verify the dark palette is actually what these style objects resolve to (review.tsx:344-345, 487, 492 all read designSystem.colors.* statically).",
+        "cardPadding token (16) and sectionGap (tablet 28-32) from responsive-layout-tokens.ts are not used for the cards; SectionCard hardcodes p=\"$4\" and the scroll gap is a fixed 18 (review.tsx:496), so tablet section spacing does not widen with the canvas."
+    ],
+    "platform_notes": [
+        "iPad safe area: footer correctly adds insets.bottom (review.tsx:769) and the scroll uses contentInsetAdjustmentBehavior 'automatic' (review.tsx:491); top is handled by the native stack header, so no notch/home-indicator collision is visible.",
+        "Content width IS constrained on tablet (getResponsiveContentContainerStyle centers to NARROW_TABLET_CONTENT_MAX_WIDTH 1040), which is good — the issue is the footer not honoring that same track, plus the absence of any split-view/multi-column adaptation for this dense content.",
+        "This is a pushed stack route (not a tab), shown full-screen; it is not presented as an iPad-sized modal/sheet, which is appropriate for a full-page review-and-submit flow."
+    ],
+    "not_assessable": [
+        "Context summary values (Visit frequency, Open to the public, Open all hours, Season) render blank and Weather/answered fields show 'Not answered'/0 in the screenshot — this reflects empty demo draft/runtime data, not a layout defect, so the value-rendering correctness cannot be judged from these captures.",
+        "Exact dark-theme contrast ratios (e.g. mutedForeground secondary text on dark surface, accent pill text) are estimates only; nothing appears clearly below WCAG AA in the captures.",
+        "Submit/queued/error lifecycle states (SubmitStatusBanner variants, spinner, disabled-during-submit) are not all exercised in these two captures; only the 'Submitted' success banner and disabled footer are visible."
+    ],
+    "score": 6,
+    "score_rationale": "Usable with clear problems: safe-area handling and centered content track are done correctly and the screen is legible, but it does not adapt to the iPad canvas (single-column only, no multi-column/two-pane, tablet typography base-scale unused) and the full-width footer misaligns with the centered content. Solid foundation, several significant tablet-specific layout gaps — squarely 5-6."
+}

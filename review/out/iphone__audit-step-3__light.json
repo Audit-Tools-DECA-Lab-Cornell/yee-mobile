@@ -1,0 +1,70 @@
+{
+    "platform": "iPhone",
+    "screen_id": "Audit · step 3",
+    "screens_reviewed": "Two scroll captures of audit/[placeId]/[step].tsx at step 3 (Access domain): top (11-audit-domain.png — native header, step header with badge/progress chip/step pills, section intro card) and lower (12-audit-domain-questions.png — condition follow-up and presence question cards plus the fixed footer nav).",
+    "verdict": "A clean, calm, on-brand survey wizard: legible cards, a green-on-cream selection treatment, a fixed footer that respects the home-indicator inset, and good thumb reach for the primary Next CTA. The main problems are systemic rather than visual — the whole screen renders from the static light-only `designSystem` import and hand-rolls every surface (cards, badges, progress bar, footer buttons) inline instead of the shared `components/ui/*` primitives, and the three-button footer cramps so 'Save & exit' truncates to 'Save…'.",
+    "critical_issues": [
+        {
+            "id": "static-design-system-breaks-theming",
+            "category": "color-contrast",
+            "location": "app/audit/[placeId]/[step].tsx",
+            "issue": "The entire screen imports the static, light-only token set `designSystem` rather than the reactive `useDesignSystem()` hook, so every color/font on this route is hard-pinned to the light palette and ignores the auditor's dark-theme, fontScale, and dyslexic-font preferences. The root layout sets the status bar and navigation theme from the live theme (app/_layout.tsx:1369), so in dark mode this screen would render light surfaces under a dark chrome.",
+            "evidence": "app/audit/[placeId]/[step].tsx:23 imports { designSystem } from \"lib/design-system\" and uses designSystem.colors.* throughout (e.g. lines 426, 515, 1675); core.md lib/design-system.ts:501-510 exposes useDesignSystem() which subscribes to theme/fontScale/dyslexicFont, and getDesignSystem() (lines 477-488) returns darkColors when theme==='dark'.",
+            "confidence": "high",
+            "inference": false,
+            "fix": "Convert AuditStepScreen and its child components to call `const designSystem = useDesignSystem()` (passed down or via the hook) instead of the module-level constant, so dark mode, font scaling, and the dyslexic font apply. fontScale also requires using ScaledText/ScaledParagraph rather than raw tamagui Text."
+        }
+    ],
+    "improvements": [
+        {
+            "id": "save-exit-label-truncates-in-footer",
+            "category": "responsive-layout",
+            "location": "FooterNav, app/audit/[placeId]/[step].tsx:1683-1717",
+            "suggestion": "Three flex={1} buttons (Back / Save & exit / Next) plus their icons share one 390px-wide row with horizontalPadding 15 each side and gap $2.5, leaving ~108px per button; 'Save & exit' does not fit and renders truncated as 'Save…' in both captures. Drop the middle action to a secondary placement, shorten it to 'Save', or stack the row (the XStack already has flexWrap so promoting Save & exit to flexBasis: '100%' on phones would give it a full-width row).",
+            "evidence": "image 11-audit-domain.png and 12-audit-domain-questions.png both show the middle button as 'Save…'; code label is \"Save & exit\" at app/audit/[placeId]/[step].tsx:1715.",
+            "confidence": "high"
+        },
+        {
+            "id": "redundant-step-indicators-in-header",
+            "category": "visual-hierarchy",
+            "location": "StepHeader, app/audit/[placeId]/[step].tsx:589-704",
+            "suggestion": "The header repeats 'Step 3 of 9' three times — the small pill (line 606), the 'Audit progress' chip (line 651), and the 9 wrapping step pills (lines 669-703) — consuming roughly the entire first viewport before any question is visible (image 11). Consider collapsing the redundant pill + progress chip into one indicator and making the 9-pill grid collapsible, freeing vertical space for the actual survey content above the fold.",
+            "evidence": "image 11-audit-domain.png shows badge + 'Step 3 of 9' chip + a 3-row pill grid filling the screen; code lines 606, 651, 698 each render the step/section identity.",
+            "confidence": "medium"
+        },
+        {
+            "id": "reuse-shared-ui-primitives",
+            "category": "other",
+            "location": "Card/SectionProgressCard/SelectionButton/FooterNav/StepHeader, app/audit/[placeId]/[step].tsx",
+            "suggestion": "The pack's design_system_components_used is (none): the screen re-implements surfaces that already exist as shared primitives — the inline Card (line 1072) duplicates components/ui/Card.tsx, the SectionProgressCard track (lines 1413-1427) duplicates components/ui/ProgressBar.tsx, the header pills/chips duplicate components/ui/Badge.tsx, and the footer Buttons duplicate components/ui/AppButton.tsx (which also guarantees the 52pt min tap target). Adopting these would remove the static-token coupling above and keep the wizard consistent with the rest of the app.",
+            "evidence": "PACK header `design_system_components_used: (none)`; core.md defines Card.tsx:1752, ProgressBar.tsx:2243, Badge.tsx:1576, Button.tsx (AppButton):1678, all reactive via useDesignSystem().",
+            "confidence": "high"
+        },
+        {
+            "id": "selection-button-tap-height",
+            "category": "tap-target",
+            "location": "SelectionButton, app/audit/[placeId]/[step].tsx:1287-1317",
+            "suggestion": "Single-line option rows use py=\"$3\" (~12pt) with ~16pt text, giving roughly a 44pt row — at the iOS minimum but tight for a survey users tap repeatedly. The shared formOptionHeight token (lib/responsive-layout-tokens.ts:807, phone=42) plus the AppButton 52pt convention suggest a slightly taller minHeight (~48pt) would be more comfortable without disturbing the wrapping-label behavior the component was built for.",
+            "evidence": "app/audit/[placeId]/[step].tsx:1292-1293 (py \"$3\", px \"$3.5\"); core.md lib/responsive-layout-tokens.ts:807 formOptionHeight 42; images show stacked Yes/No/Poor option rows.",
+            "confidence": "low"
+        }
+    ],
+    "tamagui_notes": [
+        "Screen-wide use of the static `designSystem` constant (line 23) instead of `useDesignSystem()` means Tamagui theme switching, fontScale, and the dyslexic font are all bypassed on this route (lib/design-system.ts:501-510).",
+        "Heavy reliance on inline `style={{ backgroundColor, borderColor, boxShadow }}` with palette literals rather than Tamagui theme tokens (e.g. Card line 1084, SelectionButton line 1300); functional, but it forgoes the token/theme system the config defines.",
+        "FooterNav correctly adds `paddingBottom: bottomInset + 12` (line 1680) from useSafeAreaInsets, so the fixed bar clears the home indicator — good safe-area handling for a non-tab route."
+    ],
+    "platform_notes": [
+        "Safe-area top is handled by the native stack header (useYeeStackHeaderOptions, headerShown:true) plus the root Stack contentStyle paddingTop:20 (app/_layout.tsx:1378); the Dynamic Island / status bar area in image 11 is clear, no content collision.",
+        "Primary CTA (Next) sits bottom-right in the fixed footer — strong thumb reach for a right-handed grip; Back/Save sit left, also reachable.",
+        "Layout reads from useResponsiveLayout()/getResponsiveContentContainerStyle (lines 85, 434) and horizontalPadding from layout.screenPaddingHorizontal (line 483) rather than hardcoded values, so compact-fit is driven by the responsive tokens — appropriate for iPhone."
+    ],
+    "not_assessable": [
+        "Dark-theme rendering of this screen (only the light capture was provided); the static-token issue is inferred from code, not seen.",
+        "Exact WCAG contrast ratios (muted-foreground body text on cream surface looks acceptable but was not measured).",
+        "Behavior of the keyboard-aware scroll / footer interaction when the multiline comment Input is focused (runtime state not shown).",
+        "Whether the 'Save…' truncation also clips on larger iPhones (Plus/Max widths) — only one device width was captured."
+    ],
+    "score": 7,
+    "score_rationale": "Solid, on-brand, and usable as-is with good safe-area and thumb-reach behavior (7-8 band). Held below 8 by one real cross-cutting defect — the static light-only token import that disables theming/accessibility preferences for the whole route — plus a visible footer label truncation and the screen hand-rolling every surface instead of the shared ui primitives. None are screen-breaking, so it lands at 7."
+}

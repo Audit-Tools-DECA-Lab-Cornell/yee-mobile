@@ -61,7 +61,6 @@ screenshots/iphone/
 screenshots/ipad/
 screenshots/android-phone/
 screenshots/android-tablet/
-/review/
 
 **/*.mcp.json
 **/mcp.json

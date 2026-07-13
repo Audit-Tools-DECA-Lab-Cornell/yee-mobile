@@ -1,0 +1,59 @@
+{
+    "platform": "Android Tablet",
+    "screen_id": "Tabs Index",
+    "screens_reviewed": "Single screenshot of the Dashboard (tabs index) at the top scroll position, Android tablet, light theme.",
+    "verdict": "The Dashboard renders cleanly and is usable, but it is essentially a phone layout centered on the tablet canvas rather than a large-screen adaptation: a single content column, two-up metric cards, and a bottom tab bar instead of a Material nav rail. Typography is also notably small for a tablet because the ScaledText/ScaledParagraph primitives never apply the TABLET_TYPOGRAPHY_BASE_SCALE the design system defines. Nothing is broken, but the screen leaves obvious tablet affordances on the table.",
+    "critical_issues": [],
+    "improvements": [
+        {
+            "id": "tablet-base-typography-scale-not-applied",
+            "category": "typography",
+            "location": "components/ui/ScaledText.tsx (ScaledText/ScaledParagraph) used throughout app/(tabs)/index.tsx",
+            "suggestion": "Apply the defined TABLET_TYPOGRAPHY_BASE_SCALE (1.3) on tablet widths. ScaledText/ScaledParagraph multiply fontSize/lineHeight only by the user fontScale preference; they have no awareness of the tablet tier, so explicit sizes like fontSize={10} eyebrows, fontSize={13} status text, and fontSize={34} heading render at phone px on the large canvas. Fold the tablet base scale into scaleSize (e.g. read useResponsiveLayout()/isTablet or compose it into the active fontScale).",
+            "evidence": "core.md:2285-2321 (scaleSize multiplies by fontScale only); core.md:792 defines TABLET_TYPOGRAPHY_BASE_SCALE=1.3 with a comment that it should make tablet text legible without raising the slider; image shows small eyebrow/body text relative to canvas",
+            "confidence": "high"
+        },
+        {
+            "id": "metric-cards-two-up-not-grid",
+            "category": "responsive-layout",
+            "location": "app/(tabs)/index.tsx:300-309 (XStack flexWrap) and MetricCard width at lines 605-617",
+            "suggestion": "MetricCard hard-codes width=\"48%\" with minWidth:160, forcing a 2x2 grid even though the centered tablet content track is ~1040-1200px wide and could show all four metrics in one row. Switch to a responsive column count (e.g. ~24% / minWidth on tablet, or a $columns media style) so the four metrics use the available width instead of leaving a tall stacked block.",
+            "evidence": "app/(tabs)/index.tsx:606 width=\"48%\"; lib/responsive-layout-tokens.ts contentMaxWidth 1040-1200 (core.md:779-780); image shows 2x2 metric layout with spare horizontal room",
+            "confidence": "high"
+        },
+        {
+            "id": "single-column-no-tablet-adaptation",
+            "category": "responsive-layout",
+            "location": "app/(tabs)/index.tsx:110-119 (ScrollView contentContainer) and overall YStack structure",
+            "suggestion": "The route uses getResponsiveContentContainerStyle to center one column but never builds a multi-column / master-detail layout. The design system already defines homePageSupportRailWidth (250-290 on tablet) which this screen does not consume. Consider a two-pane tablet layout (e.g. summary/metrics column + assigned-places column, or a support rail) so the wide canvas is used rather than centering a phone column.",
+            "evidence": "lib/responsive-layout-tokens.ts homePageSupportRailWidth 250/290 (core.md:818,836) is defined but app/(tabs)/index.tsx never references homePageSupportRailWidth or layout.isTablet branching; image shows centered single column",
+            "confidence": "medium"
+        },
+        {
+            "id": "bottom-tabs-vs-nav-rail",
+            "category": "platform-convention",
+            "location": "app/(tabs)/_layout.tsx:1462-1546",
+            "suggestion": "Material large-screen guidance favors a navigation rail (side) over a bottom navigation bar on tablets. The layout uses expo-router Tabs with a bottom tabBar for all sizes; it adds tablet tweaks (icon size 22, item radius/margins) but stays bottom-anchored. Consider a nav rail on tablet widths for a more native Android-tablet feel.",
+            "evidence": "app/(tabs)/_layout.tsx tabBarStyle is a bottom bar with isTablet only adjusting padding/margins/icon size (core.md:1444-1491); image shows bottom tab bar HOME/PLACES/EXECUTE/REPORTS",
+            "confidence": "medium"
+        }
+    ],
+    "tamagui_notes": [
+        "Dashboard correctly routes all text through ScaledText/ScaledParagraph (the pack's design_system_components_used), so the user font-scale preference is honored; the gap is that these primitives never layer in the tablet base scale (core.md:2285-2321 vs core.md:792).",
+        "MetricCard mixes Tamagui token props with raw style: width=\"48%\" plus inline style minWidth/boxShadow/borderColor/backgroundColor (app/(tabs)/index.tsx:605-617). The fixed 48% is the cause of the non-responsive grid; consider tablet-aware sizing instead of a literal percentage.",
+        "The hero card uses a hard-coded borderColor 'rgba(71, 203, 175, 0.18)' and rgba white text colors (app/(tabs)/index.tsx:314, 322, 339) rather than design-system tokens; not a tablet issue but an inline-color consistency note."
+    ],
+    "platform_notes": [
+        "Status bar / nav-bar: app uses useHiddenAndroidNavBar (core.md:1069) to hide the Android nav bar and the ScrollView uses contentInsetAdjustmentBehavior; the top content clears the status bar in the image. No safe-area clipping visible.",
+        "Tap targets: header icon Buttons are 42x42 (app/(tabs)/index.tsx:157-189) and avatar tile 44x44; 42dp is just under the Android 48dp minimum touch target. Primary CTAs (View places / Open audit / View reports, per-place Start/Continue) are comfortably sized.",
+        "Bottom tab bar uses the standard Material-ish bottom nav rather than a tablet nav rail (see improvements)."
+    ],
+    "not_assessable": [
+        "Exact rendered font sizes / whether the tablet base scale is intentionally omitted at runtime (only the primitive source is visible).",
+        "Scroll content below the first 'Assigned places' card (only one scroll position provided).",
+        "Precise contrast ratios; no pair looked clearly below WCAG AA in the light theme.",
+        "Landscape / split-view behavior on the tablet (only one portrait capture)."
+    ],
+    "score": 6,
+    "score_rationale": "Usable with clear problems: the screen is polished and functional but is a centered phone layout on a tablet (two-up metrics, single column, bottom tabs) and does not apply its own defined TABLET_TYPOGRAPHY_BASE_SCALE, so it under-uses the large canvas. No critical/broken issues, which keeps it above the 3-4 band, but the missed tablet adaptations hold it out of 7-8."
+}

@@ -1,0 +1,63 @@
+{
+    "platform": "iPhone",
+    "screen_id": "Audit Placeid Review",
+    "screens_reviewed": "Two scroll captures of app/audit/[placeId]/review.tsx (13-audit-review.png top; 14-audit-review-sections.png mid-scroll), iPhone with Dynamic Island, dark theme selected.",
+    "verdict": "The review-and-submit screen is well-structured (intro, chips, status banner, quick actions, page jumps, per-section summaries, score preview, sticky footer) and its safe-area handling is correct. However the entire screen body is bound to the STATIC light design-system token set rather than the theme-aware hook, so in the selected dark theme it renders the light/cream palette under a dark navigation header - a clear theme-consistency break visible in both screenshots. There is also redundant primary-action duplication between Quick actions and the sticky footer.",
+    "critical_issues": [
+        {
+            "id": "screen-ignores-dark-theme",
+            "category": "color-contrast",
+            "location": "app/audit/[placeId]/review.tsx body (background, cards, text)",
+            "issue": "The route imports the STATIC `designSystem` (light) instead of the theme-aware `useDesignSystem()` hook, so every body color is a fixed light token. Captured in the dark theme, the page body renders the cream light background (#FBFAF6) and white cards while the navigation header - which DOES use `useDesignSystem()` - renders dark, producing a mismatched light-body/dark-header screen and undermining the dark theme entirely.",
+            "evidence": "review.tsx:23 `import { designSystem } from \"lib/design-system\"` (static); lib/design-system.ts:453-460 designSystem = { colors: lightColors }; used at review.tsx:345,487,492,764; contrast with header useYeeStackHeaderOptions.ts:1423 `useDesignSystem()`; visible cream body + dark header in 13-audit-review.png / 14-audit-review-sections.png",
+            "confidence": "high",
+            "inference": false,
+            "fix": "Replace the static `designSystem` import with `const designSystem = useDesignSystem()` inside the component (as the header and tab layout already do), and thread the resolved tokens into the module-level helpers (SectionCard, SummaryRow, AnswerPill, Chip, StepJumpButton, ActionButton, submitStatus*, getReviewTheme) via props/args instead of reading the static constant."
+        }
+    ],
+    "improvements": [
+        {
+            "id": "duplicate-primary-submit",
+            "category": "visual-hierarchy",
+            "location": "Quick actions card vs sticky footer",
+            "suggestion": "The primary submit affordance appears twice on the same viewport - the Quick actions 'Submitted'/'Submit audit' button (review.tsx:535-540) and the sticky footer 'Submitted'/'Submit audit' button (review.tsx:790-817). Two identical-state primary CTAs in one screen dilute hierarchy; consider demoting the in-card one to a secondary 'Jump to submit' or removing it since the footer CTA is always reachable.",
+            "evidence": "review.tsx:535-540 and review.tsx:790-817; both visible in 13-audit-review.png",
+            "confidence": "medium"
+        },
+        {
+            "id": "edit-section-contrast-when-submitted",
+            "category": "color-contrast",
+            "location": "Per-section 'Edit section' button and footer when status=submitted",
+            "suggestion": "Once submitted the audit is locked, yet the per-section 'Edit section' buttons (review.tsx:663-681) and 'Edit audit' action remain fully enabled and visually primary, while the footer Submit is greyed. The disabled/locked state is only partially communicated; consider disabling or visually muting the edit affordances in the submitted state to match the locked banner copy.",
+            "evidence": "review.tsx:521 SubmitStatusBanner 'submitted' = locked; review.tsx:663-681 Edit section always enabled; 14-audit-review-sections.png shows dark 'Edit section' button under a submitted/locked audit",
+            "confidence": "medium"
+        },
+        {
+            "id": "fixed-heading-font-sizes",
+            "category": "typography",
+            "location": "Title fontSize={30} and SectionCard fontSize={22}",
+            "suggestion": "The page title (review.tsx:502) and card titles (review.tsx:1007) use fixed pixel font sizes and are not multiplied by `designSystem.fontScale`, unlike the header title which scales (YeeStackHeaderTitle.tsx:1344). Users who raise the accessibility text-size preference will see the surrounding chips/paragraphs scale (Tamagui ScaledText paths) but these headings stay fixed, creating inconsistent scaling.",
+            "evidence": "review.tsx:502 fontSize={30}; review.tsx:1007 fontSize={22}; compare YeeStackHeaderTitle.tsx:1344 primarySize *= fontScale",
+            "confidence": "low"
+        }
+    ],
+    "tamagui_notes": [
+        "design_system_components_used: (none) - the screen hand-rolls Chip, Badge-like AnswerPill, SectionCard, ActionButton, and status banner inline rather than using the shared components/ui primitives (e.g. components/ui/Badge.tsx exists in CORE). The AnswerPill (review.tsx:1039-1074) and Chip (review.tsx:1076-1091) are effectively re-implementations of the shared Badge.",
+        "Module-level helper components read the static `designSystem` constant directly (review.tsx:980-1161), which is why the screen cannot react to theme - this is the structural root of the dark-theme bug and would need refactoring to accept tokens via props.",
+        "Mixed styling API: some props use Tamagui tokens (p=\"$4\", gap=\"$3\", rounded via radii) while colors are passed through raw `style={{ backgroundColor: ... }}` objects with literal palette values rather than theme tokens, consistent with the static-import approach."
+    ],
+    "platform_notes": [
+        "Safe-area: footer correctly applies `paddingBottom: insets.bottom + 12` (review.tsx:769) so the sticky action bar clears the home indicator; the scroll container reserves `footerHeight + 24` bottom padding (review.tsx:494) so content is not hidden behind it. Good.",
+        "Top inset: content sits under a native stack header (useYeeStackHeaderOptions headerShown:true) so the notch/Dynamic Island is handled by the header rather than topInset; the body does not pass topInset, which is correct here.",
+        "Thumb reach: both primary footer buttons (Back / Submit) are full-width, side-by-side and within thumb reach at the bottom; tap targets are comfortable (Tamagui Button default height plus py padding).",
+        "Compact-fit: uses useResponsiveLayout + getResponsiveContentContainerStyle (review.tsx:493) and layout.screenPaddingHorizontal for the footer (review.tsx:767) rather than fixed values - good responsive practice."
+    ],
+    "not_assessable": [
+        "Whether the captured 'Submitted/locked' state is the default or a screenshot-automation fixture - the live idle state (Submit audit enabled) is not shown.",
+        "Exact WCAG contrast ratios for the warning text 'Context still needs required answers...' (review.tsx:543 warning color) on the card surface - estimated acceptable but not measured.",
+        "Runtime states not shown: spinner/loading (draft===null), error 'Submission note' card, and online/offline score-preview variants.",
+        "Cross-screen flow into /audit/[placeId]/submitted after submitNow()."
+    ],
+    "score": 5,
+    "score_rationale": "Solid information architecture, correct safe-area and responsive-container usage, and thoughtful submit lifecycle - but the screen is bound to the static light token set and does not honor the selected dark theme (verified at review.tsx:23 + lib/design-system.ts:453), a clear visible problem on a dark-theme capture, compounded by duplicated primary CTAs. Usable with clear problems rather than minor polish, hence 5."
+}

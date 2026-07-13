@@ -16,7 +16,8 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { ArrowLeft, ChevronLeft, Send } from "components/icons";
 import { useYeeStackHeaderOptions } from "components/navigation/useYeeStackHeaderOptions";
-import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
+import { BrandSpinner, LoadingScreen } from "components/ui";
+import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { useDesignSystem, type ColorTokens } from "lib/design-system";
 import {
     getContentTrackInnerWidth,
@@ -393,14 +394,7 @@ export default function AuditReviewScreen() {
         return (
             <>
                 {stackHeader}
-                <YStack
-                    flex={1}
-                    items="center"
-                    justify="center"
-                    bg={designSystem.colors.background}
-                >
-                    <Spinner size="large" color={designSystem.colors.primary} />
-                </YStack>
+                <LoadingScreen message="Preparing review" />
             </>
         );
     }
@@ -1271,7 +1265,7 @@ const ReviewFooter = memo(function ReviewFooter({
                 >
                     <XStack items="center" gap="$2">
                         {isSubmitting ? (
-                            <Spinner color={designSystem.colors.primaryForeground} size="small" />
+                            <BrandSpinner size="sm" color={designSystem.colors.primaryForeground} />
                         ) : (
                             <Send size={16} color={designSystem.colors.primaryForeground} />
                         )}

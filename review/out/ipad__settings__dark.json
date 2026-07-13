@@ -1,0 +1,64 @@
+{
+    "platform": "iPad",
+    "screen_id": "Settings",
+    "screens_reviewed": "Single screenshot, full screen at top scroll position (screenshots/ipad/dark/16-settings.png). No scrolling needed; whole screen fits.",
+    "verdict": "A clean, correctly-themed settings screen that reuses the shared responsive container helper and ScaledText/ScaledParagraph primitives, so it is not a broken phone port. The main iPad weakness is that it does not adapt to the large canvas beyond centering: body/label text renders at phone point sizes because the screen never applies TABLET_TYPOGRAPHY_BASE_SCALE, and the short settings list sits as one narrow column with large empty space rather than a balanced multi-column or constrained card layout.",
+    "critical_issues": [],
+    "improvements": [
+        {
+            "id": "tablet-typography-base-scale-unused",
+            "category": "typography",
+            "location": "app/settings.tsx ScaledText/ScaledParagraph usages (e.g. lines 102-108, 245-253, 346-360); components/ui/ScaledText.tsx:2295-2321",
+            "suggestion": "ScaledText/ScaledParagraph multiply fontSize only by the user fontScale, never by the tablet baseline. core.md defines TABLET_TYPOGRAPHY_BASE_SCALE = 1.3 (lib/responsive-layout-tokens.ts:792) specifically so default (scale=1) tablet text reads larger, but nothing on this screen applies it, so the 13-15pt body/description text renders at phone size on the iPad canvas (visible: description and account rows look small relative to the screen). Fold layout.isTablet ? TABLET_TYPOGRAPHY_BASE_SCALE : 1 into the effective scale (either inside ScaledText via a useResponsiveLayout read, or by passing scaled fontSize at the call sites).",
+            "evidence": "components/ui/ScaledText.tsx:2296-2300 scales only by fontScale; lib/responsive-layout-tokens.ts:792 defines the unused 1.3 baseline; image shows small body text on wide canvas",
+            "confidence": "high",
+            "inference": false
+        },
+        {
+            "id": "no-large-canvas-multicolumn",
+            "category": "responsive-layout",
+            "location": "app/settings.tsx:111-280 (single ScrollView column)",
+            "suggestion": "On iPad the three short sections (Appearance, Text & reading, Account) plus Sign out stack in one column, leaving the lower ~40% of the screen empty (visible in image). lib/responsive-layout.ts exposes twoPaneGap and supportRailWidth and the screen already imports useResponsiveLayout; consider a two-column grid on isTablet (e.g. Appearance + Text & reading in one column, Account + Sign out in the other) or constrain the card column to formMaxWidth (600, NARROW_TABLET_FORM_MAX_WIDTH) so it does not stretch edge-to-edge while still centering.",
+            "evidence": "image (large empty lower region, edge-to-edge cards); lib/responsive-layout-tokens.ts:782 formMaxWidth=600 available but unused here",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "content-uses-content-not-form-maxwidth",
+            "category": "responsive-layout",
+            "location": "app/settings.tsx:112-115 getResponsiveContentContainerStyle without maxWidth override",
+            "suggestion": "The container falls back to contentMaxWidth (1040 on narrow tablet, lib/responsive-layout-tokens.ts:779), which exceeds typical iPad portrait width, so the settings cards run nearly edge-to-edge instead of forming a readable centered form. A settings/form screen is a textbook formMaxWidth case; pass maxWidth: layout.formMaxWidth to getResponsiveContentContainerStyle so the cards center at a comfortable measure on wide iPads.",
+            "evidence": "app/settings.tsx:112-115; lib/responsive-layout.ts:739-769 resolves maxWidth to contentMaxWidth when no override; image shows full-width cards",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "native-switch-not-tamagui",
+            "category": "platform-convention",
+            "location": "app/settings.tsx:10, 228-234",
+            "suggestion": "The dyslexia toggle uses React Native's core Switch rather than a Tamagui primitive, so its sizing/colors are not part of the design system and it will not pick up tablet scaling. Minor, but using a Tamagui Switch (or a shared UI wrapper) would keep the control consistent with the rest of the design-system surface.",
+            "evidence": "app/settings.tsx:10 imports Switch from react-native; 228-234 renders it inline",
+            "confidence": "low",
+            "inference": false
+        }
+    ],
+    "tamagui_notes": [
+        "Good: screen consumes the shared ScaledText/ScaledParagraph primitives (matching design_system_components_used) for all type, and uses useDesignSystem tokens (colors/fonts/radii) rather than hard-coded hex (app/settings.tsx:54-55, 102-108).",
+        "Mixed token usage: spacing uses Tamagui token props in some places (gap=\"$3\", p=\"$4\", py=\"$2\") but raw numbers in others (height={72}, height={64}, fontSize={22}, paddingBottom: 12 in the header). Numeric fontSize is intentional so ScaledText can scale it, but the fixed control heights (72/64/52) and header paddingBottom are not tablet-aware — layout.formOptionHeight/buttonHeight exist for exactly this (lib/responsive-layout-tokens.ts:1012-1019).",
+        "Header horizontal padding uses layout.screenPaddingHorizontal (app/settings.tsx:79) and the ScrollView uses getResponsiveContentContainerStyle, which on this iPad width also resolves to screenPaddingHorizontal, so header title and cards align — no misalignment symptom in the image."
+    ],
+    "platform_notes": [
+        "Safe area: header applies paddingTop: insets.top (app/settings.tsx:81) and the ScrollView adds insets.bottom + 32 (line 113), so the title clears the status bar and the Sign out button clears the home indicator — correct for iPad.",
+        "This route is registered as a Stack screen with headerShown:false (app/_layout.tsx:1389) and the screen draws its own back-chevron header, so there is no double header on iPad.",
+        "Tap targets are comfortable on iPad: back button 40x40 (slightly under the 44pt iOS minimum but visually fine), theme tiles height 72, text-size tiles height 64, Sign out height 52 — all easily tappable.",
+        "iPad-specific gap: the screen is presented full-screen as a pushed Stack route rather than a sized sheet/modal; for a short settings surface a form-sheet/centered modal would feel more native on iPad, but that is a navigation-architecture choice outside this file."
+    ],
+    "not_assessable": [
+        "Exact rendered point sizes and whether text feels too small in-hand (depends on device PPI and the unmeasured tablet base scale at runtime).",
+        "Switch/selection runtime states (pressed, focus, dyslexic-on) and theme/text-size live updates are not visible in a single static capture.",
+        "Precise WCAG contrast ratios; the dark danger text on dangerSoft (Sign out) and mutedForeground labels look acceptable but were not measured.",
+        "Behavior in iPad split-view / Slide Over multitasking widths (would change the breakpoint tier) cannot be judged from one full-width capture."
+    ],
+    "score": 7,
+    "score_rationale": "Solid and shippable with minor polish: correct theming, safe-area handling, shared primitives, and a centered responsive container mean nothing is broken or off-platform. It loses points because it does not fully exploit the iPad canvas — the defined TABLET_TYPOGRAPHY_BASE_SCALE is never applied so text reads phone-sized, the cards stretch toward edge-to-edge using contentMaxWidth instead of formMaxWidth, and a short single-column list leaves large empty space where a two-column or constrained-form layout would feel intentional."
+}

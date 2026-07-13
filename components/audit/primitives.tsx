@@ -7,12 +7,23 @@ import {
     type PropsWithChildren,
     type ReactNode,
 } from "react";
+import type { ViewStyle } from "react-native";
 import { Input, Paragraph, Text, XStack, YStack } from "tamagui";
 import { Check } from "components/icons";
+import { shouldRenderOptionsTwoUp } from "lib/audit-option-grid";
 import { useDesignSystem } from "lib/design-system";
+import { useResponsiveLayout } from "lib/responsive-layout";
 import { ensureQuestionMark } from "lib/yee-mobile-audit-config";
 import type { InstrumentOption } from "lib/yee-mobile-instrument";
 import { useSurveyPalette, type SurveyPalette } from "./survey-theme";
+
+/**
+ * Flex sizing that turns an option button into a 2-column grid cell, mirroring
+ * the `AuditStepper` pill grid (`PILL_SIZING`). `minWidth: 0` lets a long label
+ * shrink instead of forcing horizontal overflow; `flexGrow` lets a lone trailing
+ * cell fill the row.
+ */
+const OPTION_CELL_TWO_UP: ViewStyle = { flexBasis: "48%", flexGrow: 1, minWidth: 0 };
 
 /**
  * Section container card. The single elevated surface every step's content sits
@@ -142,6 +153,7 @@ export const SelectionButton = memo(function SelectionButton({
     onPress,
     multi = false,
     disabled = false,
+    cellStyle,
 }: {
     label: string;
     selected: boolean;
@@ -150,14 +162,23 @@ export const SelectionButton = memo(function SelectionButton({
     multi?: boolean;
     /** View-only: ignore presses and dim unselected rows. */
     disabled?: boolean;
+    /**
+     * Optional flex sizing supplied by an option grid so buttons can lay out
+     * 2-up on tablet. Merged last so the grid owns width; height stays driven by
+     * `formOptionHeight` and content.
+     */
+    cellStyle?: ViewStyle | undefined;
 }) {
     const designSystem = useDesignSystem();
     const palette = useSurveyPalette();
+    const layout = useResponsiveLayout();
     return (
         <XStack
             items="center"
             gap="$3"
-            rounded={designSystem.radii.button}
+            // Option rows follow the web's option-card radius (`rounded-md`, 10),
+            // not the tighter 8px control radius used by action buttons.
+            rounded={designSystem.radii.md}
             borderWidth={1}
             py="$3"
             px="$3.5"
@@ -168,12 +189,17 @@ export const SelectionButton = memo(function SelectionButton({
             pressStyle={disabled ? null : { opacity: 0.92, scale: 0.985 }}
             onPress={disabled ? undefined : onPress}
             style={{
+                // Grow the tap target with the tier (48–52pt on tablet) while
+                // leaving phones pixel-unchanged: at 42pt the phone token sits
+                // below the row's natural content height, so it is a no-op there.
+                minHeight: layout.formOptionHeight,
                 backgroundColor: selected ? palette.selected : palette.inner,
                 borderColor: selected ? palette.selectedBorder : palette.innerBorder,
                 boxShadow: selected ? designSystem.shadows.elevated : "none",
                 // Keep the chosen answer fully legible; fade the rest so a locked
                 // audit still reads clearly as "this is what was selected".
                 opacity: disabled && !selected ? 0.55 : 1,
+                ...cellStyle,
             }}
         >
             <YStack
@@ -184,20 +210,16 @@ export const SelectionButton = memo(function SelectionButton({
                 borderWidth={2}
                 style={{
                     borderRadius: multi ? 6 : 999,
-                    borderColor: selected
-                        ? designSystem.colors.primaryForeground
-                        : palette.innerBorder,
-                    backgroundColor: selected
-                        ? designSystem.colors.primaryForeground
-                        : "transparent",
+                    borderColor: selected ? palette.selectedControl : palette.innerBorder,
+                    backgroundColor: selected ? palette.selectedControl : "transparent",
                 }}
             >
-                {selected ? <Check size={14} color={designSystem.colors.primary} /> : null}
+                {selected ? <Check size={14} color={designSystem.colors.surface} /> : null}
             </YStack>
             <Text
                 fontFamily={designSystem.fonts.bodyBold}
                 style={{
-                    color: selected ? designSystem.colors.primaryForeground : palette.accentText,
+                    color: selected ? palette.selectedText : palette.optionText,
                     flexShrink: 1,
                     textAlign: "left",
                 }}
@@ -208,7 +230,27 @@ export const SelectionButton = memo(function SelectionButton({
     );
 });
 
-/** Vertical list of single-select options. */
+/**
+ * Responsive frame for a set of option buttons: a wrapping 2-column row on
+ * tablet (short labels) or a single stacked column on phone / long labels.
+ * `gap` matches the previous single-column spacing so phones are unchanged.
+ */
+function OptionGridFrame({ twoUp, children }: PropsWithChildren<{ twoUp: boolean }>) {
+    return twoUp ? (
+        <XStack flexWrap="wrap" gap="$2">
+            {children}
+        </XStack>
+    ) : (
+        <YStack gap="$2">{children}</YStack>
+    );
+}
+
+/**
+ * Single-select option list. Renders 2-up on tablet when every label is short
+ * (mirrors the `AuditStepper` 48% pill grid) so short answers stop eating a
+ * full-width row on the ~800dp Tab S5e; phones and long-label sets stay a
+ * single stacked column.
+ */
 export const OptionGrid = memo(function OptionGrid({
     value,
     options,
@@ -221,8 +263,11 @@ export const OptionGrid = memo(function OptionGrid({
     /** View-only: forward to every option so the group is non-interactive. */
     disabled?: boolean;
 }) {
+    const { isTablet } = useResponsiveLayout();
+    const twoUp = shouldRenderOptionsTwoUp(options, isTablet);
+    const cellStyle = twoUp ? OPTION_CELL_TWO_UP : undefined;
     return (
-        <YStack gap="$2">
+        <OptionGridFrame twoUp={twoUp}>
             {options.map((option) => (
                 <SelectionButton
                     key={option.id}
@@ -230,9 +275,46 @@ export const OptionGrid = memo(function OptionGrid({
                     selected={value === option.id}
                     onPress={() => onChange(option.id)}
                     disabled={disabled}
+                    cellStyle={cellStyle}
                 />
             ))}
-        </YStack>
+        </OptionGridFrame>
+    );
+});
+
+/**
+ * Multi-select (checkbox) option list. Shares `OptionGrid`'s responsive column
+ * behaviour so weather-style short-answer sets also render 2-up on tablet.
+ */
+export const MultiOptionGrid = memo(function MultiOptionGrid({
+    values,
+    options,
+    onToggle,
+    disabled = false,
+}: {
+    values: readonly string[];
+    options: readonly InstrumentOption[];
+    onToggle: (value: string) => void;
+    /** View-only: forward to every option so the group is non-interactive. */
+    disabled?: boolean;
+}) {
+    const { isTablet } = useResponsiveLayout();
+    const twoUp = shouldRenderOptionsTwoUp(options, isTablet);
+    const cellStyle = twoUp ? OPTION_CELL_TWO_UP : undefined;
+    return (
+        <OptionGridFrame twoUp={twoUp}>
+            {options.map((option) => (
+                <SelectionButton
+                    key={option.id}
+                    label={option.label}
+                    multi
+                    selected={values.includes(option.id)}
+                    onPress={() => onToggle(option.id)}
+                    disabled={disabled}
+                    cellStyle={cellStyle}
+                />
+            ))}
+        </OptionGridFrame>
     );
 });
 
@@ -488,7 +570,7 @@ export const CommentField = memo(function CommentField({
                     {label}
                 </Paragraph>
                 <YStack
-                    rounded={designSystem.radii.md}
+                    rounded={designSystem.radii.button}
                     borderWidth={1}
                     px="$3"
                     py="$3"
@@ -528,7 +610,7 @@ export const CommentField = memo(function CommentField({
                 multiline={multiline}
                 color={designSystem.colors.foreground}
                 placeholder={placeholder}
-                rounded={designSystem.radii.md}
+                rounded={designSystem.radii.button}
                 borderWidth={1}
                 px="$3"
                 py="$3"

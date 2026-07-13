@@ -1,5 +1,6 @@
 import { useToastController } from "@tamagui/toast";
 import { Camera, Check, TriangleAlert, X } from "components/icons";
+import { BrandSpinner } from "components/ui";
 import { useGlobalSearchParams, useSegments } from "expo-router";
 import { useDesignSystem } from "lib/design-system";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -14,7 +15,6 @@ import {
     ScrollView,
     Separator,
     Sheet,
-    Spinner,
     Text,
     TextArea,
     XStack,
@@ -485,7 +485,7 @@ export function BugReportFab() {
                                             gap="$2"
                                             px="$3"
                                         >
-                                            <Spinner size="small" color={ds.colors.primary} />
+                                            <BrandSpinner size="sm" color={ds.colors.primary} />
                                             <Text
                                                 fontSize={12}
                                                 color={ds.colors.mutedForeground}
@@ -598,8 +598,8 @@ export function BugReportFab() {
                                 >
                                     {isCheckingMatches ? (
                                         <XStack gap="$2" items="center">
-                                            <Spinner
-                                                size="small"
+                                            <BrandSpinner
+                                                size="sm"
                                                 color={ds.colors.primaryForeground}
                                             />
                                             <Text

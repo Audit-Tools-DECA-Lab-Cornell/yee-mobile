@@ -1,0 +1,73 @@
+{
+    "platform": "iPhone",
+    "screen_id": "Tabs Reports",
+    "screens_reviewed": "Two scroll captures of the Reports tab in dark theme on iPhone (screenshots/iphone/dark/15-reports.png top, 16-reports-list.png scrolled). Visible: 'Reports' heading + subtitle under the Dynamic Island; two metric cards side by side ('64% Average score / Across all reports' and '64% Top score / Maple Library Plaza'); a 'Current report' card (bar-chart icon, 'Maple Library Plaza', 'Submitted Jun 28 at 5:02 PM', green 'uploaded' sync label, 'Total raw score 64%', a full-width green progress bar, and a filled green 'Open selected report' CTA); a 'REPORT LIST' card with one row (Maple Library Plaza, timestamp, 64% + 'uploaded', a thin green progress bar, and an outlined 'Open report' CTA); and a footer hint 'Comparison reports and exports are available on the web dashboard.' Bottom tab bar (Home/Places/Execute/Reports) with Reports active in green.",
+    "verdict": "On iPhone the Reports tab renders as a clean, token-driven single column that fits the compact form factor well: the dark palette reads comfortably, safe-area top (Dynamic Island) and tab-bar/home-indicator bottom clearance are correct, metric figures and the green 'uploaded' labels are AA-safe, and the card hierarchy is clear. The one genuinely weak spot the capture confirms is the outlined secondary 'Open report' button, which is nearly invisible against its row surface in dark mode; secondary findings are the MetricCard bypassing the shared color prop / getMetricTone helper and the small tracked eyebrow/sync labels.",
+    "critical_issues": [],
+    "improvements": [
+        {
+            "id": "secondary-button-low-contrast-dark",
+            "category": "color-contrast",
+            "location": "app/(tabs)/reports.tsx:306-310",
+            "suggestion": "In 16-reports-list.png the outlined 'Open report' button barely separates from the row it sits in: the row bg is colors.input (#1B1D19, reports.tsx:248), the button is filled with colors.surfaceMuted (#24261F) and outlined with colors.border (#34362E) — all near-identical dark values, so the only thing reading is the white label and a faint rounded edge. Beside the strong filled green primary above it, this secondary CTA looks disabled/inactive. Raise the affordance: lighten the fill (e.g. colors.mutedSurface #2B2D26) or give it a primary-tinted 1px border, so the actionable region is obvious in the low-light field use this dark theme targets.",
+            "evidence": "16-reports-list.png shows the 'Open report' button nearly flush with its row; reports.tsx:248 row bg colors.input, 308 button bg colors.surfaceMuted, 310 border colors.border; dark tokens input=#1B1D19 / surfaceMuted=#24261F / border=#34362E (design-system.ts, core.md:343-356)",
+            "confidence": "high",
+            "inference": false
+        },
+        {
+            "id": "metric-card-color-via-inline-style",
+            "category": "color-contrast",
+            "location": "app/(tabs)/reports.tsx:376-383, 91-102",
+            "suggestion": "MetricCard sets the large value color via style={{ color: accentColor }} on ScaledText instead of the component's color prop, and passes raw primary/success rather than routing through the shared getMetricTone helper (design-system.ts:528-542, core.md). The captured 64% figures read fine and AA-safe on colors.surface, so this is consistency not a defect: using style bypasses Tamagui's theme-aware color path for that node and skipping getMetricTone lets metric coloring drift from the rest of the app. Pass color={accentColor} (or a getMetricTone-derived token) for consistency.",
+            "evidence": "16/15-reports.png show green 64% metric values reading clearly; reports.tsx:377 inline style color; 94/100 accentColor primary/success; design-system.ts:528-542 getMetricTone (core.md)",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "tiny-uppercase-eyebrow-and-sync-labels",
+            "category": "typography",
+            "location": "app/(tabs)/reports.tsx:232-240, 164-174, 280-286",
+            "suggestion": "The 'REPORT LIST' eyebrow (fontSize 11, letterSpacing 1.5, uppercase, mutedForeground) and the 'uploaded' sync labels / row timestamps (fontSize 12, mutedForeground #A7A99F) are the smallest text on the screen. In the captures they are legible but sit at the small end for an outdoor/low-light dark theme, and the eyebrow's wide tracking makes it the faintest element. Consider bumping the eyebrow to 12 and keeping sync labels >=12. These scale with fontScale via ScaledText/ScaledParagraph, so accessibility scaling is preserved.",
+            "evidence": "15/16-reports.png show small 'REPORT LIST' eyebrow and 'uploaded' labels; reports.tsx:235 fontSize 11 uppercase, 171/283 fontSize 12 muted; ScaledText.tsx:2295-2321 scales by fontScale (core.md)",
+            "confidence": "low",
+            "inference": false
+        },
+        {
+            "id": "list-cta-no-explicit-height",
+            "category": "tap-target",
+            "location": "app/(tabs)/reports.tsx:306-322 (and 206-220)",
+            "suggestion": "Both the primary 'Open selected report' and the per-row 'Open report' buttons are raw tamagui Button with no height set, relying on the default Button sizing rather than the design system's phone buttonHeight token (responsive-layout-tokens.ts:806 buttonHeight=52). In the captures both buttons visually look like comfortable ~44-48pt targets, so this is not a defect today — but pinning height={layout.buttonHeight} (or an explicit >=44 minimum) would make the target size deterministic across tamagui version bumps and font-scale changes rather than implicit.",
+            "evidence": "15/16-reports.png show buttons at a comfortable height; reports.tsx:306-322 / 206-220 Button with no height; responsive-layout-tokens.ts:806 buttonHeight=52 unused on this screen",
+            "confidence": "low",
+            "inference": false
+        },
+        {
+            "id": "raw-numeric-font-sizes-not-tokenized",
+            "category": "typography",
+            "location": "app/(tabs)/reports.tsx:77, 145, 154, 187, 257, 379",
+            "suggestion": "Type sizes are hard-coded numerics (32/30/26/20/17/16/15/14/13/12/11) rather than Tamagui $font size tokens. The on-screen ramp is internally consistent and works with ScaledText's numeric scaling, but the scale lives only in this file. Optional: lift the recurring sizes into shared size tokens/constants so the Reports type scale stays in lockstep with other screens.",
+            "evidence": "reports.tsx:77 fontSize 32; 187 fontSize 26; 257 fontSize 15; 379 fontSize 30 — all raw numbers, no $font tokens",
+            "confidence": "low",
+            "inference": false
+        }
+    ],
+    "tamagui_notes": [
+        "Token-clean: spacing gaps ($4/$3/$2.5/$2/$1.5/$1/$0.5), radii (designSystem.radii.lg/md/full/button), and colors (surface/border/primary/input/mutedSurface/success/warning) all flow through tokens — reports.tsx:71-348. The only raw pixels are progress-bar heights (10 and 6, reports.tsx:193/199/290/296) and bottomPadding 132, all reasonable and matching what renders.",
+        "Shared primitives used as intended: ScaledParagraph/ScaledText aliased to Paragraph/Text (reports.tsx:14) matching design_system_components_used; body/heading copy goes through the scaled primitives so the fontScale preference is respected (ScaledText.tsx:2295-2321, core.md).",
+        "Minor inconsistency: MetricCard colors its value via inline style={{ color }} (reports.tsx:377) instead of the ScaledText color prop — the one spot that sidesteps token-driven coloring; the green figures still render correctly in the captures.",
+        "Raw tamagui Button is used directly (reports.tsx:206, 306) with no shared Button wrapper and no height; sizing depends on the tamagui rc default rather than the app's buttonHeight token, and the secondary variant's surfaceMuted-on-input fill is what makes it read faint in dark."
+    ],
+    "platform_notes": [
+        "iPhone safe-area: confirmed in 15-reports.png — the 'Reports' heading clears the Dynamic Island/status bar (top from Stack contentStyle paddingTop:20, _layout.tsx:1376-1379, plus contentInsetAdjustmentBehavior=\"automatic\", reports.tsx:64). In 16-reports.png the footer and tab bar sit above the home indicator with bottomPadding 132 (reports.tsx:68) clearing the tab bar + inset.",
+        "Single-column layout is the right call for iPhone: metric cards in one XStack and a vertically stacked report list fit the compact width without tablet grid/maxWidth treatment.",
+        "Tab bar renders correctly with Reports active in green (BarChart3 icon, (tabs)/_layout.tsx:1532-1544, core.md); labels are compact uppercase and reachable in the thumb zone.",
+        "The primary CTA 'Open selected report' is filled green and clearly the dominant action; the secondary 'Open report' is visually subordinate to the point of looking inactive (see secondary-button-low-contrast-dark)."
+    ],
+    "not_assessable": [
+        "Exact WCAG contrast ratios are estimates; the green 64% figures, the green 'uploaded' labels, and mutedForeground (#A7A99F) helper copy on surface/input dark backgrounds look AA-safe in the captures but were not measured.",
+        "Empty state ('No submitted audits yet', reports.tsx:106-128) and the pending_upload warning-tone sync labels are not exercised — both captures show a single uploaded submission, so the warning color path and empty card are not visible.",
+        "How /reports/[submissionId] presents after tapping a CTA (separate route, not in this pack)."
+    ],
+    "score": 7,
+    "score_rationale": "Solid with minor polish needed: the rendered captures confirm a token-clean screen with correct iPhone safe-area handling (Dynamic Island top, home-indicator bottom), AA-safe metric/label contrast, correct use of the shared scaled primitives, and a clear card hierarchy — no critical defects. It misses the 8-9 band on one image-confirmed issue (the outlined secondary 'Open report' button reads near-invisible in dark) plus minor consistency/typography items (MetricCard bypassing the shared color prop/getMetricTone, small tracked eyebrow/sync labels)."
+}

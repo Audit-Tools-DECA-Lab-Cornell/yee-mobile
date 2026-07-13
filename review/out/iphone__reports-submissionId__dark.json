@@ -1,0 +1,64 @@
+{
+    "platform": "iPhone",
+    "screen_id": "Reports Submissionid",
+    "screens_reviewed": "Report detail (reports/[submissionId]) at three scroll positions: top (overview + submission/context panels), early (per-section score bars + results table), end (comment blocks). Dark mode capture.",
+    "verdict": "The layout, hierarchy, and content of the report are solid and read well, with a sensible fixed footer of Share / Back to My Audits actions. But the screen is captured in dark mode yet renders an entirely light/cream palette: it imports the static `designSystem` light constant instead of `useDesignSystem()`, so theme switching is broken on this whole route. The result is a jarring light page hanging below a dark native header.",
+    "critical_issues": [
+        {
+            "id": "static-light-design-system-breaks-dark-theme",
+            "category": "color-contrast",
+            "location": "app/reports/[submissionId].tsx top-level import and every styled node",
+            "issue": "The screen imports the static light-only `designSystem` constant and never subscribes to `useDesignSystem()`. In dark mode every surface, border, background, and text color stays on the light/cream palette, so the entire report renders light while the device (and the native stack header) is dark. This is the documented theme bug, not a contrast estimate.",
+            "evidence": "app/reports/[submissionId].tsx:19 `import { designSystem } from \"lib/design-system\";`; core.md lib/design-system.ts:453-460 defines `designSystem` as `colors: lightColors` (static light set) while `useDesignSystem()` (core.md:501-510) returns the theme-aware palette; backgrounds/borders hardcode `designSystem.colors.background`/`.surface`/`.border` at lines 252, 256, 459-461, 515-517, 877-885; all three dark screenshots render cream surfaces.",
+            "confidence": "high",
+            "inference": false,
+            "fix": "Replace the module-level `import { designSystem }` with `const designSystem = useDesignSystem();` inside the component (and pass colors into the module-level helper components, e.g. via props or a context), mirroring how _layout.tsx and useYeeStackHeaderOptions already call the hook. Move the two module constants RAW_SERIES_COLOR/WEIGHTED_SERIES_COLOR (lines 53-54) to read from the resolved system too."
+        },
+        {
+            "id": "header-vs-body-theme-mismatch",
+            "category": "visual-hierarchy",
+            "location": "top of screen: native stack header band vs scroll body",
+            "issue": "Because the body is locked to the light palette but the native stack header / status bar renders for the dark resolved theme, the top of the screen shows a dark band (status bar + 'Maple Library Plaza / Audit report' title in green/grey) directly above a cream page. The seam looks like a rendering glitch and undermines the otherwise clean layout.",
+            "evidence": "image 17-report-detail-top.png shows a dark header band over a cream body; header styling comes from useYeeStackHeaderOptions (PACK:1180 `headerStyle: surfaceMuted`) which uses the theme-aware hook, while the body uses the static light constant — the two diverge in dark mode.",
+            "confidence": "high",
+            "inference": false,
+            "fix": "Resolved automatically once the screen consumes `useDesignSystem()` so body and header share one resolved theme."
+        }
+    ],
+    "improvements": [
+        {
+            "id": "hardcoded-font-sizes-vs-fontscale",
+            "category": "typography",
+            "location": "Report overview heading and card titles",
+            "suggestion": "Headings use fixed `fontSize={30}` / `28` / `20` (lines 266, 523, 893) and ignore `designSystem.fontScale`. Other components in CORE (YeeStackHeaderTitle:1089) multiply by `designSystem.fontScale`; doing the same here would honor the accessibility text-size preference.",
+            "evidence": "app/reports/[submissionId].tsx:266,523,893; contrast with YeeStackHeaderTitle.tsx:1089 in PACK which scales sizes by fontScale",
+            "confidence": "medium"
+        },
+        {
+            "id": "fixed-bottom-padding-fallback",
+            "category": "spacing",
+            "location": "ScrollView contentContainerStyle bottomPadding",
+            "suggestion": "bottomPadding falls back to a magic `88 + 24` until `footerHeight` measures (line 258). On first paint before onLayout fires this can briefly mis-pad the last comment block above the footer. Consider seeding footerHeight from a computed estimate (insets.bottom + button height) rather than 88.",
+            "evidence": "app/reports/[submissionId].tsx:258 `(footerHeight > 0 ? footerHeight : 88) + 24`",
+            "confidence": "low"
+        }
+    ],
+    "tamagui_notes": [
+        "PACK design_system_components_used is (none): the screen hand-rolls Card, InfoPanel, MetricCard, MetricRow, CommentBlock, and chart bars inline with raw YStack/XStack + designSystem tokens rather than the shared ui/* primitives (e.g. ui/Badge in core.md:1551). Consolidating into shared components would also have routed it through useDesignSystem and likely avoided the theme bug.",
+        "Footer buttons mix Tamagui shorthand (`bg`, `rounded`, `flex`) with the static designSystem palette (lines 468-499); they are theme-blind for the same root cause as the critical issue.",
+        "Chart bar widths use `Math.max(2, clamped)%` (line 812) so 0% sections still show a 2% sliver — intentional and reasonable; noted, not a bug."
+    ],
+    "platform_notes": [
+        "Safe-area bottom is handled correctly: the absolute footer uses `paddingBottom: insets.bottom + 12` (line 464), clearing the home indicator on this device.",
+        "Top safe area is delegated to the native stack header (headerShown:true, _layout.tsx:1386-1388) plus `contentInsetAdjustmentBehavior=\"automatic\"` (line 255); content clears the notch/Dynamic Island in image 17.",
+        "Primary CTA 'Back to My Audits' sits bottom-right within thumb reach; both footer buttons are full-width-half Tamagui Buttons (default height >=44pt), meeting tap-target guidance.",
+        "Screen uses useResponsiveLayout/getResponsiveContentContainerStyle (lines 61, 257) for compact-fit rather than fixed values — good phone behavior."
+    ],
+    "not_assessable": [
+        "Exact WCAG contrast ratios of green accent text (e.g. AUD021-era greens) on cream surfaces — within the light palette the pairs appear to pass, but precise ratios are not measured here.",
+        "Pending-upload, offline, and error/empty states (lines 281-309, 438-447) are not shown in these captures; their dark-mode appearance is unverified.",
+        "Whether the dark native header title color contrasts adequately against the dark band is hard to judge from the screenshot crop."
+    ],
+    "score": 4,
+    "score_rationale": "Content and layout would otherwise be 7-8, but a route-wide theme bug (static light `designSystem` import) makes the dark-mode capture render an entirely light page beneath a dark header — a clearly visible, code-confirmed defect affecting the whole screen plus a jarring header/body seam. That is a significant correctness problem rather than minor polish, landing it at 4."
+}

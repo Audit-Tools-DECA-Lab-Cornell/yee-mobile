@@ -1,0 +1,86 @@
+{
+    "platform": "iPhone",
+    "screen_id": "Audit · step 2",
+    "screens_reviewed": "Single screenshot (10-audit-weighting.png) of the audit wizard at step 2 (Weighting), light theme, iPhone with Dynamic Island. Shows native stack header (place name + 'Weighting'), StepHeader with progress chip and 9 step pills, the 'Youth weighting' card with first ChoiceQuestion and two SelectionButton options, plus the fixed FooterNav (Back / Save… / Next).",
+    "verdict": "A clean, on-brand wizard step that reads well in light mode: clear hierarchy from the 30px title, a progress chip, and consistently styled cards. The main weaknesses are the 9-pill step grid acting as a custom mini-tab bar with sub-44pt tap targets and a non-standard navigation affordance, and the screen's reliance on the static `designSystem` token set rather than `useDesignSystem()`, which silently breaks the user's dark-theme and font-scale preferences. Safe-area handling at top (native header) and bottom (footer uses `insets.bottom`) is correct.",
+    "critical_issues": [
+        {
+            "id": "static-design-system-ignores-theme-and-font-scale",
+            "category": "responsive-layout",
+            "location": "app/audit/[placeId]/[step].tsx:23 (import { designSystem }) used throughout StepHeader/Card/SelectionButton/FooterNav",
+            "issue": "The entire step screen consumes the module-level static `designSystem` (light-only tokens, fontScale fixed at 1) instead of the live `useDesignSystem()` hook. lib/design-system.ts:453-460 documents `designSystem` as the static light default and :501-510 provides `useDesignSystem()` for 'screens that need live theme switching'. As a result this audit step will render light colors and unscaled text even when the auditor has selected dark mode or a larger font size — a real regression for a field tool whose dark palette is explicitly 'tuned for low-light field use' (lib/design-system.ts:342). Not visible in this light screenshot, but settled by the code.",
+            "evidence": "app/audit/[placeId]/[step].tsx:23 vs lib/design-system.ts:453-510; many usages e.g. :426 bg, :518, :1091, :1306",
+            "confidence": "high",
+            "inference": false,
+            "fix": "Resolve tokens via `const designSystem = useDesignSystem()` inside each component (or thread a resolved palette down from AuditStepScreen) so colors, fonts, and fontScale follow the user's preferences; the SurveyPalette factory `getSurveyPalette` should take the resolved colors instead of closing over the static set."
+        },
+        {
+            "id": "step-pill-grid-tap-targets",
+            "category": "tap-target",
+            "location": "StepHeader step pills — app/audit/[placeId]/[step].tsx:669-703",
+            "issue": "The 9 step pills are Buttons with only `py=\"$2\"` (~5pt top/bottom over an 11px label, total height ~30-34pt) and `minWidth: 108`. They fall below the 44pt iOS minimum touch height and sit packed three-per-row with `gap=\"$2\"`, so adjacent targets are easy to mis-tap. They also double as the primary inter-step navigation, making the small size more consequential.",
+            "evidence": "app/audit/[placeId]/[step].tsx:679 (px=\"$3\" py=\"$2\"), :686 (minWidth 108); image shows three rows of tightly-spaced pills",
+            "confidence": "high",
+            "inference": false,
+            "fix": "Raise pill height to >=44pt (e.g. `py=\"$2.5\"` plus `minHeight={44}` or use `layout.compactControlHeight`) and increase inter-pill spacing; consider hitSlop on each Button."
+        }
+    ],
+    "improvements": [
+        {
+            "id": "redundant-step-indicator",
+            "category": "visual-hierarchy",
+            "location": "StepHeader — app/audit/[placeId]/[step].tsx:592-668",
+            "issue": "‘Step 2 of 9’ appears three times in the header region: the small pill (:606), the ‘Audit progress’ card row (:651), and implicitly the pill grid. The progress card largely restates the pill above it, adding vertical weight before the user reaches the actual question card.",
+            "suggestion": "Collapse the standalone 'Step N of 9' pill or the progress-card duplicate into one indicator; let the pill grid carry the step state and keep a single textual 'Step 2 of 9 · Setup and weighting' line.",
+            "evidence": "image (two stacked 'Step 2 of 9' indicators) + app/audit/[placeId]/[step].tsx:606,651",
+            "confidence": "medium"
+        },
+        {
+            "id": "step-pills-as-tabs-pattern",
+            "category": "platform-convention",
+            "location": "StepHeader pill grid — app/audit/[placeId]/[step].tsx:669-703",
+            "issue": "A 3x3 grid of always-visible step pills used as a navigation control is an unusual pattern for an iOS multi-step form; it competes with the Back/Next footer for the user's mental model of how to move between steps and consumes a large share of the first screen.",
+            "suggestion": "Consider a more conventional progress indicator (segmented progress bar or a horizontally-scrolling stepper) and let Back/Next drive primary navigation, keeping direct step jumps as a secondary affordance.",
+            "evidence": "image (large step-pill block above the fold) + app/audit/[placeId]/[step].tsx:669-703",
+            "confidence": "low"
+        },
+        {
+            "id": "selection-row-height",
+            "category": "tap-target",
+            "location": "SelectionButton — app/audit/[placeId]/[step].tsx:1287-1304",
+            "issue": "Option rows use `py=\"$3\"` only; with a single-line label the row height lands near the 44pt minimum rather than comfortably above it. They render fine in this screenshot but leave little margin for shorter labels.",
+            "suggestion": "Add `minHeight={44}` (or `layout.formOptionHeight`, which is 42 on phone / 48 on tablet per responsive-layout-tokens.ts:806/824) to guarantee the target size regardless of label length.",
+            "evidence": "app/audit/[placeId]/[step].tsx:1293 (py=\"$3\") vs lib/responsive-layout-tokens.ts:806",
+            "confidence": "medium"
+        },
+        {
+            "id": "hardcoded-progress-percentage-spacing",
+            "category": "spacing",
+            "location": "screen uses fixed screenPaddingHorizontal=15",
+            "issue": "Horizontal padding is the phone token (15) via getResponsiveContentContainerStyle; nested cards (Card p=\"$4\", QuestionCard p=\"$4\") create a layered inset that pushes option text fairly far from the screen edge. This is intentional and consistent but the doubled card-within-card padding slightly narrows the readable column.",
+            "suggestion": "Optional: reduce inner QuestionCard horizontal padding one step (`px=\"$3.5\"`) inside the outer Card to recover line width for long option labels.",
+            "evidence": "app/audit/[placeId]/[step].tsx:1083 (Card p=\"$4\"), :1158 (QuestionCard p=\"$4\")",
+            "confidence": "low"
+        }
+    ],
+    "tamagui_notes": [
+        "design_system_components_used is '(none)': the screen hand-rolls all controls (Card, QuestionCard, SelectionButton, FooterNav) from raw tamagui XStack/YStack/Button rather than shared ui/* primitives like Badge/ScaledText. ScaledText specifically would carry fontScale; using raw Text (e.g. :1306, :601) plus the static designSystem means accessibility text-scaling is dropped on this screen (app/audit/[placeId]/[step].tsx:22-23).",
+        "SelectionButton deliberately avoids tamagui Button to allow multi-line wrapping (comment at :1284-1286) — a reasonable, documented choice; it keeps accessibilityRole/State, so this is fine.",
+        "Colors and spacing use the design-system token objects (radii.button, colors.*) consistently rather than ad-hoc hex/px, which is good; the only systemic gap is static vs. hook resolution noted in critical_issues."
+    ],
+    "platform_notes": [
+        "Top safe area: the screen renders under a native stack header (useYeeStackHeaderOptions sets headerShown:true) and app/_layout.tsx:1378 adds contentStyle.paddingTop:20, so content clears the Dynamic Island correctly — the title 'Weighting' sits well below the status bar in the image.",
+        "Bottom safe area: FooterNav uses `paddingBottom: bottomInset + 12` (app/audit/[placeId]/[step].tsx:1680) with insets.bottom from useSafeAreaInsets, and the scroll content reserves `footerHeight + 48` (:435), so the fixed footer clears the home indicator and does not overlap content. Correct.",
+        "Thumb reach: primary CTA (Next) is bottom-right in the fixed footer — good thumb reach. The step-pill grid at the top, by contrast, is in a hard-to-reach zone for one-handed use, reinforcing that it should not be the primary navigation.",
+        "Compact-fit: screen uses useResponsiveLayout()/getResponsiveContentContainerStyle (:24,:434) and footer uses layout.screenPaddingHorizontal (:483), so it adapts via tokens rather than fixed values — appropriate for iPhone."
+    ],
+    "not_assessable": [
+        "Dark-theme rendering (only the light screenshot was provided; the static-designSystem issue is confirmed by code but its visual severity in dark mode is not shown).",
+        "Behavior of the larger font-scale accessibility setting on this screen (confirmed unscaled in code, not shown).",
+        "Exact rendered pixel height of SelectionButton / step pills (estimated from $space tokens in @tamagui/config v5; not measured).",
+        "Scroll content below the fold (single capture) — e.g. the remaining weighting domains, comments field, and progress card.",
+        "Precise WCAG contrast ratios; the visible pairs (dark foreground on cream surface, white on dark-green selected row) appear comfortably above AA."
+    ],
+    "score": 7,
+    "score_rationale": "Solid, on-brand, and safe-area-correct with clear hierarchy and consistent token use, so it ships with minor polish (7-8 band). It is held to a 7 rather than 8 by two real, code-confirmed problems: the static designSystem usage that defeats dark mode and font-scaling for an offline field tool, and the sub-44pt step-pill grid that doubles as primary navigation. Neither breaks the light-mode happy path shown, hence not 5-6."
+}

@@ -1,0 +1,64 @@
+{
+    "platform": "Android Tablet",
+    "screen_id": "Settings",
+    "screens_reviewed": "Single scroll capture of app/settings.tsx (Appearance / Text & reading / Account / Sign out) in light theme on an Android tablet.",
+    "verdict": "The Settings screen is functional and tidy: a custom header with a back affordance, three bordered section cards (Appearance, Text & reading, Account) and a destructive Sign out button, all rendered through the shared ScaledText/ScaledParagraph primitives. It correctly centers content via getResponsiveContentContainerStyle, but it does not apply the project's tablet typography base scale, so all type renders at phone point sizes and looks undersized on the large canvas; it also uses an iOS-style chevron back button rather than a Material pattern.",
+    "critical_issues": [
+        {
+            "id": "no-tablet-typography-base-scale",
+            "category": "responsive-layout",
+            "location": "All text in app/settings.tsx via ScaledText/ScaledParagraph",
+            "issue": "Every label/value uses fixed point sizes (e.g. header fontSize={22}, row labels fontSize={15}, descriptions fontSize={13}, ReadOnlyRow fontSize={14}) wrapped in ScaledText/ScaledParagraph, which only multiply by the user fontScale preference. The codebase defines TABLET_TYPOGRAPHY_BASE_SCALE = 1.3 to make default tablet text legible without raising the slider, but ScaledText.scaleSize never reads it, so on this Android tablet the screen renders at phone sizes. The screenshot confirms the section eyebrows, descriptions and account values look small relative to the wide cards.",
+            "evidence": "core.md:792 (TABLET_TYPOGRAPHY_BASE_SCALE = 1.3) and core.md:2285-2304 (scaleSize/ScaledText multiply only by fontScale, never the tablet base scale); settings.tsx:102-108, :346-360, :385-399; image",
+            "confidence": "high",
+            "inference": false,
+            "fix": "Multiply explicit font sizes by the tablet base scale on tablet, e.g. fold layout.isTablet ? TABLET_TYPOGRAPHY_BASE_SCALE : 1 into the effective fontScale (in ScaledText/ScaledParagraph via useResponsiveLayout, or by passing layout-derived sizes), so default tablet text reads at the intended 1.3x."
+        }
+    ],
+    "improvements": [
+        {
+            "id": "form-content-uses-wide-content-track",
+            "category": "responsive-layout",
+            "location": "app/settings.tsx ScrollView contentContainerStyle",
+            "suggestion": "getResponsiveContentContainerStyle is called with no maxWidth, so it defaults to contentMaxWidth (1040 at narrow-tablet, up to 1200 wide). Settings is a single-column form, and the tokens expose formMaxWidth (600) precisely for this. Pass maxWidth: layout.formMaxWidth so the cards sit in a comfortably narrow, scannable column on large tablets instead of stretching toward edge-to-edge.",
+            "evidence": "settings.tsx:111-115 (no maxWidth passed); responsive-layout-tokens.ts:782-783, :973 (formMaxWidth = 600 on tablet) and :966-972 (contentMaxWidth 1040-1200); image shows full-width cards",
+            "confidence": "medium",
+            "inference": false
+        },
+        {
+            "id": "ios-chevron-back-on-android",
+            "category": "platform-convention",
+            "location": "app/settings.tsx header back Button (settings.tsx:88-101)",
+            "suggestion": "The custom header uses an iOS-style bordered chevron-left back button. On Android the platform back affordance is typically an arrow (ArrowLeft is already exported in components/icons.tsx). Consider an arrow glyph on Android, or rely on the system/Stack back behavior, to match Material navigation expectations.",
+            "evidence": "settings.tsx:14, :100 (ChevronLeft); icons.tsx:431 (ArrowLeft available); image shows chevron in a boxed button",
+            "confidence": "low",
+            "inference": false
+        },
+        {
+            "id": "theme-buttons-non-square-tap-cards",
+            "category": "tap-target",
+            "location": "Theme/Text-size option buttons (settings.tsx:130-131, :180-182)",
+            "suggestion": "Theme buttons are height={72} and text-size buttons height={64} with comfortable width, so they exceed the 48dp Android minimum and are fine. The 40x40 header back button (settings.tsx:89-90) is just under the recommended 48dp Android target; bump it to 44-48 on tablet for easier thumb/finger hits.",
+            "evidence": "settings.tsx:89-90 (width/height 40); Android Material min touch target 48dp",
+            "confidence": "medium",
+            "inference": false
+        }
+    ],
+    "tamagui_notes": [
+        "Screen consistently uses the shared ScaledText/ScaledParagraph primitives listed in design_system_components_used rather than hand-rolling Tamagui Text/Paragraph (settings.tsx:15, :102, :245, :346, :354, :385) — good consistency.",
+        "Header back Button hard-codes inline colors/border via colors.* from useDesignSystem (settings.tsx:92-95) instead of a shared icon-button primitive; acceptable but a small OptionButton/IconButton would centralize the 40x40 styling.",
+        "Spacing mixes Tamagui space tokens (gap=\"$3\", p=\"$4\", py=\"$2\") with raw numbers (paddingBottom: 12, height 72/64/52, fontSize literals). The raw heights are intentional design knobs, but horizontal/vertical padding correctly flows from layout.screenPaddingHorizontal and getResponsiveContentContainerStyle (settings.tsx:79, :112)."
+    ],
+    "platform_notes": [
+        "Android nav bar is hidden app-wide via useHiddenAndroidNavBar (core.md app/_layout.tsx:1295, system-bars.ts:1062-1091), so bottom gesture-inset risk is low; the screen still adds insets.bottom + 32 bottom padding (settings.tsx:113).",
+        "Header pads with insets.top (settings.tsx:81) so the status bar (visible top-left clock/icons in the image) is cleared; status-bar handling looks correct for Android tablet.",
+        "Large-screen adaptation is partial: content is centered/gutter-padded via getResponsiveContentContainerStyle, but the layout remains a scaled-up phone single column — no master-detail or multi-column use of the extra tablet width, which is reasonable for a Settings screen though the wide content track leaves cards looking stretched."
+    ],
+    "not_assessable": [
+        "Exact WCAG contrast ratios (e.g. mutedForeground #6B706F descriptions on surface #FFFFFF, and danger #B5483D 'Sign out' text on dangerSoft) are estimates; nothing here is clearly below AA, so no contrast pair is flagged.",
+        "Pressed/selected runtime states for theme and text-size buttons (pressStyle/accessibilityState selected) cannot be verified from a single static capture beyond the visible 'System'/'Default' selection.",
+        "Behavior of the dyslexia-friendly Switch (a raw RN Switch, not a Tamagui primitive) under Android theming/dark mode is not visible in this light capture."
+    ],
+    "score": 7,
+    "score_rationale": "Solid, clean Settings screen using shared primitives, correct safe-area and centered content; the main real defect is that it skips the project's TABLET_TYPOGRAPHY_BASE_SCALE so type is undersized on the tablet canvas, plus minor form-width and Android-convention polish. Usable as-is with clear, mostly cosmetic improvements rather than blocking bugs."
+}

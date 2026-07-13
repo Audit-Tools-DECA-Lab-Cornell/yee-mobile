@@ -5,7 +5,7 @@ import { useShallow } from "zustand/react/shallow";
 import { FileBarChart, TriangleAlert } from "components/icons";
 import { Button, XStack, YStack } from "tamagui";
 import { ScaledParagraph as Paragraph, ScaledText as Text, ScreenHeader } from "components/ui";
-import { useDesignSystem } from "lib/design-system";
+import { getScoreBandTone, useDesignSystem } from "lib/design-system";
 import { toScorePercentage } from "lib/yee-mobile-reporting";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
@@ -65,7 +65,9 @@ export default function ReportsScreen() {
             <MetricCard
                 label="Average score"
                 value={`${toScorePercentage(averageScore)}%`}
-                textColor={designSystem.colors.primaryText}
+                textColor={
+                    getScoreBandTone(toScorePercentage(averageScore), designSystem.scoreBands).text
+                }
                 helperText="Across all reports"
             />
             <MetricCard
@@ -75,7 +77,14 @@ export default function ReportsScreen() {
                         ? "--"
                         : `${toScorePercentage(topSubmission.total_score)}%`
                 }
-                textColor={designSystem.colors.successText}
+                textColor={
+                    topSubmission === null
+                        ? designSystem.colors.mutedForeground
+                        : getScoreBandTone(
+                              toScorePercentage(topSubmission.total_score),
+                              designSystem.scoreBands,
+                          ).text
+                }
                 helperText={topSubmission?.place_name ?? "No reports yet"}
             />
         </XStack>
@@ -137,7 +146,12 @@ export default function ReportsScreen() {
                             Overall score
                         </Paragraph>
                         <Text
-                            color={designSystem.colors.primaryText}
+                            style={{
+                                color: getScoreBandTone(
+                                    toScorePercentage(focusedSubmission.total_score),
+                                    designSystem.scoreBands,
+                                ).text,
+                            }}
                             fontFamily={designSystem.fonts.headingBold}
                             fontSize={26}
                         >
@@ -153,7 +167,12 @@ export default function ReportsScreen() {
                         <YStack
                             height={10}
                             rounded={designSystem.radii.full}
-                            bg={designSystem.colors.primary}
+                            style={{
+                                backgroundColor: getScoreBandTone(
+                                    toScorePercentage(focusedSubmission.total_score),
+                                    designSystem.scoreBands,
+                                ).accent,
+                            }}
                             width={`${toScorePercentage(focusedSubmission.total_score)}%`}
                         />
                     </YStack>
@@ -250,11 +269,15 @@ export default function ReportsScreen() {
                             </YStack>
                             <YStack items="flex-end" gap="$0.5">
                                 <Paragraph
-                                    color={
-                                        audit.syncState === "pending_upload"
-                                            ? designSystem.colors.warningText
-                                            : designSystem.colors.successText
-                                    }
+                                    style={{
+                                        color:
+                                            audit.syncState === "pending_upload"
+                                                ? designSystem.colors.warningText
+                                                : getScoreBandTone(
+                                                      toScorePercentage(audit.total_score),
+                                                      designSystem.scoreBands,
+                                                  ).text,
+                                    }}
                                     fontFamily={designSystem.fonts.bodyBold}
                                 >
                                     {toScorePercentage(audit.total_score)}%
@@ -277,11 +300,12 @@ export default function ReportsScreen() {
                             <YStack
                                 height={6}
                                 rounded={designSystem.radii.full}
-                                bg={
-                                    audit.place_id === selectedPlaceId
-                                        ? designSystem.colors.success
-                                        : designSystem.colors.primary
-                                }
+                                style={{
+                                    backgroundColor: getScoreBandTone(
+                                        toScorePercentage(audit.total_score),
+                                        designSystem.scoreBands,
+                                    ).accent,
+                                }}
                                 width={`${toScorePercentage(audit.total_score)}%`}
                             />
                         </YStack>
@@ -341,6 +365,8 @@ export default function ReportsScreen() {
             contentContainerStyle={getResponsiveContentContainerStyle(layout, {
                 bottomPadding: 132,
                 gap: layout.sectionGap,
+                // Content-light report list: cap at the readable column on tablet.
+                maxWidth: layout.readableMaxWidth,
             })}
         >
             <ScreenHeader
