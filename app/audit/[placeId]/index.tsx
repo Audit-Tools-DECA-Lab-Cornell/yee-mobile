@@ -51,8 +51,12 @@ export default function AuditShellScreen() {
     const router = useRouter();
     const layout = useResponsiveLayout();
     const insets = useSafeAreaInsets();
-    const params = useLocalSearchParams<{ placeId?: string }>();
+    const params = useLocalSearchParams<{
+        placeId?: string;
+        __screenshotAuditStep?: string;
+    }>();
     const placeId = typeof params.placeId === "string" ? params.placeId : "";
+    const screenshotAuditStep = parseScreenshotAuditStep(params.__screenshotAuditStep);
     const { requestConfirm, confirmDialog } = useAuditConfirm();
 
     const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
@@ -174,6 +178,14 @@ export default function AuditShellScreen() {
     useEffect(() => {
         scrollToTop();
     }, [step, scrollToTop]);
+
+    // Screenshot capture targets steps explicitly because the persistent audit
+    // route normally resumes at the first incomplete step from the session store.
+    useEffect(() => {
+        if (loadPhase === "ready" && screenshotAuditStep !== null) {
+            setStep(screenshotAuditStep);
+        }
+    }, [loadPhase, screenshotAuditStep, setStep]);
 
     useScreenshotScrollAutomation({
         contentReady: loadPhase === "ready",
@@ -413,6 +425,21 @@ function AuditStepContent({ step }: { step: MobileYeeStepNumber }) {
         return <FinalCommentsStep />;
     }
     return <DomainStep step={step} />;
+}
+
+/**
+ * Read the development-only audit step requested by screenshot automation.
+ * Normal app links continue to resume from the step selected by the audit store.
+ */
+function parseScreenshotAuditStep(value: string | undefined): MobileYeeStepNumber | null {
+    if (!__DEV__ || typeof value !== "string") {
+        return null;
+    }
+
+    const step = Number(value);
+    return Number.isInteger(step) && step >= 1 && step <= 9
+        ? (step as MobileYeeStepNumber)
+        : null;
 }
 
 function getStepIncompleteMessage(
