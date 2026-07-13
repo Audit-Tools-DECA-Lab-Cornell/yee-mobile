@@ -84,7 +84,7 @@ export function FieldInput({ leadingIcon, trailingAccessory, ...rest }: FieldInp
             // 56pt phone frame unchanged; grows to 56–62pt on tablet so the field
             // scales with the tier (controlHeight token).
             height={layout.controlHeight}
-            rounded={designSystem.radii.lg}
+            rounded={designSystem.radii.button}
             borderWidth={1}
             borderColor={designSystem.colors.border}
             bg={designSystem.colors.input}

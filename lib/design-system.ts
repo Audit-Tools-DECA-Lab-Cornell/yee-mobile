@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { usePreferencesStore, type ResolvedTheme } from "stores/preferences-store";
 import type { MetricTone, PlaceStatus, PreAuditStatus } from "./yee-demo-data";
+import type { MobileYeeDomainKey } from "./yee-mobile-audit-config";
 
 /**
  * Cool near-white light palette used as the product's default appearance.
@@ -102,6 +103,127 @@ export const darkColors = {
     violetSoft: "rgba(198, 182, 238, 0.16)",
 } as const satisfies ColorTokens;
 
+/**
+ * Per-domain color roles, mirroring the web's `--domain-<name>-*` tokens
+ * (`yee-frontend/globals.css`): `text` for labels/headings (AA on the app
+ * background), `strong` for borders/dots/lines, `fill` for bars/areas, and
+ * `light` for tint backgrounds.
+ */
+export interface DomainPalette {
+    readonly text: string;
+    readonly strong: string;
+    readonly fill: string;
+    readonly light: string;
+}
+
+/** Domain palettes keyed by the mobile survey's domain identifiers. */
+export type DomainPalettes = Record<MobileYeeDomainKey, DomainPalette>;
+
+/**
+ * Brand-harmonized domain palette — hex conversions of the web's OKLCH tokens
+ * (all six domains share one lightness/chroma envelope anchored to the brand
+ * green; only hue varies). Source of truth: `yee-frontend/globals.css`
+ * `--domain-*`; hues 158/250/80/195/10/295.
+ */
+const lightDomains: DomainPalettes = {
+    access: { text: "#184B31", strong: "#2B7A52", fill: "#56AD7E", light: "#E1F4E8" },
+    activitySpaces: { text: "#204263", strong: "#386CA0", fill: "#619DDA", light: "#E2F0FF" },
+    amenities: { text: "#5B4315", strong: "#906A21", fill: "#C99D4E", light: "#F9EDD9" },
+    experienceOfSpace: { text: "#084949", strong: "#007979", fill: "#39ABAB", light: "#DCF4F4" },
+    aestheticsAndCare: { text: "#6C343E", strong: "#A35764", fill: "#DC8492", light: "#FFE7EA" },
+    useAndUsability: { text: "#463968", strong: "#705F9F", fill: "#A08DD8", light: "#EFEBFF" },
+} as const;
+
+/**
+ * Dark-surface domain palette. The web app has no dark domain tokens, so these
+ * are derived with the same hues brightened for dark surfaces (text ~L0.78,
+ * strong ~L0.66, fill ~L0.71 in OKLCH), following the palette's existing dark
+ * accent treatment; `light` tints become low-alpha fills like the `*Soft` tokens.
+ */
+const darkDomains: DomainPalettes = {
+    access: {
+        text: "#8BC7A4",
+        strong: "#60A37D",
+        fill: "#68B58A",
+        light: "rgba(104, 181, 138, 0.16)",
+    },
+    activitySpaces: {
+        text: "#90BCE9",
+        strong: "#6796C7",
+        fill: "#70A6DE",
+        light: "rgba(112, 166, 222, 0.16)",
+    },
+    amenities: {
+        text: "#D2B27C",
+        strong: "#AF8C4F",
+        fill: "#C29A55",
+        light: "rgba(194, 154, 85, 0.16)",
+    },
+    experienceOfSpace: {
+        text: "#76C8C7",
+        strong: "#42A3A3",
+        fill: "#45B5B5",
+        light: "rgba(69, 181, 181, 0.16)",
+    },
+    aestheticsAndCare: {
+        text: "#E5A2AC",
+        strong: "#C27B86",
+        fill: "#D88793",
+        light: "rgba(216, 135, 147, 0.16)",
+    },
+    useAndUsability: {
+        text: "#BBAEE6",
+        strong: "#9687C4",
+        fill: "#A695DA",
+        light: "rgba(166, 149, 218, 0.16)",
+    },
+} as const satisfies DomainPalettes;
+
+/** Score band identifiers shared with the web (`yee-frontend/src/lib/score-band.ts`). */
+export type ScoreBand = "low" | "mid" | "high";
+
+/**
+ * Brand-tuned score bands mirroring the web's `--score-*` tokens: deep brand
+ * green high, muted gold mid, restrained clay low (deliberately not alarm-red).
+ * `accent` is the solid fill/border color and doubles as band text; `surface`
+ * is the tinted backdrop.
+ */
+const lightScoreBands: Record<ScoreBand, DesignTone> = {
+    high: { accent: "#2B7351", surface: "#DEF5E8", text: "#2B7351" },
+    mid: { accent: "#B18C39", surface: "#F9EDD5", text: "#B18C39" },
+    low: { accent: "#B1604C", surface: "#FFE8E1", text: "#B1604C" },
+} as const;
+
+/** Dark-surface score bands (brightened fills, low-alpha tint backdrops). */
+const darkScoreBands: Record<ScoreBand, DesignTone> = {
+    high: { accent: "#76BD97", surface: "rgba(118, 189, 151, 0.16)", text: "#76BD97" },
+    mid: { accent: "#D5B36A", surface: "rgba(213, 179, 106, 0.16)", text: "#D5B36A" },
+    low: { accent: "#DB8E7A", surface: "rgba(219, 142, 122, 0.16)", text: "#DB8E7A" },
+} as const;
+
+/**
+ * Categorical chart series + scaffold colors, mirroring the web's
+ * `--chart-series-1..5` / `--chart-grid` / `--chart-axis` tokens. Brand green
+ * leads; the rest are harmonized to the same muted envelope.
+ */
+export interface ChartTokens {
+    readonly series: readonly [string, string, string, string, string];
+    readonly grid: string;
+    readonly axis: string;
+}
+
+const lightCharts: ChartTokens = {
+    series: ["#1A6444", "#347A9F", "#A67537", "#7B63A3", "#9F5B5C"],
+    grid: "#DBDEE1",
+    axis: "#6D7277",
+} as const;
+
+const darkCharts: ChartTokens = {
+    series: ["#62B289", "#63A8CF", "#D3A062", "#A890D4", "#D18887"],
+    grid: "#313335",
+    axis: "#999FA4",
+} as const;
+
 /** Default typeface tokens (Geist body and headings). */
 const defaultFonts = {
     bodyRegular: "$body",
@@ -150,13 +272,14 @@ const radii = {
     lg: 14,
     xl: 20,
     /**
-     * Shared corner radius for interactive buttons (option rows, primary/secondary
-     * actions, nav pills). Kept deliberately tight so buttons read as a polished,
-     * professional app rather than fully-rounded "toy" pills. Tune this single knob
-     * to adjust button roundness everywhere; badges/progress tracks/avatars keep
-     * their own `full` pill radius.
+     * Shared corner radius for interactive controls (primary/secondary actions,
+     * inputs, nav pills, segmented controls) — the web's `--radius-control` (8px).
+     * Kept deliberately tight so controls read as a polished, professional app
+     * rather than fully-rounded "toy" pills. Tune this single knob to adjust
+     * control roundness everywhere; survey option rows follow `md` (the web's
+     * option-card radius), and badges/progress tracks/avatars keep `full`.
      */
-    button: 10,
+    button: 8,
     full: 999,
 } as const;
 
@@ -203,6 +326,9 @@ export const designSystem = {
     radii,
     spacing,
     shadows: lightShadows,
+    domains: lightDomains,
+    scoreBands: lightScoreBands,
+    charts: lightCharts,
 } as const;
 
 interface GetDesignSystemOptions {
@@ -228,6 +354,9 @@ export function getDesignSystem(theme: ResolvedTheme, options: GetDesignSystemOp
         radii,
         spacing,
         shadows: theme === "dark" ? darkShadows : lightShadows,
+        domains: theme === "dark" ? darkDomains : lightDomains,
+        scoreBands: theme === "dark" ? darkScoreBands : lightScoreBands,
+        charts: theme === "dark" ? darkCharts : lightCharts,
         fontScale: options.fontScale ?? 1,
         theme,
     };
@@ -336,4 +465,36 @@ export function getPreAuditTone(
     }
 
     return { accent: colors.warning, surface: colors.warningSoft, text: colors.warningText };
+}
+
+/**
+ * Map a 0–100 percentage to its score band. Thresholds are shared with the web
+ * (`yee-frontend/src/lib/score-band.ts`): below 34 is low, below 67 is mid,
+ * otherwise high.
+ *
+ * @param percent Score as a percentage of the available maximum.
+ * @returns The band identifier for coloring.
+ */
+export function scoreBandKey(percent: number): ScoreBand {
+    if (percent < 34) {
+        return "low";
+    }
+    if (percent < 67) {
+        return "mid";
+    }
+    return "high";
+}
+
+/**
+ * Resolve a percentage into the active theme's score-band tone.
+ *
+ * @param percent Score as a percentage of the available maximum.
+ * @param scoreBands Themed score bands (defaults to the light set).
+ * @returns Accent, surface, and text colors for the band.
+ */
+export function getScoreBandTone(
+    percent: number,
+    scoreBands: Record<ScoreBand, DesignTone> = lightScoreBands,
+): DesignTone {
+    return scoreBands[scoreBandKey(percent)];
 }

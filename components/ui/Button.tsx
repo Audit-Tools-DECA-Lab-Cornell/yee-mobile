@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
-import { Button, Spinner, XStack, type ButtonProps } from "tamagui";
+import { Button, XStack, type ButtonProps } from "tamagui";
 import { useDesignSystem, type ColorTokens } from "lib/design-system";
 import { useResponsiveLayout } from "lib/responsive-layout";
+import { BrandSpinner } from "./BrandSpinner";
 import { ScaledText as Text } from "./ScaledText";
 
 /**
@@ -117,7 +118,11 @@ export function AppButton({
             }}
         >
             <XStack items="center" justify="center" gap="$2">
-                {isLoading ? <Spinner size="small" color={variantStyle.textColor} /> : leadingIcon}
+                {isLoading ? (
+                    <BrandSpinner size="sm" color={variantStyle.textColor} />
+                ) : (
+                    leadingIcon
+                )}
                 <Text
                     style={{ color: variantStyle.textColor }}
                     fontFamily={designSystem.fonts.bodyBold}

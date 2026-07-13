@@ -21,7 +21,7 @@ import {
 import type { MobileAuditFormState } from "lib/yee-mobile-draft";
 import { useAuditSessionStore } from "stores/yee-audit-session-store";
 import { auditRowKey, useAuditRowScroll } from "./audit-scroll";
-import { useSurveyPalette } from "./survey-theme";
+import { SurveyDomainContext, useSurveyPalette } from "./survey-theme";
 import {
     CommentField,
     NoticeCard,
@@ -78,41 +78,43 @@ export const DomainStep = memo(function DomainStep({ step }: { step: MobileYeeSt
     }
 
     return (
-        <YStack gap="$4">
-            <SectionIntroCard
-                title={section.blockLabel}
-                description={section.introText || `Complete the ${section.title} section.`}
-            />
-            {/* Tablet-only group overview rail. Phones keep the plain card flow. */}
-            {layout.isTablet ? <DomainReviewRail section={section} /> : null}
-            <SectionQuickActions section={section} />
-            <SurveyCard
-                title={section.title}
-                description="Answer each item below. If the feature is present, the condition follow-up appears right underneath it."
-            >
-                {section.groups.map((group) => (
-                    <YStack key={group.id} gap="$3.5">
-                        {group.instruction === null ? null : (
-                            <GroupInstruction text={group.instruction} />
-                        )}
-                        {group.rows.map((row) => (
-                            <DomainQuestionRow
-                                key={`${group.id}-${row.choiceId}`}
-                                row={row}
-                                conditionPrompt={conditionPrompt}
-                            />
-                        ))}
-                        <GroupNotPresentAction group={group} />
-                    </YStack>
-                ))}
-                <DomainSectionComment
-                    domain={domain}
-                    sectionTitle={section.title}
-                    commentPrompt={section.commentPrompt}
+        <SurveyDomainContext.Provider value={domain}>
+            <YStack gap="$4">
+                <SectionIntroCard
+                    title={section.blockLabel}
+                    description={section.introText || `Complete the ${section.title} section.`}
                 />
-                <DomainProgress section={section} />
-            </SurveyCard>
-        </YStack>
+                {/* Tablet-only group overview rail. Phones keep the plain card flow. */}
+                {layout.isTablet ? <DomainReviewRail section={section} /> : null}
+                <SectionQuickActions section={section} />
+                <SurveyCard
+                    title={section.title}
+                    description="Answer each item below. If the feature is present, the condition follow-up appears right underneath it."
+                >
+                    {section.groups.map((group) => (
+                        <YStack key={group.id} gap="$3.5">
+                            {group.instruction === null ? null : (
+                                <GroupInstruction text={group.instruction} />
+                            )}
+                            {group.rows.map((row) => (
+                                <DomainQuestionRow
+                                    key={`${group.id}-${row.choiceId}`}
+                                    row={row}
+                                    conditionPrompt={conditionPrompt}
+                                />
+                            ))}
+                            <GroupNotPresentAction group={group} />
+                        </YStack>
+                    ))}
+                    <DomainSectionComment
+                        domain={domain}
+                        sectionTitle={section.title}
+                        commentPrompt={section.commentPrompt}
+                    />
+                    <DomainProgress section={section} />
+                </SurveyCard>
+            </YStack>
+        </SurveyDomainContext.Provider>
     );
 });
 
@@ -427,7 +429,10 @@ const DomainQuestionRow = memo(function DomainQuestionRow({
                         rounded={designSystem.radii.sm}
                         p="$3"
                         borderWidth={1}
-                        style={{ backgroundColor: palette.inner, borderColor: palette.innerBorder }}
+                        style={{
+                            backgroundColor: palette.condition,
+                            borderColor: palette.conditionBorder,
+                        }}
                     >
                         <Paragraph
                             style={{ color: palette.accentText }}

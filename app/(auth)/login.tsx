@@ -5,7 +5,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowRight, Check, Eye, EyeOff, KeyRound, UserRound } from "components/icons";
 import { Button, Checkbox, Input, Sheet, XStack, YStack } from "tamagui";
-import { ScaledParagraph as Paragraph, ScaledText as Text } from "components/ui";
+import { BrandLogo, ScaledParagraph as Paragraph, ScaledText as Text } from "components/ui";
 import { useDesignSystem } from "lib/design-system";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
@@ -185,20 +185,23 @@ export default function LoginScreen() {
                         style={{ boxShadow: designSystem.shadows.card }}
                     >
                         <YStack gap="$3">
-                            <Paragraph
-                                color={designSystem.colors.secondaryForeground}
-                                fontFamily={designSystem.fonts.bodyBold}
-                                fontSize={12}
-                                textTransform="uppercase"
-                                letterSpacing={2}
-                                {...{
-                                    onPress: () => setDevSheetOpen(true),
-                                    pressStyle: { opacity: 0.6 },
-                                    hitSlop: { top: 12, bottom: 12, left: 12, right: 12 },
-                                }}
-                            >
-                                Audit Tools Platform
-                            </Paragraph>
+                            <XStack items="center" gap="$3">
+                                <BrandLogo size={40} />
+                                <Paragraph
+                                    color={designSystem.colors.secondaryForeground}
+                                    fontFamily={designSystem.fonts.bodyBold}
+                                    fontSize={12}
+                                    textTransform="uppercase"
+                                    letterSpacing={2}
+                                    {...{
+                                        onPress: () => setDevSheetOpen(true),
+                                        pressStyle: { opacity: 0.6 },
+                                        hitSlop: { top: 12, bottom: 12, left: 12, right: 12 },
+                                    }}
+                                >
+                                    Audit Tools Platform
+                                </Paragraph>
+                            </XStack>
                             <Text
                                 color={designSystem.colors.foreground}
                                 fontFamily={designSystem.fonts.headingBold}
@@ -272,7 +275,7 @@ export default function LoginScreen() {
                                 gap="$3"
                                 px="$4"
                                 height={56}
-                                rounded={designSystem.radii.lg}
+                                rounded={designSystem.radii.button}
                                 borderWidth={1}
                                 borderColor={designSystem.colors.border}
                                 bg={designSystem.colors.input}
@@ -323,7 +326,7 @@ export default function LoginScreen() {
                                 gap="$3"
                                 px="$4"
                                 height={56}
-                                rounded={designSystem.radii.lg}
+                                rounded={designSystem.radii.button}
                                 borderWidth={1}
                                 borderColor={designSystem.colors.border}
                                 bg={designSystem.colors.input}

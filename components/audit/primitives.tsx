@@ -176,7 +176,9 @@ export const SelectionButton = memo(function SelectionButton({
         <XStack
             items="center"
             gap="$3"
-            rounded={designSystem.radii.button}
+            // Option rows follow the web's option-card radius (`rounded-md`, 10),
+            // not the tighter 8px control radius used by action buttons.
+            rounded={designSystem.radii.md}
             borderWidth={1}
             py="$3"
             px="$3.5"
@@ -208,20 +210,16 @@ export const SelectionButton = memo(function SelectionButton({
                 borderWidth={2}
                 style={{
                     borderRadius: multi ? 6 : 999,
-                    borderColor: selected
-                        ? designSystem.colors.primaryForeground
-                        : palette.innerBorder,
-                    backgroundColor: selected
-                        ? designSystem.colors.primaryForeground
-                        : "transparent",
+                    borderColor: selected ? palette.selectedControl : palette.innerBorder,
+                    backgroundColor: selected ? palette.selectedControl : "transparent",
                 }}
             >
-                {selected ? <Check size={14} color={designSystem.colors.primary} /> : null}
+                {selected ? <Check size={14} color={designSystem.colors.surface} /> : null}
             </YStack>
             <Text
                 fontFamily={designSystem.fonts.bodyBold}
                 style={{
-                    color: selected ? designSystem.colors.primaryForeground : palette.accentText,
+                    color: selected ? palette.selectedText : palette.optionText,
                     flexShrink: 1,
                     textAlign: "left",
                 }}
@@ -572,7 +570,7 @@ export const CommentField = memo(function CommentField({
                     {label}
                 </Paragraph>
                 <YStack
-                    rounded={designSystem.radii.md}
+                    rounded={designSystem.radii.button}
                     borderWidth={1}
                     px="$3"
                     py="$3"
@@ -612,7 +610,7 @@ export const CommentField = memo(function CommentField({
                 multiline={multiline}
                 color={designSystem.colors.foreground}
                 placeholder={placeholder}
-                rounded={designSystem.radii.md}
+                rounded={designSystem.radii.button}
                 borderWidth={1}
                 px="$3"
                 py="$3"

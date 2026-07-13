@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { Button, Paragraph, Text, YStack } from "tamagui";
+import { Skeleton } from "components/ui";
 import { useDesignSystem } from "lib/design-system";
 
 /**
@@ -9,17 +10,10 @@ import { useDesignSystem } from "lib/design-system";
  */
 export const AuditSkeleton = memo(function AuditSkeleton() {
     const designSystem = useDesignSystem();
-    const block = (height: number, width: string | number = "100%") => (
-        <YStack
-            height={height}
-            rounded={designSystem.radii.md}
-            style={{ backgroundColor: designSystem.colors.surfaceMuted, width }}
-        />
-    );
     return (
         <YStack flex={1} bg={designSystem.colors.background} px="$4" pt="$5" gap="$4">
-            {block(44)}
-            {block(56)}
+            <Skeleton height={44} />
+            <Skeleton height={56} />
             <YStack
                 gap="$3"
                 p="$4"
@@ -28,11 +22,11 @@ export const AuditSkeleton = memo(function AuditSkeleton() {
                 borderColor={designSystem.colors.border}
                 style={{ backgroundColor: designSystem.colors.surface }}
             >
-                {block(20, "60%")}
-                {block(14, "90%")}
-                {block(72)}
-                {block(72)}
-                {block(72)}
+                <Skeleton height={20} width="60%" />
+                <Skeleton height={14} width="90%" />
+                <Skeleton height={72} />
+                <Skeleton height={72} />
+                <Skeleton height={72} />
             </YStack>
         </YStack>
     );

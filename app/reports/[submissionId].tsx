@@ -6,8 +6,9 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { BarChart3, ChevronLeft } from "components/icons";
 import { useYeeStackHeaderOptions } from "components/navigation/useYeeStackHeaderOptions";
-import { Button, Paragraph, Spinner, Text, XStack, YStack } from "tamagui";
-import { useDesignSystem } from "lib/design-system";
+import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
+import { BrandLogo, Skeleton } from "components/ui";
+import { getScoreBandTone, useDesignSystem } from "lib/design-system";
 import {
     getContentTrackInnerWidth,
     getResponsiveContentContainerStyle,
@@ -237,16 +238,23 @@ export default function MobileReportDetailScreen() {
     }
 
     if (loading && submission === null) {
+        // Content-shaped skeleton (header block, score hero, chart card) instead
+        // of a blocking spinner, per the skeleton-first loading convention.
         return (
             <>
                 {stackHeader}
-                <YStack
-                    flex={1}
-                    items="center"
-                    justify="center"
-                    bg={designSystem.colors.background}
-                >
-                    <Spinner size="large" color={designSystem.colors.primary} />
+                <YStack flex={1} bg={designSystem.colors.background} px="$4" pt="$5" gap="$4">
+                    <Skeleton height={44} width="70%" />
+                    <Skeleton height={120} />
+                    <XStack gap="$3">
+                        <YStack flex={1}>
+                            <Skeleton height={96} />
+                        </YStack>
+                        <YStack flex={1}>
+                            <Skeleton height={96} />
+                        </YStack>
+                    </XStack>
+                    <Skeleton height={260} />
                 </YStack>
             </>
         );
@@ -303,31 +311,35 @@ export default function MobileReportDetailScreen() {
                             </XStack>
                         </XStack>
 
-                        <YStack gap="$1.5">
-                            <Text
-                                color={designSystem.colors.foreground}
-                                fontFamily={designSystem.fonts.headingBold}
-                                fontSize={34}
-                                lineHeight={38}
-                                letterSpacing={-0.8}
-                            >
-                                Report overview
-                            </Text>
-                            <Paragraph
-                                color={designSystem.colors.mutedForeground}
-                                fontFamily={designSystem.fonts.bodySemiBold}
-                            >
-                                {submission === null
-                                    ? isUnsyncedSubmission
-                                        ? "This audit is still uploading. The full report opens once it finishes."
-                                        : "This report is available online only."
-                                    : `Final audit results for ${
-                                          submission.place_name ??
-                                          submissionSummary?.place_name ??
-                                          "this place"
-                                      }.`}
-                            </Paragraph>
-                        </YStack>
+                        <XStack items="flex-start" justify="space-between" gap="$3">
+                            <YStack gap="$1.5" flex={1}>
+                                <Text
+                                    color={designSystem.colors.foreground}
+                                    fontFamily={designSystem.fonts.headingBold}
+                                    fontSize={34}
+                                    lineHeight={38}
+                                    letterSpacing={-0.8}
+                                >
+                                    Report overview
+                                </Text>
+                                <Paragraph
+                                    color={designSystem.colors.mutedForeground}
+                                    fontFamily={designSystem.fonts.bodySemiBold}
+                                >
+                                    {submission === null
+                                        ? isUnsyncedSubmission
+                                            ? "This audit is still uploading. The full report opens once it finishes."
+                                            : "This report is available online only."
+                                        : `Final audit results for ${
+                                              submission.place_name ??
+                                              submissionSummary?.place_name ??
+                                              "this place"
+                                          }.`}
+                                </Paragraph>
+                            </YStack>
+                            {/* Branded report chrome, matching the web report headers. */}
+                            <BrandLogo size={44} accessibilityLabel={null} />
+                        </XStack>
                     </YStack>
 
                     {submission === null ? (
@@ -709,13 +721,24 @@ function ScoreResultsTable({
                     label="Total raw score"
                     value={`${preview?.totalRawScore ?? 0} / ${totalRawScoreMaximum} (${Math.round(((preview?.totalRawScore ?? 0) / totalRawScoreMaximum || 0) * 100)}%)`}
                     helperText="Sum of all section raw scores."
-                    textColor={designSystem.colors.primaryText}
+                    textColor={
+                        getScoreBandTone(
+                            ((preview?.totalRawScore ?? 0) / totalRawScoreMaximum || 0) * 100,
+                            designSystem.scoreBands,
+                        ).text
+                    }
                 />
                 <MetricCard
                     label="Total Youth-Weighted average"
                     value={`${preview?.totalWeightedScore ?? 0} / ${preview?.totalWeightedMax ?? 0} (${Math.round(((preview?.totalWeightedScore ?? 0) / (preview?.totalWeightedMax ?? 1) || 0) * 100)}%)`}
                     helperText="Backend canonical weighted average."
-                    textColor={designSystem.colors.successText}
+                    textColor={
+                        getScoreBandTone(
+                            ((preview?.totalWeightedScore ?? 0) /
+                                (preview?.totalWeightedMax ?? 1) || 0) * 100,
+                            designSystem.scoreBands,
+                        ).text
+                    }
                 />
             </XStack>
         </Card>
@@ -798,11 +821,11 @@ function ScoreTableRow({ row }: { row: DomainScoreRow }) {
  */
 function SectionScoreChart({ rows }: { rows: readonly DomainScoreRow[] }) {
     const designSystem = useDesignSystem();
-    // Two-series palette for the section score chart. Raw and Youth-Weighted use
-    // two brand greens (deep + soft) so the whole report reads as one calm system
-    // instead of a different hue per domain.
-    const rawSeriesColor = designSystem.colors.primary;
-    const weightedSeriesColor = designSystem.colors.success;
+    // Categorical chart-series tokens shared with the web (`--chart-series-*`):
+    // brand green leads for the raw score; the harmonized blue carries the
+    // Youth-Weighted series.
+    const rawSeriesColor = designSystem.charts.series[0];
+    const weightedSeriesColor = designSystem.charts.series[1];
     return (
         <Card title="Score by section">
             <Paragraph color={designSystem.colors.mutedForeground}>
