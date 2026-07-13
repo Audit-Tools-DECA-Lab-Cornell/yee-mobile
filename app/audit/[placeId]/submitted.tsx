@@ -1,10 +1,9 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
 import { CheckCircle2, LayoutList, RefreshCcw } from "components/icons";
-import { Button, Paragraph, Text, XStack, YStack, ZStack } from "tamagui";
+import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { useDesignSystem } from "lib/design-system";
 import { useResponsiveLayout } from "lib/responsive-layout";
-import { buildAuditSubmittedHeaderLabels } from "lib/yee-navigation-labels";
 import { buildMobileAuditProjection } from "lib/yee-mobile-selectors";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 
@@ -48,13 +47,6 @@ export default function AuditSubmittedScreen() {
         placeView?.isPendingSync === true ||
         submission?.syncState === "pending_upload" ||
         submission?.syncState === "sync_failed";
-    const headerLabels = buildAuditSubmittedHeaderLabels({
-        placeName:
-            submission?.place_name ??
-            placeView?.draft?.participantInfo.place_name?.toString() ??
-            placeView?.place.name,
-        queued,
-    });
 
     return (
         <>
