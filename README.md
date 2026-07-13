@@ -79,7 +79,7 @@ The app is built with Expo + Expo Router, uses Tamagui for UI, and includes Type
 ## Scripts
 
 - `bun run start` - start Expo dev server (clears cache)
-- `bun run ios` - run iOS native app
+- `bun run ios` - run the iOS native app after clearing project-derived Xcode build data
 - `bun run android` - run Android native app
 - `bun run build` - export the Expo app for all supported platforms
 - `bun run build:ios` - export the iOS bundle
