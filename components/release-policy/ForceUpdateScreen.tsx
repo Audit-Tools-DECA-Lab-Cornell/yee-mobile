@@ -1,9 +1,14 @@
 import * as WebBrowser from "expo-web-browser";
 import { Alert, ScrollView, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Spinner, YStack } from "tamagui";
+import { YStack } from "tamagui";
 
-import { AppButton, ScaledParagraph as Paragraph, ScaledText as Text } from "components/ui";
+import {
+    AppButton,
+    LoadingScreen,
+    ScaledParagraph as Paragraph,
+    ScaledText as Text,
+} from "components/ui";
 import { useDesignSystem } from "lib/design-system";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import type { ReleasePolicyDecision } from "lib/release-policy-core";
@@ -94,23 +99,5 @@ export function ForceUpdateScreen({ decision, onRetry }: ForceUpdateScreenProps)
 }
 
 export function ReleasePolicyLoadingScreen() {
-    const designSystem = useDesignSystem();
-
-    return (
-        <YStack
-            flex={1}
-            items="center"
-            justify="center"
-            gap="$3"
-            bg={designSystem.colors.background}
-        >
-            <Spinner size="large" color={designSystem.colors.primary} />
-            <Text
-                color={designSystem.colors.secondaryForeground}
-                fontFamily={designSystem.fonts.bodyMedium}
-            >
-                Checking app version...
-            </Text>
-        </YStack>
-    );
+    return <LoadingScreen message="Checking app version" />;
 }

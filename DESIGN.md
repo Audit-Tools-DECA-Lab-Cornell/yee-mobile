@@ -62,9 +62,30 @@ Use `ScaledText` and `ScaledParagraph` from `components/ui` for text that should
 respect the saved text-size preference. Tablets apply a `1.3` base multiplier on
 top of the user's setting.
 
+## Data-Viz And Domain Tokens
+
+Mirrors the web's tokenized data-viz system (`yee-frontend/globals.css`), read
+through `useDesignSystem()`:
+
+- **Domain palettes** (`designSystem.domains`) — six OKLCH-harmonized hues, one
+  per YEE domain (access green, activity indigo, amenities ochre, experience
+  teal, aesthetics rose, use violet), each with `text` / `strong` / `fill` /
+  `light` roles. The audit wizard's domain steps (3–8) consume them through
+  `useSurveyPalette()` + `SurveyDomainContext`; non-domain steps stay
+  brand-green.
+- **Score bands** (`designSystem.scoreBands` + `scoreBandKey()` /
+  `getScoreBandTone()`) — deep brand green high, muted gold mid, restrained clay
+  low. Thresholds shared with the web: `<34` low, `<67` mid, otherwise high. Use
+  for score text and progress fills anywhere a score is judged.
+- **Chart series** (`designSystem.charts`) — five categorical series colors led
+  by brand green, plus `grid`/`axis` scaffold colors, for report charts.
+
 ## Shape, Space, And Elevation
 
-- `radii`: `sm 6`, `md 10`, `lg 14`, `xl 20`, `button 10`, `full 999`.
+- `radii`: `sm 6`, `md 10`, `lg 14`, `xl 20`, `button 8`, `full 999`.
+- `radii.button` is the web's `--radius-control` (8px) and covers action
+  buttons, inputs, nav pills, and segmented controls. Survey option rows and
+  review answer pills follow `md` (10), matching the web's option cards.
 - Phone screen padding starts at `16`; tablet padding and content tracks come
   from `lib/responsive-layout-tokens.ts`.
 - Form-like screens use `layout.formMaxWidth`; dashboard/report layouts use
@@ -111,8 +132,12 @@ Import shared primitives from `components/ui`.
 | `Card` / `SectionCard`           | Bordered surfaces with `raised`, `flat`, `muted`, and `panel` variants.                                    |
 | `Field` / `FieldInput`           | Labelled form field with token-backed input frame and accessible inline error.                             |
 | `EmptyState`                     | Centered empty-state surface with optional icon/action.                                                    |
-| `LoadingState`                   | Centered spinner with accessible status copy.                                                              |
-| `ErrorState`                     | Danger-tinted recoverable-error surface.                                                                   |
+| `BrandLogo`                      | Theme-aware YEE logo mark (white variant on dark surfaces).                                                |
+| `BrandSpinner`                   | Brand two-arc spinner (faint track + brand sweep); reduced-motion aware.                                   |
+| `LoadingScreen` / `InlineLoader` | Full-screen branded loader (mark in pulsing brand ring) and small inline spinner-with-caption.             |
+| `Skeleton`                       | Pulsing content-shaped loading placeholder; prefer over spinners for known-shape content.                  |
+| `LoadingState`                   | Compatibility wrapper delegating to `LoadingScreen` / `InlineLoader`.                                      |
+| `ErrorState`                     | Humane branded error surface with retry, escape-hatch action, and dev-only technical detail.               |
 | `ScreenHeader`                   | Eyebrow/title/subtitle block with trailing slot.                                                           |
 | `MetricCard`                     | Compact metric tile for grids and summaries.                                                               |
 | `ListRow`                        | Tappable list row with leading/trailing slots.                                                             |
@@ -128,8 +153,12 @@ Import shared primitives from `components/ui`.
   outside `lib/`.
 - Keep interactive controls at least 44pt tall; `AppButton` defaults to the
   layout button height.
-- Use `radii.button` for buttons and step pills; reserve `radii.full` for badges
-  and circular indicators.
+- Use `radii.button` for buttons, inputs, and step pills; `radii.md` for survey
+  option rows; reserve `radii.full` for badges and circular indicators.
+- Loading is skeleton-first: use a content-shaped `Skeleton` when the loaded
+  layout is known, the branded `LoadingScreen` on route gates and heavy first
+  loads, and `BrandSpinner`/`InlineLoader` only for small inline async. Never a
+  bare platform spinner.
 - Primary field-work actions belong near the bottom of the screen and aligned to
   the active content track.
 - Use `StatusBanner` or submit-status copy for offline/sync state instead of

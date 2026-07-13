@@ -113,7 +113,8 @@ const AnswerPill = memo(function AnswerPill({ label, value }: { label: string; v
                 {label}
             </Paragraph>
             <YStack
-                rounded={designSystem.radii.button}
+                // Matches the survey option rows' radius (web option cards, `md`).
+                rounded={designSystem.radii.md}
                 px="$3"
                 py="$2"
                 borderWidth={1}

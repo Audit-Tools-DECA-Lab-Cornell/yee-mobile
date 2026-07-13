@@ -1,9 +1,7 @@
-import { Spinner, YStack } from "tamagui";
-import { useDesignSystem } from "lib/design-system";
-import { ScaledParagraph as Paragraph } from "./ScaledText";
+import { InlineLoader, LoadingScreen } from "./LoadingScreen";
 
 export interface LoadingStateProps {
-    /** Optional caption rendered beneath the spinner. */
+    /** Optional caption rendered with the loader. */
     readonly label?: string;
     /** Fill the available space and center vertically. Defaults to `true`. */
     readonly fullScreen?: boolean;
@@ -12,31 +10,16 @@ export interface LoadingStateProps {
 /**
  * Centered loading indicator used while async screen data resolves.
  *
+ * Thin compatibility wrapper over the branded loaders: full-screen use renders
+ * the {@link LoadingScreen} (YEE mark in a pulsing brand ring) and inline use
+ * renders the {@link InlineLoader} (small brand spinner with caption).
+ *
  * @param props Loading-state props including an optional `label`.
- * @returns A centered spinner with an accessible status region.
+ * @returns The branded loader for the requested layout.
  */
 export function LoadingState({ label, fullScreen = true }: LoadingStateProps) {
-    const designSystem = useDesignSystem();
-    return (
-        <YStack
-            {...(fullScreen ? { flex: 1 } : { py: "$6" })}
-            items="center"
-            justify="center"
-            gap="$3"
-            bg={designSystem.colors.background}
-            accessibilityRole="progressbar"
-            accessibilityLabel={label ?? "Loading"}
-            aria-busy
-        >
-            <Spinner size="large" color={designSystem.colors.primary} />
-            {label === undefined ? null : (
-                <Paragraph
-                    color={designSystem.colors.mutedForeground}
-                    fontFamily={designSystem.fonts.bodyMedium}
-                >
-                    {label}
-                </Paragraph>
-            )}
-        </YStack>
-    );
+    if (fullScreen) {
+        return <LoadingScreen {...(label === undefined ? {} : { message: label })} />;
+    }
+    return <InlineLoader {...(label === undefined ? {} : { message: label })} />;
 }

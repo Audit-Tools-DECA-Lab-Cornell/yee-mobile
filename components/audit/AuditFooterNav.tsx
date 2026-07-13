@@ -1,6 +1,7 @@
 import { memo } from "react";
-import { Button, Spinner, XStack, YStack } from "tamagui";
+import { Button, XStack, YStack } from "tamagui";
 import { ArrowLeft, ArrowRight, Save } from "components/icons";
+import { BrandSpinner } from "components/ui";
 import { useDesignSystem } from "lib/design-system";
 
 /**
@@ -102,7 +103,7 @@ export const AuditFooterNav = memo(function AuditFooterNav({
                 >
                     <XStack items="center" gap="$2">
                         {busy ? (
-                            <Spinner color={designSystem.colors.primaryForeground} size="small" />
+                            <BrandSpinner size="sm" color={designSystem.colors.primaryForeground} />
                         ) : (
                             <ArrowRight size={16} color={designSystem.colors.primaryForeground} />
                         )}

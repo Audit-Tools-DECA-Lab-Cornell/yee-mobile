@@ -12,7 +12,7 @@ import {
     ScreenHeader,
 } from "components/ui";
 import { AssignedPlaceCard } from "components/AssignedPlaceCard";
-import { useDesignSystem } from "lib/design-system";
+import { getScoreBandTone, useDesignSystem } from "lib/design-system";
 import { toScorePercentage } from "lib/yee-mobile-reporting";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
@@ -452,11 +452,11 @@ function SubmittedAuditCard({
                 </YStack>
                 <YStack items="flex-end" gap="$0.5">
                     <Text
-                        color={
-                            isPending
+                        style={{
+                            color: isPending
                                 ? designSystem.colors.warningText
-                                : designSystem.colors.successText
-                        }
+                                : getScoreBandTone(percentage, designSystem.scoreBands).text,
+                        }}
                         fontFamily={designSystem.fonts.headingBold}
                         fontSize={20}
                     >
