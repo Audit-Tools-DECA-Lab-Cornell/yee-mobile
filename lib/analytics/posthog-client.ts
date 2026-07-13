@@ -20,14 +20,9 @@ export function getPostHogClient(): PostHog | null {
     if (!client) {
         client = new PostHog(POSTHOG_KEY, {
             host: POSTHOG_HOST,
-            // Full-fidelity session replay: no masking, per product decision for the
-            // pilot. Recording must also be enabled in the PostHog project settings.
-            enableSessionReplay: true,
-            sessionReplayConfig: {
-                maskAllTextInputs: false,
-                maskAllImages: false,
-                maskAllSandboxedViews: false,
-            },
+            // Session replay requires the optional native replay package, which is
+            // intentionally not installed because it conflicts with the PostHog plugin.
+            enableSessionReplay: false,
             // App open/backgrounded/updated events for retention + funnels.
             captureAppLifecycleEvents: true,
         });
