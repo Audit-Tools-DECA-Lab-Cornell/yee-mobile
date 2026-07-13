@@ -68,10 +68,8 @@ export default function ReportsScreen() {
                 value={hasReports ? `${toScorePercentage(averageScore)}%` : "--"}
                 textColor={
                     hasReports
-                        ? getScoreBandTone(
-                              toScorePercentage(averageScore),
-                              designSystem.scoreBands,
-                          ).text
+                        ? getScoreBandTone(toScorePercentage(averageScore), designSystem.scoreBands)
+                              .text
                         : designSystem.colors.mutedForeground
                 }
                 helperText={hasReports ? "Across all reports" : "No reports yet"}
