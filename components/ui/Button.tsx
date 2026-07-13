@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Button, Spinner, XStack, type ButtonProps } from "tamagui";
 import { useDesignSystem, type ColorTokens } from "lib/design-system";
+import { useResponsiveLayout } from "lib/responsive-layout";
 import { ScaledText as Text } from "./ScaledText";
 
 /**
@@ -87,6 +88,7 @@ export function AppButton({
     ...rest
 }: AppButtonProps) {
     const designSystem = useDesignSystem();
+    const layout = useResponsiveLayout();
     const variantStyle = resolveVariantStyle(variant, designSystem.colors);
     const isDisabled = disabled === true || isLoading;
     // Filled/bordered buttons carry a resting shadow so they read as tappable on
@@ -95,7 +97,11 @@ export function AppButton({
 
     return (
         <Button
-            height={52}
+            // Source height from the tier token so the tap target grows with the
+            // 1.3x tablet type (52pt phone unchanged → 56–60pt tablet). A caller
+            // that passes an explicit height (e.g. a square icon button) still
+            // wins via {...rest} below.
+            height={layout.buttonHeight}
             rounded={designSystem.radii.button}
             borderWidth={variant === "ghost" ? 0 : 1}
             opacity={isDisabled ? 0.6 : 1}

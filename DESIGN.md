@@ -87,10 +87,14 @@ Tablets use the width intentionally instead of stretching a phone column:
   cards four-up on wide tablets, assigned places two-up.
 - **Reports** is a single centered `readableMaxWidth` column (metrics two-up,
   then the current report and list) — no sparse side rail.
-- **Audit wizard** shows a **persistent step sidebar** on tablets (fixed on the
-  left, always visible) with the form centered at `formMaxWidth` in the
-  remaining column and the footer aligned under the form. Phones keep the single
-  scrolling column with horizontal step pills.
+- **Audit wizard** centers the survey form at `formMaxWidth` on tablet with the
+  footer aligned under it via `getContentTrackInnerWidth()` on the same track.
+  Phones keep the single scrolling column with horizontal step pills.
+- **Audit answer options** render 2-up on tablet when every label is short
+  (`shouldRenderOptionsTwoUp`, mirroring the step-pill 48% grid) so short answers
+  stop eating a full-width row on the ~800dp Tab S5e; phones and long-label
+  question sets stay a single full-width column, and every option row keeps a
+  `formOptionHeight` floor.
 
 `TwoPaneLayout` remains available for genuine master/detail cases, but tab
 screens fill the width with grids rather than a rail that leaves voids when the

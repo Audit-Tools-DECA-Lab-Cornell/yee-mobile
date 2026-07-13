@@ -73,6 +73,9 @@ export default function PlacesScreen() {
             contentContainerStyle={getResponsiveContentContainerStyle(layout, {
                 bottomPadding: 132,
                 gap: layout.sectionGap,
+                // Single-column assigned-places list: cap at the readable column
+                // so cards don't stretch edge-to-edge on tablet.
+                maxWidth: layout.readableMaxWidth,
             })}
         >
             <YStack gap="$6">

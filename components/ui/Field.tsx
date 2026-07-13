@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Input, XStack, YStack, type InputProps } from "tamagui";
 import { useDesignSystem } from "lib/design-system";
+import { useResponsiveLayout } from "lib/responsive-layout";
 import { ScaledParagraph as Paragraph } from "./ScaledText";
 
 export interface FieldProps {
@@ -74,12 +75,15 @@ export interface FieldInputProps extends InputProps {
  */
 export function FieldInput({ leadingIcon, trailingAccessory, ...rest }: FieldInputProps) {
     const designSystem = useDesignSystem();
+    const layout = useResponsiveLayout();
     return (
         <XStack
             items="center"
             gap="$3"
             px="$4"
-            height={56}
+            // 56pt phone frame unchanged; grows to 56–62pt on tablet so the field
+            // scales with the tier (controlHeight token).
+            height={layout.controlHeight}
             rounded={designSystem.radii.lg}
             borderWidth={1}
             borderColor={designSystem.colors.border}
