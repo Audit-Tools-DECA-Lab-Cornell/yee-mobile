@@ -437,9 +437,7 @@ function parseScreenshotAuditStep(value: string | undefined): MobileYeeStepNumbe
     }
 
     const step = Number(value);
-    return Number.isInteger(step) && step >= 1 && step <= 9
-        ? (step as MobileYeeStepNumber)
-        : null;
+    return Number.isInteger(step) && step >= 1 && step <= 9 ? (step as MobileYeeStepNumber) : null;
 }
 
 function getStepIncompleteMessage(

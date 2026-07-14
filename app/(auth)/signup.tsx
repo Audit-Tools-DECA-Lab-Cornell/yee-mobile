@@ -35,8 +35,6 @@ export default function SignupScreen() {
                 getResponsiveContentContainerStyle(layout, {
                     bottomPadding: 32,
                     topInset: insets.top,
-                    // Auth form: cap at the form column, not the content track.
-                    maxWidth: layout.formMaxWidth,
                 }),
                 {
                     flexGrow: 1,

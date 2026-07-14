@@ -8,7 +8,7 @@ import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const DEFAULT_SCHEME = "yee-mobile";
-const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
+const DEFAULT_API_BASE_URL = "https://audit-tools-backend.onrender.com";
 const DEFAULT_WAIT_MS = 20000;
 const DEFAULT_LOGIN_WAIT_MS = 20000;
 const DEFAULT_SCROLL_DELAY_MS = 450;
@@ -632,14 +632,23 @@ async function discoverBackendData(options) {
             throw new Error("login response did not include access_token");
         }
 
-        const [places, submissions] = await Promise.all([
+        const [placesResponse, submissionsResponse] = await Promise.all([
             fetchAuthedJson(`${options.apiBaseUrl}/yee/dashboard/my-places`, token),
             fetchAuthedJson(`${options.apiBaseUrl}/yee/my-audits`, token),
         ]);
 
+        const places = Array.isArray(placesResponse) ? placesResponse : [];
+        const submissions = Array.isArray(submissionsResponse) ? submissionsResponse : [];
+
+        const selectedSubmission = selectReportSubmission(submissions);
+
+        const selectedPlaceId = selectedSubmission?.place_id ?? places.at(0)?.id ?? null;
+
+        const selectedPlace = places.find(({ id }) => id === selectedPlaceId) ?? null;
+
         return {
-            firstPlace: Array.isArray(places) ? (places[0] ?? null) : null,
-            firstSubmission: selectReportSubmission(submissions),
+            firstPlace: selectedPlace,
+            firstSubmission: selectedSubmission ?? null,
         };
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -758,17 +767,28 @@ function buildDynamicRoutes(discovery) {
         reportDetail: null,
     };
 
-    if (isResolvedPlace(discovery.firstPlace)) {
-        const placeId = encodeURIComponent(discovery.firstPlace.id);
-        const auditRoute = `/audit/${placeId}`;
-        routes.auditContext = withScreenshotAuditStep(auditRoute, 1);
-        routes.auditWeighting = withScreenshotAuditStep(auditRoute, 2);
-        routes.auditDomain = withScreenshotAuditStep(auditRoute, 3);
-        routes.auditReview = `/audit/${placeId}/review`;
+    const { firstPlace, firstSubmission } = discovery;
+    const hasPlace = isResolvedPlace(firstPlace);
+    const hasSubmission = isResolvedSubmission(firstSubmission);
+
+    if (hasPlace) {
+        const placeId = encodeURIComponent(firstPlace.id);
+        const auditBaseRoute = `/audit/${placeId}`;
+
+        const submittedAuditRoute = hasSubmission
+            ? `${auditBaseRoute}/view?${new URLSearchParams({
+                  submissionId: firstSubmission.id,
+              })}`
+            : auditBaseRoute;
+
+        routes.auditContext = withScreenshotAuditStep(submittedAuditRoute, 1);
+        routes.auditWeighting = withScreenshotAuditStep(submittedAuditRoute, 2);
+        routes.auditDomain = withScreenshotAuditStep(submittedAuditRoute, 3);
+        routes.auditReview = `${auditBaseRoute}/review`;
     }
 
-    if (isResolvedSubmission(discovery.firstSubmission)) {
-        routes.reportDetail = `/reports/${encodeURIComponent(discovery.firstSubmission.id)}`;
+    if (hasSubmission) {
+        routes.reportDetail = `/reports/${encodeURIComponent(firstSubmission.id)}`;
     }
 
     return routes;

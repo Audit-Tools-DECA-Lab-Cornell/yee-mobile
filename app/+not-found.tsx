@@ -24,8 +24,6 @@ export default function NotFoundScreen() {
             contentContainerStyle={getResponsiveContentContainerStyle(layout, {
                 bottomPadding: 132,
                 gap: layout.sectionGap,
-                // Content-light message screen: cap at the readable column.
-                maxWidth: layout.readableMaxWidth,
             })}
         >
             <YStack gap="$12">

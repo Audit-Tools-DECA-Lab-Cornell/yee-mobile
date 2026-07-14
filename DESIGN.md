@@ -99,18 +99,6 @@ through `useDesignSystem()`:
 
 Tablets use the width intentionally instead of stretching a phone column:
 
-- **Widths.** `formMaxWidth` (600) caps survey forms; `readableMaxWidth` (760)
-  centers content-light detail screens (Execute, Reports, Settings) so they read
-  as composed documents, not edge-to-edge stretches; `contentMaxWidth`
-  (1040–1200) is for grid screens. Fixed footers align to their screen's track
-  via `getContentTrackInnerWidth()`.
-- **Home** fills `contentMaxWidth` with real grids: status cards two-up, metric
-  cards four-up on wide tablets, assigned places two-up.
-- **Reports** is a single centered `readableMaxWidth` column (metrics two-up,
-  then the current report and list) — no sparse side rail.
-- **Audit wizard** centers the survey form at `formMaxWidth` on tablet with the
-  footer aligned under it via `getContentTrackInnerWidth()` on the same track.
-  Phones keep the single scrolling column with horizontal step pills.
 - **Audit answer options** render 2-up on tablet when every label is short
   (`shouldRenderOptionsTwoUp`, mirroring the step-pill 48% grid) so short answers
   stop eating a full-width row on the ~800dp Tab S5e; phones and long-label

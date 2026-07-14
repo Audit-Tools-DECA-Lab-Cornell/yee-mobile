@@ -12,6 +12,7 @@ interface ScreenshotBootstrapParams {
     readonly password?: string | string[];
     readonly reset?: string | string[];
     readonly skipLogin?: string | string[];
+    readonly __screenshotAuditStep?: string | string[];
     readonly __screenshotScrollDelayMs?: string | string[];
     readonly __screenshotScrollY?: string | string[];
 }
@@ -80,8 +81,14 @@ function EnabledScreenshotBootstrapScreen() {
         return appendScreenshotAutomationParams(targetRoute, {
             scrollDelayMs: readSingleParam(params.__screenshotScrollDelayMs),
             scrollY: readSingleParam(params.__screenshotScrollY),
+            auditStep: readSingleParam(params.__screenshotAuditStep),
         });
-    }, [params.__screenshotScrollDelayMs, params.__screenshotScrollY, targetRoute]);
+    }, [
+        params.__screenshotScrollDelayMs,
+        params.__screenshotScrollY,
+        params.__screenshotAuditStep,
+        targetRoute,
+    ]);
 
     /**
      * Navigate to the target screen with a clean stack.
@@ -281,10 +288,12 @@ function appendScreenshotAutomationParams(
     values: Readonly<{
         scrollDelayMs: string | null;
         scrollY: string | null;
+        auditStep: string | null;
     }>,
 ): string {
     let nextRoute = route;
 
+    nextRoute = appendQueryParamIfMissing(nextRoute, "__screenshotAuditStep", values.auditStep);
     nextRoute = appendQueryParamIfMissing(nextRoute, "__screenshotScrollY", values.scrollY);
     nextRoute = appendQueryParamIfMissing(
         nextRoute,

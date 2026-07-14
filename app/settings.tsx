@@ -70,8 +70,6 @@ export default function SettingsScreen() {
             contentContainerStyle={getResponsiveContentContainerStyle(layout, {
                 bottomPadding: insets.bottom + 32,
                 gap: layout.sectionGap,
-                // Content-light preferences screen: cap at the readable column.
-                maxWidth: layout.readableMaxWidth,
             })}
         >
             <YStack gap="$6">
