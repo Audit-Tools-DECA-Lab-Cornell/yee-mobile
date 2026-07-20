@@ -45,7 +45,7 @@
     "resolutions": {
         "@babel/core": "7.29.7",
         "@babel/helper-create-class-features-plugin": "7.29.7",
-        "@babel/plugin-transform-class-static-block": "7.29.7"
+        "@babel/plugin-transform-class-static-block": "8.0.1"
     },
     "dependencies": {
         "@expo-google-fonts/geist": "^0.4.2",
@@ -103,7 +103,7 @@
     "devDependencies": {
         "@babel/core": "7.29.7",
         "@babel/helper-create-class-features-plugin": "7.29.7",
-        "@babel/plugin-transform-class-static-block": "7.29.7",
+        "@babel/plugin-transform-class-static-block": "8.0.1",
         "@expo/metro-runtime": "~55.0.11",
         "@playwright/test": "^1.61.1",
         "@tamagui/babel-plugin": "2.4.2",
