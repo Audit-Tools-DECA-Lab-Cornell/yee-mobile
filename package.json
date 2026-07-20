@@ -78,7 +78,7 @@
         "expo-secure-store": "~55.0.15",
         "expo-splash-screen": "~55.0.22",
         "expo-status-bar": "~55.0.6",
-        "expo-system-ui": "~55.0.19",
+        "expo-system-ui": "~57.0.1",
         "expo-updates": "~55.0.25",
         "expo-web-browser": "~55.0.17",
         "patch-package": "^8.0.1",
