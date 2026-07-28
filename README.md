@@ -167,3 +167,10 @@ bun run ci:quality
 - Deep audit/report routes use native stack headers with fetched place/report context; do not add manual top inset there or expose route IDs as titles.
 - The mobile tablet breakpoint lives in `lib/responsive-layout-tokens.ts` as `TABLET_BREAKPOINT = 600`; keep tab-bar sizing and screen padding on that shared responsive path.
 - Changes to keyboard-controller, splash config, Android soft-input behavior, or tablet breakpoint behavior need `expo prebuild --clean` verification and a new native build.
+
+## Related Docs
+
+| File                            | Description                                                                                                     |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `DESIGN.md`                     | Design system reference (tokens, component library, usage rules)                                                |
+| `docs/SIMULATOR_MCP_TESTING.md` | Driving the app on iOS Simulator / Android emulator via the `ios-simulator` + `mobile` (mobile-mcp) MCP servers |
