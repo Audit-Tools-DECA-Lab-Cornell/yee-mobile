@@ -99,7 +99,7 @@ Login requires a reachable backend. The app defaults to `http://127.0.0.1:8000`.
 Metro with the base URL overridden:
 
 ```bash
-EXPO_PUBLIC_API_BASE_URL="https://audit-tools-backend.onrender.com" bunx expo start
+EXPO_PUBLIC_API_BASE_URL="https://audit-tools-backend-zyde.onrender.com" bunx expo start
 ```
 
 (One shared backend serves both products; YEE clients use its `/yee/*` namespace.

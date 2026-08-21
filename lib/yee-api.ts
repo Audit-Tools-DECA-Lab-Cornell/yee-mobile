@@ -8,7 +8,7 @@ import type {
 } from "lib/yee-types";
 
 const DEFAULT_API_BASE_URL =
-    process.env.EXPO_PUBLIC_API_BASE_URL || "https://audit-tools-backend.onrender.com/";
+    process.env.EXPO_PUBLIC_API_BASE_URL || "https://audit-tools-backend-zyde.onrender.com/";
 
 export class YeeMobileApiError extends Error {
     readonly statusCode: number;

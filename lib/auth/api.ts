@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { AuthSession, LoginPayload, SignupPayload } from "lib/auth/types";
 
 const DEFAULT_API_BASE_URL =
-    process.env.EXPO_PUBLIC_API_BASE_URL || "https://audit-tools-backend.onrender.com/";
+    process.env.EXPO_PUBLIC_API_BASE_URL || "https://audit-tools-backend-zyde.onrender.com/";
 const authResponseSchema = z.object({
     access_token: z.string().min(1),
     token_type: z.literal("bearer"),
