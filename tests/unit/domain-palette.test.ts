@@ -6,8 +6,9 @@
  *
  *   1. Every role clears the WCAG contrast floor it is used at, in both themes.
  *   2. The six chart fills stay distinguishable, including under CVD.
- *   3. The spec's contents match yee-frontend's copy (checksum), and no domain
- *      hex is hardcoded anywhere else in the app.
+ *   3. The spec has not been edited without its checksum being refreshed (which
+ *      is the prompt to make the same paired edit in yee-frontend), and no
+ *      domain hex is hardcoded anywhere else in the app.
  *   4. The design system serves the spec's values unmodified.
  */
 import { execFileSync } from "node:child_process";
@@ -172,15 +173,24 @@ describe.each(MODES)("domain palette — %s theme", (mode) => {
 });
 
 describe("domain palette — cross-repo", () => {
-    it("has contents matching yee-frontend's copy", () => {
+    /**
+     * What this catches: the spec being edited without the checksum being updated.
+     * What it cannot catch on its own: this test reads only this repo's spec and
+     * constant, so updating both together passes here regardless of what
+     * yee-frontend holds. The pairing rests on DOMAIN_PALETTE_CHECKSUM being the
+     * same literal in both repos and on both PRs landing together.
+     */
+    it("has not changed without its checksum being updated", () => {
         const digest = createHash("sha256")
             .update(JSON.stringify(canonical(JSON.parse(readFileSync(SPEC_PATH, "utf8")))))
             .digest("hex");
         expect(
             digest,
-            "domain-palette.json changed. Copy its contents to yee-frontend/src/styles/domain-palette.json, " +
-                "update DOMAIN_PALETTE_CHECKSUM in BOTH repos, regenerate the web's CSS tokens, " +
-                "and re-run the guard tests on both sides.",
+            "domain-palette.json changed. This must be a paired edit: copy its contents to " +
+                "yee-frontend/src/styles/domain-palette.json, set DOMAIN_PALETTE_CHECKSUM to the " +
+                "new digest in BOTH repos, regenerate the web's CSS tokens, and re-run the guard " +
+                "tests on both sides. Nothing here can see yee-frontend, so landing only one side " +
+                "will not fail this test.",
         ).toBe(DOMAIN_PALETTE_CHECKSUM);
     });
 

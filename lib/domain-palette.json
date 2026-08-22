@@ -1,5 +1,5 @@
 {
-    "$comment": "CANONICAL YEE domain colour palette. Identical byte-for-byte in yee-frontend and yee-mobile; a checksum test in each repo fails if the two copies drift. Regenerate rather than hand-edit, then run the palette guard tests in BOTH repos.",
+    "$comment": "CANONICAL YEE domain colour palette. The same contents are committed in yee-frontend (src/styles/domain-palette.json) and yee-mobile (lib/domain-palette.json). Each repo's guard test fails if this file is edited without DOMAIN_PALETTE_CHECKSUM being refreshed there, which is the prompt to make the matching edit on the other side; neither test can read the other repo, so keeping the two in step relies on that paired edit. Regenerate rather than hand-edit, then run the palette guard tests in BOTH repos.",
     "version": 2,
     "roles": {
         "text": "Labels, headings and any small text on `light` or on a card. >= 7:1 on both.",

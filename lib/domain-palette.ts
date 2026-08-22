@@ -2,11 +2,13 @@
  * The domain colour palette, read from the canonical spec.
  *
  * `lib/domain-palette.json` is THE source of truth for every YEE domain colour
- * in this app. The same file is committed byte-for-byte in yee-frontend
- * (`src/styles/domain-palette.json`), where it also generates the `--domain-*`
- * CSS custom properties and feeds the PDF/Excel export layer;
- * `DOMAIN_PALETTE_CHECKSUM` below is asserted in both repos so the two copies
- * cannot drift apart unnoticed.
+ * in this app. The same contents are committed in yee-frontend
+ * (`src/styles/domain-palette.json`), where they also generate the `--domain-*`
+ * CSS custom properties and feed the PDF/Excel export layer.
+ * `DOMAIN_PALETTE_CHECKSUM` below is the same literal in both repos: editing the
+ * spec without refreshing it fails the guard test, which is the prompt to make
+ * the matching edit on the other side. The test cannot read yee-frontend, so the
+ * two staying in step relies on the paired edit actually being made.
  *
  * Never hardcode a domain colour anywhere else. To change one: edit the JSON in
  * BOTH repos, refresh the checksum in both, regenerate the web's CSS tokens,
@@ -52,7 +54,7 @@ export const domainPalette: Readonly<
  * is the values; this catches exactly that.
  */
 export const DOMAIN_PALETTE_CHECKSUM =
-    "9adf1321e741a31b963b4ec71885950e6a99893140d90e2cf8c15ba7512a2553";
+    "4c3bcff2f2127c6ec65f3a2ee2991b27df3cbf6ed872da4f8799592d6f59088f";
 
 /**
  * The contrast floors every colour is held to. `text`/`strong` must clear their
