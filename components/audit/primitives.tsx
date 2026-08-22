@@ -446,7 +446,7 @@ export const SectionProgressCard = memo(function SectionProgressCard({
                     height={10}
                     rounded={designSystem.radii.full}
                     style={{
-                        backgroundColor: palette.accent,
+                        backgroundColor: palette.accentFill,
                         width: `${Math.max(0, Math.min(percentage, 100))}%`,
                     }}
                 />

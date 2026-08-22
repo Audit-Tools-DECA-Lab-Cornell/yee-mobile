@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { designSystem, getDesignSystem, getScoreBandTone, scoreBandKey } from "lib/design-system";
+import { domainPalette } from "lib/domain-palette";
 import { getSurveyPalette, withAlpha } from "components/audit/survey-theme";
 import { mobileYeeDomainLabels } from "lib/yee-mobile-audit-config";
 
@@ -52,10 +53,16 @@ describe("domain palettes — web --domain-* parity", () => {
         }
     });
 
-    it("anchors the access domain to the brand-green hue family", () => {
-        // Web: --domain-access-* at hue 158 (matches the brand green).
-        expect(designSystem.domains.access.light).toBe("#E1F4E8");
-        expect(designSystem.domains.access.strong).toBe("#2B7A52");
+    it("serves every role straight from the shared spec, in both themes", () => {
+        // Parity with the web is now structural rather than a copied literal: both
+        // repos read the same `domain-palette.json`, and the checksum test in each
+        // fails if the two copies drift. See tests/unit/domain-palette.test.ts.
+        for (const theme of ["light", "dark"] as const) {
+            const { domains } = getDesignSystem(theme);
+            for (const key of domainKeys) {
+                expect(domains[key]).toEqual(domainPalette[theme][key]);
+            }
+        }
     });
 });
 
@@ -93,7 +100,10 @@ describe("survey palette — domain-aware theming", () => {
         expect(palette.selected).toBe(domain.light);
         expect(palette.selectedBorder).toBe(domain.strong);
         expect(palette.selectedText).toBe(domain.text);
-        expect(palette.accent).toBe(domain.fill);
+        // `accent` backs solid surfaces that carry light text, so it is the 4.5:1
+        // `strong` step; the vivid `fill` is reserved for bars nothing sits on.
+        expect(palette.accent).toBe(domain.strong);
+        expect(palette.accentFill).toBe(domain.fill);
         expect(palette.intro).toBe(domain.light);
         // `/40`-style alpha tints, mirroring web's bg-domain-light/40 wrapper.
         expect(palette.card).toBe(withAlpha(domain.light, 0.4));

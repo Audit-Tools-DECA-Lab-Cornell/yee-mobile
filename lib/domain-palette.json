@@ -1,0 +1,126 @@
+{
+    "$comment": "CANONICAL YEE domain colour palette. Identical byte-for-byte in yee-frontend and yee-mobile; a checksum test in each repo fails if the two copies drift. Regenerate rather than hand-edit, then run the palette guard tests in BOTH repos.",
+    "version": 2,
+    "roles": {
+        "text": "Labels, headings and any small text on `light` or on a card. >= 7:1 on both.",
+        "strong": "Borders, dots, rails and rules; also safe for small text on `light` or a card. >= 4.5:1 on both.",
+        "fill": "Chart bars, areas and score strips. >= 3:1 on the card surface (WCAG 1.4.11).",
+        "light": "Tint background for chips, section cards and table cells."
+    },
+    "order": [
+        "access",
+        "activitySpaces",
+        "amenities",
+        "experienceOfSpace",
+        "aestheticsAndCare",
+        "useAndUsability"
+    ],
+    "domains": {
+        "access": {
+            "slug": "access",
+            "hue": 162,
+            "label": "Access"
+        },
+        "activitySpaces": {
+            "slug": "activity",
+            "hue": 242,
+            "label": "Activity Spaces"
+        },
+        "amenities": {
+            "slug": "amenities",
+            "hue": 78,
+            "label": "Amenities"
+        },
+        "experienceOfSpace": {
+            "slug": "experience",
+            "hue": 199,
+            "label": "Experience of the Space"
+        },
+        "aestheticsAndCare": {
+            "slug": "aesthetics",
+            "hue": 12,
+            "label": "Aesthetics & Care"
+        },
+        "useAndUsability": {
+            "slug": "use",
+            "hue": 293,
+            "label": "Use & Usability"
+        }
+    },
+    "light": {
+        "access": {
+            "text": "#075d3f",
+            "strong": "#0d7d56",
+            "fill": "#129768",
+            "light": "#e0f6ea"
+        },
+        "activitySpaces": {
+            "text": "#065582",
+            "strong": "#0c73ad",
+            "fill": "#159be6",
+            "light": "#e4f2fe"
+        },
+        "amenities": {
+            "text": "#6c4a05",
+            "strong": "#91650b",
+            "fill": "#c28913",
+            "light": "#fbeedc"
+        },
+        "experienceOfSpace": {
+            "text": "#075a5d",
+            "strong": "#0d7a7e",
+            "fill": "#15a3a8",
+            "light": "#dcf6f7"
+        },
+        "aestheticsAndCare": {
+            "text": "#893242",
+            "strong": "#bd415a",
+            "fill": "#e7677c",
+            "light": "#feebec"
+        },
+        "useAndUsability": {
+            "text": "#57438e",
+            "strong": "#775ac5",
+            "fill": "#9c81ef",
+            "light": "#f0eefe"
+        }
+    },
+    "dark": {
+        "access": {
+            "text": "#51c693",
+            "strong": "#14a06f",
+            "fill": "#17af79",
+            "light": "#0d2c1e"
+        },
+        "activitySpaces": {
+            "text": "#5bb8fa",
+            "strong": "#1393db",
+            "fill": "#159dea",
+            "light": "#0f2839"
+        },
+        "amenities": {
+            "text": "#dea645",
+            "strong": "#b78111",
+            "fill": "#c28812",
+            "light": "#312209"
+        },
+        "experienceOfSpace": {
+            "text": "#1cc4ca",
+            "strong": "#149ca1",
+            "fill": "#16a9ae",
+            "light": "#052b2d"
+        },
+        "aestheticsAndCare": {
+            "text": "#fa8e9d",
+            "strong": "#e06076",
+            "fill": "#e5647a",
+            "light": "#381b1f"
+        },
+        "useAndUsability": {
+            "text": "#b6a2fd",
+            "strong": "#9479e7",
+            "fill": "#9a7eed",
+            "light": "#262139"
+        }
+    }
+}
