@@ -2,10 +2,10 @@
 # Android appId: com.andisha2004.audittoolsyeemobile
 # iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
 #
-# Selectors are matched by visible text / placeholder text (the YEE mobile
-# screens carry zero testID props — see maestro/README.md "testID gap").
+# Login selectors use visible text / placeholder text; domain question flows use
+# stable IDs documented in maestro/README.md "Stable selectors".
 # Login screen source: app/(auth)/login.tsx.
-appId: com.andisha2004.audit-tools-yee-mobile
+appId: ${APP_ID || "com.andisha2004.audit-tools-yee-mobile"}
 ---
 # IDEMPOTENT login — does NOT clearState. clearState wipes the SecureStore
 # session (and MMKV drafts) on every launch, forcing a slow cold reconnect to the

@@ -1,0 +1,41 @@
+# Focused editable-domain regression. It changes one local test draft and never
+# opens review or submits an audit.
+# Android appId: com.andisha2004.audittoolsyeemobile
+# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
+appId: ${APP_ID || "com.andisha2004.audit-tools-yee-mobile"}
+---
+- runFlow: assigned-places.yaml
+- scrollUntilVisible:
+      element:
+          text: "Eastside Community Green"
+      direction: DOWN
+- tapOn:
+      text: "(?i).*(start audit|continue draft).*"
+      below:
+          text: "Eastside Community Green"
+- extendedWaitUntil:
+      visible: "Step 3: Access"
+      timeout: 30000
+- tapOn: "Step 3: Access"
+- extendedWaitUntil:
+      visible:
+          id: "domain-question-QID1#1:1-primary-options-option-1"
+      timeout: 30000
+- assertNotVisible:
+      id: "domain-group-overview"
+- assertNotVisible:
+      id: "domain-bulk-not-present-action"
+- assertNotVisible: "Section overview"
+- assertNotVisible: "(?i).*mark remaining.*"
+- tapOn:
+      id: "domain-question-QID1#1:1-primary-options-option-2"
+- assertNotVisible:
+      id: "domain-question-QID1#1:1-follow-up"
+- tapOn:
+      id: "domain-question-QID1#1:1-primary-options-option-1"
+- assertVisible:
+      id: "domain-question-QID1#1:1-follow-up"
+- tapOn:
+      id: "domain-question-QID1#1:1-primary-options-option-2"
+- assertNotVisible:
+      id: "domain-question-QID1#1:1-follow-up"

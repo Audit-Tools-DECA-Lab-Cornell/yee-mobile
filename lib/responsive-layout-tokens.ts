@@ -37,7 +37,7 @@ const PHONE_LAYOUT_TOKENS = {
     cardPadding: 16,
     buttonHeight: 52,
     controlHeight: 56,
-    formOptionHeight: 42,
+    formOptionHeight: 48,
     compactControlHeight: 36,
     queueCardMinHeight: 0,
     summaryCardMinHeight: 0,

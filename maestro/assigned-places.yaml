@@ -3,7 +3,7 @@
 # affordance. Source: app/(tabs)/places.tsx.
 # Android appId: com.andisha2004.audittoolsyeemobile
 # iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
-appId: com.andisha2004.audit-tools-yee-mobile
+appId: ${APP_ID || "com.andisha2004.audit-tools-yee-mobile"}
 ---
 - runFlow: login.yaml
 # Tap the Places TAB by its unique a11y label ("Places, tab, 2 of 4"); avoids the

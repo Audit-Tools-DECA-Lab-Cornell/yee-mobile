@@ -7,7 +7,7 @@ import {
     type PropsWithChildren,
     type ReactNode,
 } from "react";
-import type { ViewStyle } from "react-native";
+import type { AccessibilityRole, ViewStyle } from "react-native";
 import { Input, Paragraph, Text, XStack, YStack } from "tamagui";
 import { Check } from "components/icons";
 import { shouldRenderOptionsTwoUp } from "lib/audit-option-grid";
@@ -113,12 +113,20 @@ export const SectionIntroCard = memo(function SectionIntroCard({
 /** A single labelled question frame that hosts an answer control. */
 export const QuestionCard = memo(function QuestionCard({
     label,
+    eyebrow,
+    testID,
     children,
-}: PropsWithChildren<{ label: string }>) {
+}: PropsWithChildren<{
+    label: string;
+    eyebrow?: string;
+    testID?: string | undefined;
+}>) {
     const designSystem = useDesignSystem();
     const palette = useSurveyPalette();
+    const prompt = ensureQuestionMark(label);
     return (
         <YStack
+            testID={testID}
             rounded={designSystem.radii.md}
             borderWidth={1}
             p="$4"
@@ -129,13 +137,27 @@ export const QuestionCard = memo(function QuestionCard({
                 boxShadow: designSystem.shadows.card,
             }}
         >
+            {eyebrow === undefined ? null : (
+                <Text
+                    accessible={false}
+                    accessibilityElementsHidden
+                    importantForAccessibility="no-hide-descendants"
+                    color={designSystem.colors.mutedForeground}
+                    fontFamily={designSystem.fonts.bodyMedium}
+                    fontSize={12}
+                >
+                    {eyebrow}
+                </Text>
+            )}
             <Text
+                accessible
+                accessibilityLabel={eyebrow === undefined ? undefined : `${eyebrow}. ${prompt}`}
                 color={designSystem.colors.foreground}
                 fontFamily={designSystem.fonts.bodyBold}
                 fontSize={16}
                 lineHeight={22}
             >
-                {ensureQuestionMark(label)}
+                {prompt}
             </Text>
             {children}
         </YStack>
@@ -154,6 +176,7 @@ export const SelectionButton = memo(function SelectionButton({
     multi = false,
     disabled = false,
     cellStyle,
+    testID,
 }: {
     label: string;
     selected: boolean;
@@ -162,6 +185,7 @@ export const SelectionButton = memo(function SelectionButton({
     multi?: boolean;
     /** View-only: ignore presses and dim unselected rows. */
     disabled?: boolean;
+    testID?: string | undefined;
     /**
      * Optional flex sizing supplied by an option grid so buttons can lay out
      * 2-up on tablet. Merged last so the grid owns width; height stays driven by
@@ -174,6 +198,7 @@ export const SelectionButton = memo(function SelectionButton({
     const layout = useResponsiveLayout();
     return (
         <XStack
+            testID={testID}
             items="center"
             gap="$3"
             // Option rows follow the web's option-card radius (`rounded-md`, 10),
@@ -183,15 +208,12 @@ export const SelectionButton = memo(function SelectionButton({
             py="$3"
             px="$3.5"
             cursor={disabled ? "default" : "pointer"}
-            accessibilityRole="button"
-            accessibilityState={{ selected, disabled }}
+            accessibilityRole={multi ? "checkbox" : "radio"}
+            accessibilityState={{ checked: selected, disabled }}
             hoverStyle={disabled ? null : { opacity: 0.98 }}
             pressStyle={disabled ? null : { opacity: 0.92, scale: 0.985 }}
             onPress={disabled ? undefined : onPress}
             style={{
-                // Grow the tap target with the tier (48–52pt on tablet) while
-                // leaving phones pixel-unchanged: at 42pt the phone token sits
-                // below the row's natural content height, so it is a no-op there.
                 minHeight: layout.formOptionHeight,
                 backgroundColor: selected ? palette.selected : palette.inner,
                 borderColor: selected ? palette.selectedBorder : palette.innerBorder,
@@ -235,13 +257,24 @@ export const SelectionButton = memo(function SelectionButton({
  * tablet (short labels) or a single stacked column on phone / long labels.
  * `gap` matches the previous single-column spacing so phones are unchanged.
  */
-function OptionGridFrame({ twoUp, children }: PropsWithChildren<{ twoUp: boolean }>) {
+function OptionGridFrame({
+    twoUp,
+    testID,
+    accessibilityRole,
+    children,
+}: PropsWithChildren<{
+    twoUp: boolean;
+    testID?: string | undefined;
+    accessibilityRole?: AccessibilityRole;
+}>) {
     return twoUp ? (
-        <XStack flexWrap="wrap" gap="$2">
+        <XStack testID={testID} accessibilityRole={accessibilityRole} flexWrap="wrap" gap="$2">
             {children}
         </XStack>
     ) : (
-        <YStack gap="$2">{children}</YStack>
+        <YStack testID={testID} accessibilityRole={accessibilityRole} gap="$2">
+            {children}
+        </YStack>
     );
 }
 
@@ -256,18 +289,20 @@ export const OptionGrid = memo(function OptionGrid({
     options,
     onChange,
     disabled = false,
+    testID,
 }: {
     value: string | undefined;
     options: readonly InstrumentOption[];
     onChange: (value: string) => void;
     /** View-only: forward to every option so the group is non-interactive. */
     disabled?: boolean;
+    testID?: string | undefined;
 }) {
     const { isTablet } = useResponsiveLayout();
     const twoUp = shouldRenderOptionsTwoUp(options, isTablet);
     const cellStyle = twoUp ? OPTION_CELL_TWO_UP : undefined;
     return (
-        <OptionGridFrame twoUp={twoUp}>
+        <OptionGridFrame twoUp={twoUp} testID={testID} accessibilityRole="radiogroup">
             {options.map((option) => (
                 <SelectionButton
                     key={option.id}
@@ -276,6 +311,7 @@ export const OptionGrid = memo(function OptionGrid({
                     onPress={() => onChange(option.id)}
                     disabled={disabled}
                     cellStyle={cellStyle}
+                    testID={testID === undefined ? undefined : `${testID}-option-${option.id}`}
                 />
             ))}
         </OptionGridFrame>

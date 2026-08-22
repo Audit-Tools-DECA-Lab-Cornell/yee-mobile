@@ -10,14 +10,21 @@ The app is **AUDITOR-only** (manager/admin sessions are rejected with 403, see
 
 ## App IDs
 
-| Platform | ID                                    |
-| -------- | ------------------------------------- |
-| Android  | `com.andisha2004.audittoolsyeemobile` |
-| iOS      | `com.andisha2004.yee-mobile`          |
+| Platform | ID                                       |
+| -------- | ---------------------------------------- |
+| Android  | `com.andisha2004.audittoolsyeemobile`    |
+| iOS      | `com.andisha2004.audit-tools-yee-mobile` |
 
-Flows default to the **Android** `appId`. For an iOS simulator run, override Maestro's
-app id (e.g. `maestro test --app-id com.andisha2004.yee-mobile maestro/login.yaml`) or
-copy the flows with the iOS bundle id in the `appId:` header.
+Flows default to the **iOS** app ID. Override `APP_ID` with Maestro's `-e` flag when running
+Android; Maestro 2.2 does not provide a `--app-id` test option.
+
+```bash
+# iOS default
+maestro test maestro/question-follow-up.yaml
+
+# Android override
+maestro test -e APP_ID=com.andisha2004.audittoolsyeemobile maestro/question-follow-up.yaml
+```
 
 ## Run
 
@@ -82,6 +89,13 @@ app or temporarily add `clearState: true` back to a one-off `launchApp`.
 | `report-access.yaml`     | Reports tab renders (summaries or documented empty state).      |
 | `resume-draft.yaml`      | An in-progress draft survives an app kill + relaunch (MMKV).    |
 
+**Standalone focused regression:**
+
+`question-follow-up.yaml` is intentionally not invoked by `smoke.yaml` because it changes one
+answer in the seeded Eastside Community Green draft. Run it directly when validating the domain
+question UI. It normalizes the initial state to No, verifies Yes reveals the follow-up, returns
+the answer to No, and never enters review or submits data.
+
 **Scaffolds (kept out of smoke — see the file headers):**
 
 | Flow                         | Why it is a scaffold                                                      |
@@ -89,20 +103,18 @@ app or temporarily add `clearState: true` back to a one-off `launchApp`.
 | `execute-and-submit.yaml`    | Full 9-step / 71-item submit is too brittle without section testIDs.      |
 | `offline-queued-submit.yaml` | Needs a **manual airplane-mode** precondition to force the offline queue. |
 
-## testID gap (known limitation)
+## Stable selectors
 
-The YEE mobile screens carry **zero `testID` props** (confirmed in `GROUND-TRUTH.md` §6.10).
-Flows therefore target elements by **visible text / placeholder / accessibilityLabel**, which
-is fragile for i18n or copy changes. Hardening these flows into full step-by-step submit
-coverage should first add stable `testID`s to the login, audit-step, review, and submitted
-screens (decision D6). Until then, the deep flows stay scaffolds.
+Domain question cards, primary options, and conditional follow-ups now expose stable IDs derived
+from instrument item and choice IDs. `question-follow-up.yaml` uses those IDs for the behavior
+under test. Login and high-level navigation still use visible labels, so the full-submit scaffold
+remains intentionally excluded from smoke coverage.
 
-## Screenshots (out of scope here)
+## Screenshots
 
-The pre-existing screenshot bootstrap (`app/__screenshot-bootstrap.tsx`) and the captured
-`screenshots/` PNGs (iphone 19 / ipad 15, light theme) are **not** modified by these flows —
-T4 adds Maestro alongside them. The `__screenshot-bootstrap` deep link (`yee-mobile://`,
-accepts `target`/`email`/`password`) can be reused to pre-auth a future Maestro flow.
+Screenshot capture and visual re-baselining are handled separately from Maestro. The focused
+question flow only edits the seeded test draft and stops after the non-affirmative answer; it
+never enters review or submits data.
 
 ## CI
 

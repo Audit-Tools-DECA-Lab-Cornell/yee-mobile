@@ -24,7 +24,7 @@ import {
     type MobileYeeStepNumber,
 } from "lib/yee-mobile-audit-config";
 import type {
-    InstrumentPromptRow,
+    InstrumentLogicalQuestion,
     InstrumentSectionDefinition,
     NormalizedInstrument,
 } from "lib/yee-mobile-instrument";
@@ -33,10 +33,11 @@ import { YEE_SYNC_MAX_ATTEMPTS, type YeeSyncQueueItem } from "lib/yee-types";
 // ---------------------------------------------------------------------------
 // Instrument builders (real NormalizedInstrument shape)
 // ---------------------------------------------------------------------------
-function makeRow(presenceItemId: string, choiceId: string): InstrumentPromptRow {
+function makeQuestion(presenceItemId: string, choiceId: string): InstrumentLogicalQuestion {
     return {
+        key: `${presenceItemId}:${choiceId}`,
         choiceId,
-        label: `Question for ${presenceItemId}`,
+        prompt: `Question for ${presenceItemId}`,
         presenceItemId,
         presenceAnswers: [{ id: "ans1", label: "Yes" }],
         conditionItemId: null,
@@ -47,7 +48,7 @@ function makeRow(presenceItemId: string, choiceId: string): InstrumentPromptRow 
 function makeSection(
     step: MobileYeeStepNumber,
     title: string,
-    rows: readonly InstrumentPromptRow[],
+    questions: readonly InstrumentLogicalQuestion[],
 ): InstrumentSectionDefinition {
     const domain = getDomainForStep(step);
     if (domain === null) {
@@ -60,7 +61,7 @@ function makeSection(
         blockLabel: title,
         introText: "",
         commentPrompt: "",
-        groups: [{ id: `${title}-group`, instruction: null, rows }],
+        questions,
     };
 }
 
@@ -189,8 +190,10 @@ describe("findFirstIncompleteStep — Step 2 (Weighting)", () => {
 // findFirstIncompleteStep — Steps 3–8 (Domain sections)
 // ===========================================================================
 describe("findFirstIncompleteStep — Steps 3–8 (Domain sections)", () => {
-    it("flags step 3 when the Access section has unanswered rows", () => {
-        const instrument = makeInstrument([makeSection(3, "Access", [makeRow("item-1", "ch-1")])]);
+    it("flags step 3 when the Access section has unanswered questions", () => {
+        const instrument = makeInstrument([
+            makeSection(3, "Access", [makeQuestion("item-1", "ch-1")]),
+        ]);
         expect(findFirstIncompleteStep(makeDraft(), instrument)).toEqual({
             step: 3,
             label: "Access",
@@ -198,15 +201,17 @@ describe("findFirstIncompleteStep — Steps 3–8 (Domain sections)", () => {
     });
 
     it("passes step 3 when all rows in Access are answered", () => {
-        const instrument = makeInstrument([makeSection(3, "Access", [makeRow("item-1", "ch-1")])]);
+        const instrument = makeInstrument([
+            makeSection(3, "Access", [makeQuestion("item-1", "ch-1")]),
+        ]);
         const responses = { "item-1": { "ch-1": "ans1" } };
         expect(findFirstIncompleteStep(makeDraft({ responses }), instrument)).toBeNull();
     });
 
     it("flags the first incomplete step (4) when step 3 is complete but step 4 is not", () => {
         const instrument = makeInstrument([
-            makeSection(3, "Access", [makeRow("item-a", "ch-a")]),
-            makeSection(4, "Activity Spaces", [makeRow("item-b", "ch-b")]),
+            makeSection(3, "Access", [makeQuestion("item-a", "ch-a")]),
+            makeSection(4, "Activity Spaces", [makeQuestion("item-b", "ch-b")]),
         ]);
         const responses = { "item-a": { "ch-a": "ans1" } };
         expect(findFirstIncompleteStep(makeDraft({ responses }), instrument)).toEqual({
@@ -217,12 +222,12 @@ describe("findFirstIncompleteStep — Steps 3–8 (Domain sections)", () => {
 
     it("returns null when all six domain sections are fully answered", () => {
         const instrument = makeInstrument([
-            makeSection(3, "Access", [makeRow("item-a", "ch-a")]),
-            makeSection(4, "Activity Spaces", [makeRow("item-b", "ch-b")]),
-            makeSection(5, "Amenities", [makeRow("item-c", "ch-c")]),
-            makeSection(6, "Experience", [makeRow("item-d", "ch-d")]),
-            makeSection(7, "Aesthetics", [makeRow("item-e", "ch-e")]),
-            makeSection(8, "Use & Usability", [makeRow("item-f", "ch-f")]),
+            makeSection(3, "Access", [makeQuestion("item-a", "ch-a")]),
+            makeSection(4, "Activity Spaces", [makeQuestion("item-b", "ch-b")]),
+            makeSection(5, "Amenities", [makeQuestion("item-c", "ch-c")]),
+            makeSection(6, "Experience", [makeQuestion("item-d", "ch-d")]),
+            makeSection(7, "Aesthetics", [makeQuestion("item-e", "ch-e")]),
+            makeSection(8, "Use & Usability", [makeQuestion("item-f", "ch-f")]),
         ]);
         const responses: Record<string, Record<string, string>> = {
             "item-a": { "ch-a": "ans" },
@@ -237,18 +242,32 @@ describe("findFirstIncompleteStep — Steps 3–8 (Domain sections)", () => {
 
     it("skips a step when the instrument has no section for that domain", () => {
         const instrument = makeInstrument([
-            makeSection(5, "Amenities", [makeRow("item-c", "ch-c")]),
+            makeSection(5, "Amenities", [makeQuestion("item-c", "ch-c")]),
         ]);
         const responses = { "item-c": { "ch-c": "ans1" } };
         expect(findFirstIncompleteStep(makeDraft({ responses }), instrument)).toBeNull();
     });
 
     it("checks context before weighting before domain sections", () => {
-        const instrument = makeInstrument([makeSection(3, "Access", [makeRow("item-1", "ch-1")])]);
+        const instrument = makeInstrument([
+            makeSection(3, "Access", [makeQuestion("item-1", "ch-1")]),
+        ]);
         expect(findFirstIncompleteStep(makeDraft({ visitFrequency: "" }), instrument)).toEqual({
             step: 1,
             label: "Context",
         });
+    });
+
+    it("does not require a condition answer after an affirmative primary answer", () => {
+        const question: InstrumentLogicalQuestion = {
+            ...makeQuestion("item-1", "ch-1"),
+            conditionItemId: "condition-1",
+            conditionAnswers: [{ id: "good", label: "Good" }],
+        };
+        const instrument = makeInstrument([makeSection(3, "Access", [question])]);
+        const responses = { "item-1": { "ch-1": "ans1" } };
+
+        expect(findFirstIncompleteStep(makeDraft({ responses }), instrument)).toBeNull();
     });
 });
 
@@ -278,7 +297,9 @@ describe("getCompletedSteps", () => {
 
     it("omits step 2 when a weight is missing without hiding later progress", () => {
         const weights: Record<MobileYeeDomainKey, string> = { ...FULL_WEIGHTS, access: "" };
-        const instrument = makeInstrument([makeSection(3, "Access", [makeRow("item-1", "ch-1")])]);
+        const instrument = makeInstrument([
+            makeSection(3, "Access", [makeQuestion("item-1", "ch-1")]),
+        ]);
         const responses = { "item-1": { "ch-1": "ans1" } };
         const completed = getCompletedSteps(makeDraft({ weights, responses }), instrument);
         expect(completed.has(2)).toBe(false);
@@ -287,8 +308,8 @@ describe("getCompletedSteps", () => {
 
     it("marks only fully answered domain sections complete", () => {
         const instrument = makeInstrument([
-            makeSection(3, "Access", [makeRow("item-a", "ch-a")]),
-            makeSection(4, "Activity Spaces", [makeRow("item-b", "ch-b")]),
+            makeSection(3, "Access", [makeQuestion("item-a", "ch-a")]),
+            makeSection(4, "Activity Spaces", [makeQuestion("item-b", "ch-b")]),
         ]);
         const responses = { "item-a": { "ch-a": "ans" } };
         const completed = getCompletedSteps(makeDraft({ responses }), instrument);
@@ -303,7 +324,9 @@ describe("getCompletedSteps", () => {
     });
 
     it("agrees with findFirstIncompleteStep on a fully complete audit", () => {
-        const instrument = makeInstrument([makeSection(3, "Access", [makeRow("item-a", "ch-a")])]);
+        const instrument = makeInstrument([
+            makeSection(3, "Access", [makeQuestion("item-a", "ch-a")]),
+        ]);
         const responses = { "item-a": { "ch-a": "ans" } };
         const draft = makeDraft({ responses });
         expect(findFirstIncompleteStep(draft, instrument)).toBeNull();

@@ -62,7 +62,7 @@ const ReviewSectionCardBody = memo(function ReviewSectionCardBody({
         <SurveyCard title={section.label}>
             <XStack justify="space-between" items="center" gap="$3" flexWrap="wrap">
                 <Paragraph color={designSystem.colors.secondaryForeground}>
-                    {section.answeredCount} of {section.totalCount} question rows answered
+                    {section.answeredCount} of {section.totalCount} questions answered.
                 </Paragraph>
                 <Button
                     rounded={designSystem.radii.button}
