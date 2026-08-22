@@ -4,6 +4,7 @@ import { Button, XStack, YStack } from "tamagui";
 import { ArrowLeft, ArrowRight, Save } from "components/icons";
 import { BrandSpinner } from "components/ui";
 import { useDesignSystem } from "lib/design-system";
+import type { LayoutChangeEvent } from "react-native";
 
 /**
  * Sticky footer navigation. Back / Save & exit / Next (or Review on the final
