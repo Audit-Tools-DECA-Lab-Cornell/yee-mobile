@@ -143,9 +143,8 @@ const StepPill = memo(function StepPill({
 });
 
 /**
- * The 10th rail control. Reads as the primary chip once every section is
- * complete; before that it stays muted and non-interactive so the auditor sees
- * that review is the final, still-locked step.
+ * The 10th rail control. It stays neutral while locked and uses the same
+ * incomplete treatment as other available steps once every section is complete.
  */
 const ReviewPill = memo(function ReviewPill({
     enabled,
@@ -155,11 +154,7 @@ const ReviewPill = memo(function ReviewPill({
     onReview: () => void;
 }) {
     const designSystem = useDesignSystem();
-    const surface = enabled ? designSystem.colors.primary : designSystem.colors.surfaceMuted;
-    const border = enabled ? designSystem.colors.primary : designSystem.colors.border;
-    const foreground = enabled
-        ? designSystem.colors.primaryForeground
-        : designSystem.colors.mutedForeground;
+    const tone = getStepTone(enabled ? "incomplete" : "empty", designSystem.colors);
     return (
         <XStack
             {...PILL_SIZING}
@@ -179,8 +174,8 @@ const ReviewPill = memo(function ReviewPill({
             onPress={enabled ? onReview : undefined}
             style={{
                 minHeight: 40,
-                backgroundColor: surface,
-                borderColor: border,
+                backgroundColor: tone.surface,
+                borderColor: tone.border,
                 opacity: enabled ? 1 : 0.6,
             }}
         >
@@ -193,18 +188,16 @@ const ReviewPill = memo(function ReviewPill({
                 style={{
                     backgroundColor: "transparent",
                     borderWidth: 1,
-                    borderColor: enabled
-                        ? designSystem.colors.primaryForeground
-                        : designSystem.colors.border,
+                    borderColor: tone.indicator ?? designSystem.colors.border,
                 }}
             >
-                <ClipboardCheck size={12} color={foreground} />
+                <ClipboardCheck size={12} color={tone.text} />
             </YStack>
             <Text
                 fontFamily={designSystem.fonts.bodyBold}
                 fontSize={12}
                 numberOfLines={1}
-                style={{ color: foreground, flexShrink: 1 }}
+                style={{ color: tone.text, flexShrink: 1 }}
             >
                 Review
             </Text>
