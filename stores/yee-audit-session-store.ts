@@ -6,10 +6,9 @@ import {
 } from "lib/yee-mobile-draft";
 import type { MobileYeeDomainKey, MobileYeeStepNumber } from "lib/yee-mobile-audit-config";
 import {
-    getNegativePresenceOption,
     isAffirmativeAnswer,
     normalizeInstrument,
-    type InstrumentPromptRow,
+    type InstrumentLogicalQuestion,
     type NormalizedInstrument,
 } from "lib/yee-mobile-instrument";
 import { findFirstIncompleteStep } from "lib/yee-submit-guard";
@@ -91,18 +90,8 @@ export interface AuditSessionState {
     setWeight: (domain: MobileYeeDomainKey, value: string) => void;
     setWeightingComments: (value: string) => void;
 
-    setPresenceAnswer: (row: InstrumentPromptRow, answerId: string) => void;
-    setConditionAnswer: (row: InstrumentPromptRow, answerId: string) => void;
-
-    /**
-     * Bulk-answer every still-unanswered presence row in the given set with its
-     * negative ("Not present") option, in ONE state update. Rows already answered
-     * are untouched, and rows without a single unambiguous negative option are
-     * skipped (see {@link getNegativePresenceOption}). Clearing a condition
-     * follow-up on a newly-negative row follows the same rule as
-     * {@link setPresenceAnswer}.
-     */
-    markRowsNotPresent: (rows: readonly InstrumentPromptRow[]) => void;
+    setPresenceAnswer: (question: InstrumentLogicalQuestion, answerId: string) => void;
+    setConditionAnswer: (question: InstrumentLogicalQuestion, answerId: string) => void;
 
     setSectionComment: (domain: MobileYeeDomainKey, value: string) => void;
     setComments: (value: string) => void;
@@ -394,83 +383,45 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
 
         // Preserves the "clear the condition follow-up when presence turns
         // negative" rule from the old inline OptionGrid handler exactly.
-        setPresenceAnswer: (row, answerId) =>
+        setPresenceAnswer: (question, answerId) =>
             patchDraft((draft) => {
                 const clearsCondition =
-                    row.conditionItemId !== null &&
-                    !isAffirmativeAnswer(row.presenceAnswers, answerId);
+                    question.conditionItemId !== null &&
+                    !isAffirmativeAnswer(question.presenceAnswers, answerId);
                 return {
                     ...draft,
                     responses: {
                         ...draft.responses,
-                        [row.presenceItemId]: {
-                            ...(draft.responses[row.presenceItemId] ?? {}),
-                            [row.choiceId]: answerId,
+                        [question.presenceItemId]: {
+                            ...(draft.responses[question.presenceItemId] ?? {}),
+                            [question.choiceId]: answerId,
                         },
-                        ...(clearsCondition && row.conditionItemId !== null
+                        ...(clearsCondition && question.conditionItemId !== null
                             ? {
-                                  [row.conditionItemId]: {
-                                      ...(draft.responses[row.conditionItemId] ?? {}),
-                                      [row.choiceId]: "",
+                                  [question.conditionItemId]: {
+                                      ...(draft.responses[question.conditionItemId] ?? {}),
+                                      [question.choiceId]: "",
                                   },
                               }
                             : {}),
                     },
                 };
             }),
-        setConditionAnswer: (row, answerId) =>
+        setConditionAnswer: (question, answerId) =>
             patchDraft((draft) => {
-                if (row.conditionItemId === null) {
+                if (question.conditionItemId === null) {
                     return draft;
                 }
                 return {
                     ...draft,
                     responses: {
                         ...draft.responses,
-                        [row.conditionItemId]: {
-                            ...(draft.responses[row.conditionItemId] ?? {}),
-                            [row.choiceId]: answerId,
+                        [question.conditionItemId]: {
+                            ...(draft.responses[question.conditionItemId] ?? {}),
+                            [question.choiceId]: answerId,
                         },
                     },
                 };
-            }),
-
-        markRowsNotPresent: (rows) =>
-            patchDraft((draft) => {
-                let responses = draft.responses;
-                let changed = false;
-                for (const row of rows) {
-                    const current = responses[row.presenceItemId]?.[row.choiceId];
-                    // Only fill rows that are genuinely unanswered.
-                    if (typeof current === "string" && current.length > 0) {
-                        continue;
-                    }
-                    // Derive the negative option from semantics, not label copy; skip
-                    // rows without one unambiguous negative choice.
-                    const negative = getNegativePresenceOption(row.presenceAnswers);
-                    if (negative === null) {
-                        continue;
-                    }
-                    responses = {
-                        ...responses,
-                        [row.presenceItemId]: {
-                            ...(responses[row.presenceItemId] ?? {}),
-                            [row.choiceId]: negative.id,
-                        },
-                        // A negative presence clears any condition follow-up, exactly
-                        // like a manual negative tap in setPresenceAnswer.
-                        ...(row.conditionItemId !== null
-                            ? {
-                                  [row.conditionItemId]: {
-                                      ...(responses[row.conditionItemId] ?? {}),
-                                      [row.choiceId]: "",
-                                  },
-                              }
-                            : {}),
-                    };
-                    changed = true;
-                }
-                return changed ? { ...draft, responses } : draft;
             }),
 
         setSectionComment: (domain, value) =>

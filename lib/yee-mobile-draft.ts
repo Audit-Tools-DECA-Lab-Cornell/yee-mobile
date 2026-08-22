@@ -172,9 +172,8 @@ function normalizeResponses(raw: Record<string, unknown>): Record<string, Record
 
         const nested: Record<string, string> = {};
         for (const [choiceId, answerId] of Object.entries(value)) {
-            const normalized = asString(answerId);
-            if (normalized !== null) {
-                nested[choiceId] = normalized;
+            if (typeof answerId === "string") {
+                nested[choiceId] = answerId;
             }
         }
         result[itemId] = nested;

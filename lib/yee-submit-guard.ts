@@ -1,4 +1,5 @@
 import type { MobileYeeStepNumber } from "./yee-mobile-audit-config";
+import { isQuestionAnswered } from "./yee-audit-question-view";
 import { getSectionForStep, type NormalizedInstrument } from "./yee-mobile-instrument";
 import type { MobileAuditFormState } from "./yee-mobile-draft";
 import type { YeeSyncQueueItem } from "./yee-types";
@@ -87,12 +88,7 @@ function isDomainSectionComplete(
     draft: SubmitGuardDraft,
     section: NonNullable<ReturnType<typeof getSectionForStep>>,
 ): boolean {
-    return section.groups.every((group) =>
-        group.rows.every((row) => {
-            const presenceValue = draft.responses[row.presenceItemId]?.[row.choiceId];
-            return typeof presenceValue === "string" && presenceValue.length > 0;
-        }),
-    );
+    return section.questions.every((question) => isQuestionAnswered(question, draft.responses));
 }
 
 /**

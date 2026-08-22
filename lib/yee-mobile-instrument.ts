@@ -3,25 +3,24 @@ import { getDomainForStep } from "./yee-mobile-audit-config";
 import type { YeeInstrumentResponse } from "./yee-types";
 
 interface RawTextEntry {
-    readonly Display?: string;
+    readonly Display: string;
 }
 
 interface RawInstrumentSection {
-    readonly block?: string;
-    readonly title?: string;
-    readonly intro_text?: string;
-    readonly comment_prompt?: string;
+    readonly block: string | undefined;
+    readonly title: string | undefined;
+    readonly intro_text: string | undefined;
+    readonly comment_prompt: string | undefined;
 }
 
 interface RawScoringItem {
-    readonly item_id?: string;
-    readonly base_question_id?: string;
-    readonly block?: string;
-    readonly block_title?: string;
-    readonly question_text?: string;
-    readonly item_kind?: string;
-    readonly choices?: Record<string, RawTextEntry>;
-    readonly answers?: Record<string, RawTextEntry>;
+    readonly item_id: string | undefined;
+    readonly base_question_id: string | undefined;
+    readonly block: string | undefined;
+    readonly block_title: string | undefined;
+    readonly item_kind: string | undefined;
+    readonly choices: Readonly<Record<string, RawTextEntry>>;
+    readonly answers: Readonly<Record<string, RawTextEntry>>;
 }
 
 export interface InstrumentOption {
@@ -29,19 +28,14 @@ export interface InstrumentOption {
     readonly label: string;
 }
 
-export interface InstrumentPromptRow {
+export interface InstrumentLogicalQuestion {
+    readonly key: string;
     readonly choiceId: string;
-    readonly label: string;
+    readonly prompt: string;
     readonly presenceItemId: string;
     readonly presenceAnswers: readonly InstrumentOption[];
     readonly conditionItemId: string | null;
     readonly conditionAnswers: readonly InstrumentOption[];
-}
-
-export interface InstrumentPromptGroup {
-    readonly id: string;
-    readonly instruction: string | null;
-    readonly rows: readonly InstrumentPromptRow[];
 }
 
 export interface InstrumentSectionDefinition {
@@ -51,7 +45,7 @@ export interface InstrumentSectionDefinition {
     readonly blockLabel: string;
     readonly introText: string;
     readonly commentPrompt: string;
-    readonly groups: readonly InstrumentPromptGroup[];
+    readonly questions: readonly InstrumentLogicalQuestion[];
 }
 
 /** A visit-context question (step 1), fully backend-supplied. */
@@ -112,9 +106,84 @@ const DOMAIN_KEYS: readonly MobileYeeDomainKey[] = [
     "aestheticsAndCare",
     "useAndUsability",
 ];
+const DOMAIN_KEY_SET: ReadonlySet<string> = new Set(DOMAIN_KEYS);
 
 function isDomainKey(value: string): value is MobileYeeDomainKey {
-    return (DOMAIN_KEYS as readonly string[]).includes(value);
+    return DOMAIN_KEY_SET.has(value);
+}
+
+function isUnknownRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function optionalString(
+    source: Readonly<Record<string, unknown>>,
+    key: string,
+): string | undefined {
+    const value = source[key];
+    return typeof value === "string" ? value : undefined;
+}
+
+function parseTextEntries(value: unknown): Readonly<Record<string, RawTextEntry>> {
+    if (!isUnknownRecord(value)) {
+        return {};
+    }
+
+    const entries: Record<string, RawTextEntry> = {};
+    for (const [id, rawEntry] of Object.entries(value)) {
+        if (!isUnknownRecord(rawEntry)) {
+            continue;
+        }
+        const display = optionalString(rawEntry, "Display");
+        if (display === undefined) {
+            continue;
+        }
+        entries[id] = { Display: display };
+    }
+    return entries;
+}
+
+function parseRawSections(value: unknown): readonly RawInstrumentSection[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value.flatMap((rawSection): readonly RawInstrumentSection[] => {
+        if (!isUnknownRecord(rawSection)) {
+            return [];
+        }
+        return [
+            {
+                block: optionalString(rawSection, "block"),
+                title: optionalString(rawSection, "title"),
+                intro_text: optionalString(rawSection, "intro_text"),
+                comment_prompt: optionalString(rawSection, "comment_prompt"),
+            },
+        ];
+    });
+}
+
+function parseRawScoringItems(value: unknown): readonly RawScoringItem[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+
+    return value.flatMap((rawItem): readonly RawScoringItem[] => {
+        if (!isUnknownRecord(rawItem)) {
+            return [];
+        }
+        return [
+            {
+                item_id: optionalString(rawItem, "item_id"),
+                base_question_id: optionalString(rawItem, "base_question_id"),
+                block: optionalString(rawItem, "block"),
+                block_title: optionalString(rawItem, "block_title"),
+                item_kind: optionalString(rawItem, "item_kind"),
+                choices: parseTextEntries(rawItem["choices"]),
+                answers: parseTextEntries(rawItem["answers"]),
+            },
+        ];
+    });
 }
 
 function toOptionList(
@@ -132,12 +201,8 @@ function toOptionList(
 }
 
 export function normalizeInstrument(instrument: YeeInstrumentResponse): NormalizedInstrument {
-    const rawSections = Array.isArray((instrument as { sections?: unknown }).sections)
-        ? ((instrument as { sections: unknown[] }).sections as RawInstrumentSection[])
-        : [];
-    const rawItems = Array.isArray((instrument as { scoring_items?: unknown }).scoring_items)
-        ? ((instrument as { scoring_items: unknown[] }).scoring_items as RawScoringItem[])
-        : [];
+    const rawSections = parseRawSections(instrument.sections);
+    const rawItems = parseRawScoringItems(instrument.scoring_items);
 
     const sectionsByDomain = new Map<MobileYeeDomainKey, InstrumentSectionDefinition>();
     for (const rawSection of rawSections) {
@@ -161,7 +226,7 @@ export function normalizeInstrument(instrument: YeeInstrumentResponse): Normaliz
             commentPrompt: sanitizeRichText(
                 rawSection.comment_prompt ?? "Optional comments for this section.",
             ),
-            groups: [],
+            questions: [],
         });
     }
 
@@ -178,42 +243,50 @@ export function normalizeInstrument(instrument: YeeInstrumentResponse): Normaliz
         itemsByDomain.set(domain, grouped);
     }
 
-    const normalizedSections = (Object.keys(DOMAIN_ORDER) as MobileYeeDomainKey[])
-        .map((domain) => {
+    const normalizedSections = DOMAIN_KEYS.flatMap(
+        (domain): readonly InstrumentSectionDefinition[] => {
             const section = sectionsByDomain.get(domain);
             if (section === undefined) {
-                return null;
+                return [];
             }
 
             const grouped = itemsByDomain.get(domain) ?? new Map<string, RawScoringItem[]>();
-            const groups = [...grouped.entries()].map(([baseQuestionId, items]) => {
-                const presence = items.find((entry) => entry.item_kind === "presence") ?? items[0];
-                const condition = items.find((entry) => entry.item_kind === "condition") ?? null;
-                const choices = normalizeOptions(presence?.choices ?? {}, "question");
-                const presenceAnswers = normalizeOptions(presence?.answers ?? {}, "answer");
-                const conditionAnswers = normalizeOptions(condition?.answers ?? {}, "answer");
-                const instruction = normalizeInstruction(presence?.question_text ?? "");
+            const questions = [...grouped.entries()].flatMap(
+                ([baseQuestionId, items]): readonly InstrumentLogicalQuestion[] => {
+                    const presence = items.find((entry) => entry.item_kind === "presence");
+                    if (presence === undefined) {
+                        return [];
+                    }
 
-                return {
-                    id: baseQuestionId,
-                    instruction,
-                    rows: choices.map((choice) => ({
+                    const condition =
+                        items.find((entry) => entry.item_kind === "condition") ?? null;
+                    const choices = normalizeOptions(presence.choices ?? {}, "question");
+                    const presenceAnswers = normalizeOptions(presence.answers ?? {}, "answer");
+                    const conditionAnswers = normalizeOptions(condition?.answers ?? {}, "answer");
+                    const presenceItemId = presence.item_id?.trim() || baseQuestionId;
+                    const rawConditionItemId = condition?.item_id?.trim() || null;
+                    const hasCondition = rawConditionItemId !== null && conditionAnswers.length > 0;
+
+                    return choices.map((choice): InstrumentLogicalQuestion => ({
+                        key: `${presenceItemId}:${choice.id}`,
                         choiceId: choice.id,
-                        label: choice.label,
-                        presenceItemId: presence?.item_id?.trim() || baseQuestionId,
+                        prompt: choice.label,
+                        presenceItemId,
                         presenceAnswers,
-                        conditionItemId: condition?.item_id?.trim() || null,
-                        conditionAnswers,
-                    })),
-                } satisfies InstrumentPromptGroup;
-            });
+                        conditionItemId: hasCondition ? rawConditionItemId : null,
+                        conditionAnswers: hasCondition ? conditionAnswers : [],
+                    }));
+                },
+            );
 
-            return {
-                ...section,
-                groups,
-            } satisfies InstrumentSectionDefinition;
-        })
-        .filter(Boolean) as InstrumentSectionDefinition[];
+            return [
+                {
+                    ...section,
+                    questions,
+                },
+            ];
+        },
+    );
 
     return {
         sections: normalizedSections,
@@ -255,13 +328,18 @@ function normalizeContextQuestions(
 
 function normalizeWeighting(instrument: YeeInstrumentResponse): InstrumentWeighting {
     const raw = instrument.weighting ?? null;
-    const domains = (Array.isArray(raw?.domains) ? raw.domains : [])
-        .filter((domain) => domain && typeof domain.key === "string" && isDomainKey(domain.key))
-        .map((domain) => ({
-            key: domain.key as MobileYeeDomainKey,
-            label: readableLabel(domain.label ?? ""),
-            prompt: sanitizeRichText(domain.prompt ?? ""),
-        }));
+    const domains = (Array.isArray(raw?.domains) ? raw.domains : []).flatMap(
+        (domain): readonly InstrumentWeightingDomain[] =>
+            domain && typeof domain.key === "string" && isDomainKey(domain.key)
+                ? [
+                      {
+                          key: domain.key,
+                          label: readableLabel(domain.label ?? ""),
+                          prompt: sanitizeRichText(domain.prompt ?? ""),
+                      },
+                  ]
+                : [],
+    );
 
     return {
         title: sanitizeRichText(raw?.title ?? ""),
@@ -353,38 +431,6 @@ export function isAffirmativeAnswer(
 }
 
 /**
- * The single unambiguous negative-presence option for a row, or `null`.
- *
- * "Not present" is derived from the SAME affirmative semantics the condition
- * follow-up already uses (the non-affirmative option), never from matching a
- * literal label like "No" / "Not present". We only return an option when there
- * is exactly one non-affirmative choice — a clean binary presence question. For
- * anything ambiguous (multiple negatives, or none) we return `null` and let the
- * auditor answer manually, so the bulk "mark remaining not present" helper can
- * never guess wrong.
- */
-export function getNegativePresenceOption(
-    options: readonly InstrumentOption[],
-): InstrumentOption | null {
-    const negatives = options.filter((option) => !isAffirmativeAnswer(options, option.id));
-    return negatives.length === 1 ? (negatives[0] ?? null) : null;
-}
-
-function normalizeInstruction(text: string): string | null {
-    const cleaned = sanitizeRichText(text);
-    if (cleaned.length === 0) {
-        return null;
-    }
-
-    const lowered = cleaned.toLowerCase();
-    if (lowered.includes("click to write the question text")) {
-        return null;
-    }
-
-    return cleaned;
-}
-
-/**
  * Normalize a choice/answer map into display options.
  *
  * `kind` decides punctuation: `"question"` prompts (the per-row choice labels)
@@ -393,7 +439,7 @@ function normalizeInstruction(text: string): string | null {
  * an answer produced the reported "Yes?" / "No?" labels.
  */
 function normalizeOptions(
-    source: Record<string, RawTextEntry>,
+    source: Readonly<Record<string, RawTextEntry>>,
     kind: "question" | "answer",
 ): readonly InstrumentOption[] {
     return Object.entries(source).map(([id, value]) => ({

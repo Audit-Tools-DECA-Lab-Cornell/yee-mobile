@@ -31,14 +31,14 @@ describe("createResponsiveLayoutTokens — Samsung Tab S5e narrow-tablet band (~
     });
 });
 
-describe("createResponsiveLayoutTokens — phone tier stays pixel-stable", () => {
+describe("createResponsiveLayoutTokens — phone tier", () => {
     const phone = createResponsiveLayoutTokens(390);
 
-    it("keeps phone control heights and spacing unchanged", () => {
+    it("uses accessible option targets while preserving other phone sizing", () => {
         expect(phone.isTablet).toBe(false);
         expect(phone.buttonHeight).toBe(52);
         expect(phone.controlHeight).toBe(56);
-        expect(phone.formOptionHeight).toBe(42);
+        expect(phone.formOptionHeight).toBe(48);
         expect(phone.screenPaddingHorizontal).toBe(16);
         expect(phone.screenPaddingVertical).toBe(16);
         expect(phone.sectionGap).toBe(20);

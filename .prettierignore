@@ -9,3 +9,4 @@ tsconfig.tsbuildinfo
 tamagui.generated.css
 tamagui-web.css
 AGENT_SESSION-*.md
+tests/fixtures/yee-instrument.snapshot.json

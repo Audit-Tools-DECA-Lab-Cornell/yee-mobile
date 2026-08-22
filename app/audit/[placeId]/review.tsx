@@ -42,6 +42,11 @@ import {
     type MobileYeeStepNumber,
 } from "lib/yee-mobile-audit-config";
 import {
+    countAnsweredQuestions,
+    countTotalQuestions,
+    shouldShowFollowUp,
+} from "lib/yee-audit-question-view";
+import {
     answerLabel,
     contextAnswerLabel,
     contextAnswerLabelList,
@@ -286,37 +291,33 @@ export default function AuditReviewScreen() {
                 };
             }
 
-            const rows = section.groups.flatMap((group) =>
-                group.rows.map((row) => {
-                    const responseId = draft.responses[row.presenceItemId]?.[row.choiceId];
-                    const response = answerLabel(row.presenceAnswers, responseId) ?? "Not answered";
-                    const showCondition =
-                        responseId !== undefined &&
-                        (response.toLowerCase().startsWith("yes") ||
-                            response.toLowerCase().includes("yes,"));
-                    const condition =
-                        showCondition && row.conditionItemId !== null
-                            ? (answerLabel(
-                                  row.conditionAnswers,
-                                  draft.responses[row.conditionItemId]?.[row.choiceId],
-                              ) ?? "Not answered")
-                            : null;
+            const rows = section.questions.map((question) => {
+                const responseId = draft.responses[question.presenceItemId]?.[question.choiceId];
+                const response =
+                    answerLabel(question.presenceAnswers, responseId) ?? "Not answered";
+                const condition =
+                    shouldShowFollowUp(question, draft.responses) &&
+                    question.conditionItemId !== null
+                        ? (answerLabel(
+                              question.conditionAnswers,
+                              draft.responses[question.conditionItemId]?.[question.choiceId],
+                          ) ?? "Not answered")
+                        : null;
 
-                    return {
-                        prompt: row.label,
-                        response,
-                        condition,
-                    };
-                }),
-            );
+                return {
+                    prompt: question.prompt,
+                    response,
+                    condition,
+                };
+            });
 
             return {
                 domain,
                 label: section.title,
                 step,
                 rows,
-                answeredCount: rows.filter((row) => row.response !== "Not answered").length,
-                totalCount: rows.length,
+                answeredCount: countAnsweredQuestions(section, draft.responses),
+                totalCount: countTotalQuestions(section),
             } satisfies ReviewSection;
         });
     }, [draft, instrument]);
@@ -330,11 +331,13 @@ export default function AuditReviewScreen() {
             return 0;
         }
 
-        return Object.values(draft.responses).reduce(
-            (sum, responseMap) => sum + Object.values(responseMap).filter(Boolean).length,
-            0,
+        return (
+            instrument?.sections.reduce(
+                (sum, section) => sum + countAnsweredQuestions(section, draft.responses),
+                0,
+            ) ?? 0
         );
-    }, [draft]);
+    }, [draft, instrument]);
 
     const submitStatus = useMemo<SubmitUiStatus>(
         () => deriveSubmitStatus({ pendingSubmission, hasSyncedSubmission }),

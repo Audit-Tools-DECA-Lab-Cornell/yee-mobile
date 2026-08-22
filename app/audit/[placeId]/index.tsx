@@ -19,6 +19,7 @@ import {
     getPreviousStep,
     type MobileYeeStepNumber,
 } from "lib/yee-mobile-audit-config";
+import { countAnsweredQuestions, countTotalQuestions } from "lib/yee-audit-question-view";
 import { getSectionForStep, type NormalizedInstrument } from "lib/yee-mobile-instrument";
 import type { MobileAuditFormState } from "lib/yee-mobile-draft";
 import { getLatestSubmissionForPlace } from "lib/yee-mobile-selectors";
@@ -36,7 +37,7 @@ import { AuditBlockedScreen, AuditSkeleton } from "components/audit/AuditStates"
 import { ContextStep } from "components/audit/ContextStep";
 import { WeightingStep } from "components/audit/WeightingStep";
 import { FinalCommentsStep } from "components/audit/FinalCommentsStep";
-import { DomainStep, countAnsweredRows, countTotalRows } from "components/audit/DomainStep";
+import { DomainStep } from "components/audit/DomainStep";
 import { NoticeCard } from "components/audit/primitives";
 
 /**
@@ -470,11 +471,11 @@ function getStepIncompleteMessage(
         if (section === null) {
             return null;
         }
-        const completedCount = countAnsweredRows(section, draft);
-        const totalCount = countTotalRows(section);
+        const completedCount = countAnsweredQuestions(section, draft.responses);
+        const totalCount = countTotalQuestions(section);
         return completedCount === totalCount
             ? null
-            : `${section.title} still has unanswered question rows.`;
+            : `${section.title} still has unanswered questions.`;
     }
 
     return null;

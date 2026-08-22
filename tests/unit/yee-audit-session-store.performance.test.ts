@@ -12,8 +12,7 @@
  *   - dirty tracking — a no-op answer tap does not mark the draft dirty,
  *   - autosave debounces a burst of edits into a single local write,
  *   - read-only (submitted) sessions never write, enqueue, or drain,
- *   - markRowsNotPresent fills only unanswered rows and derives "Not present"
- *     from option semantics (never label copy),
+ *   - presence/condition answer actions write only their exact backend bindings,
  *   - the remote refresh never clobbers local truth (loadPlaceAuditState guard
  *     that backgroundRefresh delegates to).
  *
@@ -23,7 +22,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthSession } from "lib/auth/types";
 import { buildFormStateFromSources, type MobileAuditFormState } from "lib/yee-mobile-draft";
-import type { InstrumentPromptRow } from "lib/yee-mobile-instrument";
+import type { InstrumentLogicalQuestion } from "lib/yee-mobile-instrument";
 import { readDraft, readSyncQueue, writeInstrumentCache } from "lib/yee-offline-storage";
 import { setActiveAccount } from "lib/yee-secure-draft-storage";
 import type {
@@ -123,26 +122,27 @@ function makeRemoteDraftState(placeId: string): YeeAuditStateResponse {
     };
 }
 
-/** A tiny instrument the store can normalize; groups are irrelevant to these tests. */
 const INSTRUMENT_FIXTURE: YeeInstrumentResponse = {
     sections: [{ block: "Access", title: "Access", intro_text: "", comment_prompt: "" }],
     scoring_items: [],
 } as unknown as YeeInstrumentResponse;
 
-/** A clean binary presence row: exactly one affirmative + one negative choice. */
-function binaryRow(overrides: Partial<InstrumentPromptRow> = {}): InstrumentPromptRow {
+function binaryQuestion(
+    overrides: Partial<InstrumentLogicalQuestion> = {},
+): InstrumentLogicalQuestion {
     return {
+        key: "p1:c1",
         choiceId: "c1",
-        label: "Bench present?",
+        prompt: "Bench present?",
         presenceItemId: "p1",
         presenceAnswers: [
-            { id: "yes", label: "Yes" },
-            { id: "no", label: "No" },
+            { id: "1", label: "Yes" },
+            { id: "0", label: "No" },
         ],
         conditionItemId: "cond1",
         conditionAnswers: [
-            { id: "good", label: "Good" },
-            { id: "poor", label: "Poor" },
+            { id: "2", label: "Good" },
+            { id: "3", label: "Poor" },
         ],
         ...overrides,
     };
@@ -379,7 +379,8 @@ describe("read-only (submitted) session — inert", () => {
 
         // Setters are no-ops in read-only mode.
         useAuditSessionStore.getState().setSeason("winter");
-        useAuditSessionStore.getState().markRowsNotPresent([binaryRow()]);
+        useAuditSessionStore.getState().setPresenceAnswer(binaryQuestion(), "0");
+        useAuditSessionStore.getState().setConditionAnswer(binaryQuestion(), "2");
         expect(useAuditSessionStore.getState().draft).toBe(before);
         expect(useAuditSessionStore.getState().hasLocalEdits).toBe(false);
 
@@ -393,47 +394,98 @@ describe("read-only (submitted) session — inert", () => {
     });
 });
 
-describe("markRowsNotPresent — fills only unanswered rows, derives negative from semantics", () => {
-    it("fills an unanswered binary row with its negative option and clears the condition follow-up", () => {
-        seedEditable(makeFormState("place-1"));
-        const row = binaryRow();
+describe("question answer bindings", () => {
+    it("setPresenceAnswer writes only the primary item and choice binding", () => {
+        const responses = {
+            p1: { sibling: "existing" },
+            cond1: { c1: "good", sibling: "poor" },
+            unrelated: { choice: "answer" },
+        };
+        seedEditable(makeFormState("place-1", { responses }));
 
-        useAuditSessionStore.getState().markRowsNotPresent([row]);
+        useAuditSessionStore.getState().setPresenceAnswer(binaryQuestion(), "1");
 
-        const responses = useAuditSessionStore.getState().draft?.responses;
-        // "no" is derived as the single non-affirmative option — never from label copy.
-        expect(responses?.p1?.c1).toBe("no");
-        // A negative presence clears any condition follow-up, like a manual negative tap.
-        expect(responses?.cond1?.c1).toBe("");
-        expect(useAuditSessionStore.getState().hasLocalEdits).toBe(true);
+        expect(useAuditSessionStore.getState().draft?.responses).toEqual({
+            p1: { sibling: "existing", c1: "1" },
+            cond1: { c1: "good", sibling: "poor" },
+            unrelated: { choice: "answer" },
+        });
     });
 
-    it("never overwrites a row the auditor already answered", () => {
-        seedEditable(makeFormState("place-1", { responses: { p1: { c1: "yes" } } }));
+    it("setConditionAnswer writes only the condition item and choice binding", () => {
+        const responses = {
+            p1: { c1: "1", sibling: "0" },
+            cond1: { sibling: "poor" },
+            unrelated: { choice: "answer" },
+        };
+        seedEditable(makeFormState("place-1", { responses }));
 
-        useAuditSessionStore.getState().markRowsNotPresent([binaryRow()]);
+        useAuditSessionStore.getState().setConditionAnswer(binaryQuestion(), "2");
 
-        // Already answered "yes" -> untouched; no spurious dirty flip either.
-        expect(useAuditSessionStore.getState().draft?.responses.p1?.c1).toBe("yes");
-        expect(useAuditSessionStore.getState().hasLocalEdits).toBe(false);
+        expect(useAuditSessionStore.getState().draft?.responses).toEqual({
+            p1: { c1: "1", sibling: "0" },
+            cond1: { sibling: "poor", c1: "2" },
+            unrelated: { choice: "answer" },
+        });
     });
 
-    it("skips rows with no single unambiguous negative option (never guesses)", () => {
-        seedEditable(makeFormState("place-1"));
-        // Two non-affirmative choices -> ambiguous -> getNegativePresenceOption null.
-        const ambiguous = binaryRow({
-            presenceItemId: "p2",
-            presenceAnswers: [
-                { id: "poor", label: "Poor" },
-                { id: "fair", label: "Fair" },
-            ],
-            conditionItemId: null,
+    it("changing affirmative to non-affirmative keeps an exact empty condition binding", () => {
+        const responses = {
+            p1: { c1: "1", sibling: "1" },
+            cond1: { c1: "good", sibling: "poor" },
+            unrelated: { choice: "answer" },
+        };
+        seedEditable(makeFormState("place-1", { responses }));
+
+        useAuditSessionStore.getState().setPresenceAnswer(binaryQuestion(), "0");
+
+        expect(useAuditSessionStore.getState().draft?.responses).toEqual({
+            p1: { c1: "0", sibling: "1" },
+            cond1: { c1: "", sibling: "poor" },
+            unrelated: { choice: "answer" },
+        });
+    });
+
+    it("hydrates stored negative and empty bindings byte-equivalently before an unrelated edit", () => {
+        const responses = {
+            "manual-presence": { manual: "0" },
+            "bulk-presence": { bulk: "0" },
+            "condition-item": { affirmative: "" },
+            "unrelated-item": { stable: "answer" },
+        };
+        const storedDraft = { ...makeLocalDraft("place-1"), responses };
+        const hydrated = buildFormStateFromSources({
+            placeId: "place-1",
+            placeName: "Place",
+            auditorId: "AUDITOR",
+            storedDraft,
         });
 
-        useAuditSessionStore.getState().markRowsNotPresent([ambiguous]);
+        expect(hydrated.responses).toEqual(responses);
+        expect(JSON.stringify(hydrated.responses)).toBe(JSON.stringify(responses));
 
-        expect(useAuditSessionStore.getState().draft?.responses.p2).toBeUndefined();
-        expect(useAuditSessionStore.getState().hasLocalEdits).toBe(false);
+        seedEditable(hydrated);
+        useAuditSessionStore.getState().setPresenceAnswer(
+            binaryQuestion({
+                key: "new-presence:new-choice",
+                presenceItemId: "new-presence",
+                choiceId: "new-choice",
+                conditionItemId: null,
+                conditionAnswers: [],
+            }),
+            "1",
+        );
+
+        expect(useAuditSessionStore.getState().draft?.responses).toEqual({
+            ...responses,
+            "new-presence": { "new-choice": "1" },
+        });
+        expect(responses).toEqual({
+            "manual-presence": { manual: "0" },
+            "bulk-presence": { bulk: "0" },
+            "condition-item": { affirmative: "" },
+            "unrelated-item": { stable: "answer" },
+        });
     });
 });
 
