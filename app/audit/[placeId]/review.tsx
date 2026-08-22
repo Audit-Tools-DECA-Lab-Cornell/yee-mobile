@@ -7,6 +7,7 @@ import {
     useState,
     type PropsWithChildren,
 } from "react";
+import type { LayoutChangeEvent } from "react-native";
 import {
     KeyboardAwareScrollView,
     type KeyboardAwareScrollViewRef,
@@ -34,6 +35,7 @@ import {
 } from "lib/yee-mobile-draft";
 import { buildMobileAuditProjection } from "lib/yee-mobile-selectors";
 import {
+    asMobileYeeDomainKey,
     getWeightNumber,
     mobileYeeSteps,
     type MobileYeeDomainKey,
@@ -62,7 +64,7 @@ import type { YeeScoreResult, YeeSubmissionResponse } from "lib/yee-types";
 import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 import { useAuditSessionStore } from "stores/yee-audit-session-store";
-import { useSurveyPalette } from "components/audit/survey-theme";
+import { SurveyDomainContext, useSurveyPalette } from "components/audit/survey-theme";
 import { NoticeCard, SurveyCard } from "components/audit/primitives";
 import {
     ReviewSectionCard,
@@ -1107,6 +1109,7 @@ const WeightingSummaryCard = memo(function WeightingSummaryCard({
                 {instrument.weighting.domains.map((domain) => (
                     <WeightingDomainRow
                         key={domain.key}
+                        domain={asMobileYeeDomainKey(domain.key)}
                         label={domain.label}
                         weight={draft.weights[domain.key]}
                         weightLabel={weightOptionLabel(instrument, draft.weights[domain.key])}
@@ -1121,7 +1124,21 @@ const WeightingSummaryCard = memo(function WeightingSummaryCard({
     );
 });
 
-const WeightingDomainRow = memo(function WeightingDomainRow({
+/** One domain's saved weight, in that domain's colours. */
+const WeightingDomainRow = memo(function WeightingDomainRow(props: {
+    domain: MobileYeeDomainKey | null;
+    label: string;
+    weight: string;
+    weightLabel: string;
+}) {
+    return (
+        <SurveyDomainContext.Provider value={props.domain}>
+            <WeightingDomainRowBody {...props} />
+        </SurveyDomainContext.Provider>
+    );
+});
+
+const WeightingDomainRowBody = memo(function WeightingDomainRowBody({
     label,
     weight,
     weightLabel,
@@ -1139,13 +1156,13 @@ const WeightingDomainRow = memo(function WeightingDomainRow({
             p="$3.5"
             gap="$1.5"
             style={{
-                backgroundColor: palette.inner,
-                borderColor: palette.innerBorder,
+                backgroundColor: palette.condition,
+                borderColor: palette.conditionBorder,
             }}
         >
             <XStack justify="space-between" items="center" gap="$3">
                 <Text
-                    color={designSystem.colors.foreground}
+                    style={{ color: palette.accentText }}
                     fontFamily={designSystem.fonts.bodyBold}
                     flex={1}
                 >
@@ -1215,7 +1232,7 @@ const ReviewFooter = memo(function ReviewFooter({
     return (
         <YStack
             position="absolute"
-            onLayout={(event) => onMeasure(event.nativeEvent.layout.height)}
+            onLayout={(event: LayoutChangeEvent) => onMeasure(event.nativeEvent.layout.height)}
             style={{
                 left: 0,
                 right: 0,

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
-import { Platform, ScrollView, Share } from "react-native";
+import { Platform, ScrollView, Share, type LayoutChangeEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
@@ -8,6 +8,7 @@ import { BarChart3, ChevronLeft } from "components/icons";
 import { useYeeStackHeaderOptions } from "components/navigation/useYeeStackHeaderOptions";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { BrandLogo, Skeleton } from "components/ui";
+import { DomainDot, DomainLabel } from "components/DomainLabel";
 import { getScoreBandTone, useDesignSystem } from "lib/design-system";
 import {
     getContentTrackInnerWidth,
@@ -493,6 +494,7 @@ export default function MobileReportDetailScreen() {
                                                 key={domain}
                                                 title={`${mobileYeeDomainLabels[domain]} comments`}
                                                 body={comments[domain] ?? ""}
+                                                domain={domain}
                                             />
                                         );
                                     },
@@ -504,7 +506,9 @@ export default function MobileReportDetailScreen() {
 
                 <YStack
                     position="absolute"
-                    onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
+                    onLayout={(event: LayoutChangeEvent) =>
+                        setFooterHeight(event.nativeEvent.layout.height)
+                    }
                     style={{
                         left: 0,
                         right: 0,
@@ -637,13 +641,7 @@ function WeightingSummaryCard({ rows }: { rows: readonly DomainScoreRow[] }) {
                         borderColor={designSystem.colors.border}
                     >
                         <YStack flex={1} gap="$0.5">
-                            <Text
-                                color={designSystem.colors.foreground}
-                                fontFamily={designSystem.fonts.bodyBold}
-                                fontSize={15}
-                            >
-                                {row.label}
-                            </Text>
+                            <DomainLabel domain={row.domain} label={row.label} />
                             <Paragraph
                                 color={designSystem.colors.mutedForeground}
                                 fontFamily={designSystem.fonts.bodyMedium}
@@ -652,7 +650,7 @@ function WeightingSummaryCard({ rows }: { rows: readonly DomainScoreRow[] }) {
                                 {getWeightLabel(row.weightValue)}
                             </Paragraph>
                         </YStack>
-                        <ImportanceMeter value={row.weightValue} />
+                        <ImportanceMeter value={row.weightValue} domain={row.domain} />
                     </XStack>
                 ))}
             </YStack>
@@ -660,8 +658,8 @@ function WeightingSummaryCard({ rows }: { rows: readonly DomainScoreRow[] }) {
     );
 }
 
-/** Three-segment importance indicator (1-3). Filled segments use the brand green. */
-function ImportanceMeter({ value }: { value: number }) {
+/** Three-segment importance indicator (1-3), filled in the domain's own colour. */
+function ImportanceMeter({ value, domain }: { value: number; domain: MobileYeeDomainKey }) {
     const designSystem = useDesignSystem();
     const filled = Math.max(0, Math.min(3, Math.round(value)));
     return (
@@ -676,7 +674,7 @@ function ImportanceMeter({ value }: { value: number }) {
                         style={{
                             backgroundColor:
                                 segment <= filled
-                                    ? designSystem.colors.primary
+                                    ? designSystem.domains[domain].fill
                                     : designSystem.colors.mutedSurface,
                         }}
                     />
@@ -780,16 +778,20 @@ function ScoreTableRow({ row }: { row: DomainScoreRow }) {
             borderColor={designSystem.colors.border}
             gap="$2"
         >
-            <Text
-                flex={1.25}
-                color={designSystem.colors.foreground}
-                fontFamily={designSystem.fonts.bodyBold}
-                numberOfLines={1}
-                overflow="hidden"
-                style={{ textOverflow: "ellipsis" }}
-            >
-                {row.label}
-            </Text>
+            <XStack flex={1.25} items="center" gap="$1.5">
+                <DomainDot domain={row.domain} />
+                <Text
+                    fontFamily={designSystem.fonts.bodyBold}
+                    numberOfLines={1}
+                    overflow="hidden"
+                    style={{
+                        color: designSystem.domains[row.domain].text,
+                        textOverflow: "ellipsis",
+                    }}
+                >
+                    {row.label}
+                </Text>
+            </XStack>
             <Paragraph flex={1} color={designSystem.colors.secondaryForeground}>
                 {row.rawScore}/{row.rawMax}{" "}
                 <Text
@@ -839,13 +841,7 @@ function SectionScoreChart({ rows }: { rows: readonly DomainScoreRow[] }) {
             <YStack gap="$3.5" mt="$1">
                 {rows.map((row) => (
                     <YStack key={row.domain} gap="$2">
-                        <Text
-                            color={designSystem.colors.foreground}
-                            fontFamily={designSystem.fonts.bodyBold}
-                            fontSize={14}
-                        >
-                            {row.label}
-                        </Text>
+                        <DomainLabel domain={row.domain} label={row.label} fontSize={14} />
                         <ChartBar
                             color={rawSeriesColor}
                             percentage={row.rawPercentage}
@@ -939,25 +935,47 @@ function HighlightsRow({ rows }: { rows: readonly DomainScoreRow[] }) {
     return (
         <XStack gap="$3" flexWrap="wrap">
             <InfoPanel title="Highest and lowest raw score sections">
-                <MetricRow
-                    label="Highest"
-                    value={`${highestRaw?.label ?? "N/A"} (${Math.round(highestRaw?.rawPercentage ?? 0)}%)`}
-                />
-                <MetricRow
-                    label="Lowest"
-                    value={`${lowestRaw?.label ?? "N/A"} (${Math.round(lowestRaw?.rawPercentage ?? 0)}%)`}
-                />
+                <DomainHighlightRow label="Highest" row={highestRaw} mode="raw" />
+                <DomainHighlightRow label="Lowest" row={lowestRaw} mode="raw" />
             </InfoPanel>
             <InfoPanel title="Highest and lowest Youth-Weighted sections">
-                <MetricRow
-                    label="Highest"
-                    value={`${highestWeighted?.label ?? "N/A"} (${Math.round(highestWeighted?.weightedPercentage ?? 0)}%)`}
-                />
-                <MetricRow
-                    label="Lowest"
-                    value={`${lowestWeighted?.label ?? "N/A"} (${Math.round(lowestWeighted?.weightedPercentage ?? 0)}%)`}
-                />
+                <DomainHighlightRow label="Highest" row={highestWeighted} mode="weighted" />
+                <DomainHighlightRow label="Lowest" row={lowestWeighted} mode="weighted" />
             </InfoPanel>
+        </XStack>
+    );
+}
+
+/**
+ * One highlight line. The section named here is a domain, so it is named in that
+ * domain's colours rather than as plain text — the same treatment the score
+ * table and the section chart use, so the reader can match them at a glance.
+ */
+function DomainHighlightRow({
+    label,
+    row,
+    mode,
+}: {
+    label: string;
+    row: DomainScoreRow | undefined;
+    mode: "raw" | "weighted";
+}) {
+    const designSystem = useDesignSystem();
+    if (row === undefined) return <MetricRow label={label} value="N/A" />;
+    const percentage = mode === "raw" ? row.rawPercentage : row.weightedPercentage;
+    return (
+        <XStack justify="space-between" items="center" gap="$3" py="$1">
+            <Paragraph color={designSystem.colors.mutedForeground}>{label}</Paragraph>
+            <XStack items="center" gap="$1.5" flex={0} shrink={1}>
+                <DomainLabel domain={row.domain} label={row.label} fontSize={13} />
+                <Text
+                    color={designSystem.colors.foreground}
+                    fontFamily={designSystem.fonts.bodyBold}
+                    fontSize={13}
+                >
+                    ({Math.round(percentage)}%)
+                </Text>
+            </XStack>
         </XStack>
     );
 }
@@ -1074,10 +1092,20 @@ function MetricRow({ label, value }: { label: string; value: string }) {
     );
 }
 
-function CommentBlock({ title, body }: { title: string; body: string }) {
+function CommentBlock({
+    title,
+    body,
+    domain,
+}: {
+    title: string;
+    body: string;
+    /** Set when the comment belongs to one domain; omitted for overall/weighting. */
+    domain?: MobileYeeDomainKey;
+}) {
     const designSystem = useDesignSystem();
     const layout = useResponsiveLayout();
     const trimmed = body.trim();
+    const colors = domain === undefined ? null : designSystem.domains[domain];
     // Fixed-width columns (not flex) so every card is the same width regardless
     // of how many land on the final row; a min height keeps empty and filled
     // cards visually consistent.
@@ -1086,16 +1114,18 @@ function CommentBlock({ title, body }: { title: string; body: string }) {
             width={layout.isTablet ? "48.5%" : "100%"}
             rounded={designSystem.radii.sm}
             borderWidth={1}
-            borderColor={designSystem.colors.border}
-            bg={designSystem.colors.input}
             p="$3"
             gap="$1.5"
-            style={{ minHeight: 76 }}
+            style={{
+                minHeight: 76,
+                borderColor: colors?.strong ?? designSystem.colors.border,
+                backgroundColor: colors?.light ?? designSystem.colors.input,
+            }}
         >
             <Text
-                color={designSystem.colors.foreground}
                 fontFamily={designSystem.fonts.bodyBold}
                 fontSize={14}
+                style={{ color: colors?.text ?? designSystem.colors.foreground }}
             >
                 {title}
             </Text>

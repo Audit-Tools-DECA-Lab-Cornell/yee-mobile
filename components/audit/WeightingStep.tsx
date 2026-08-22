@@ -2,7 +2,8 @@ import { memo, useCallback } from "react";
 import { useShallow } from "zustand/react/shallow";
 import type { InstrumentOption, InstrumentWeightingDomain } from "lib/yee-mobile-instrument";
 import { useAuditSessionStore } from "stores/yee-audit-session-store";
-import { useSurveyPalette } from "./survey-theme";
+import { asMobileYeeDomainKey } from "lib/yee-mobile-audit-config";
+import { SurveyDomainContext, useSurveyPalette } from "./survey-theme";
 import {
     CommentField,
     OptionGrid,
@@ -55,10 +56,19 @@ const WeightRow = memo(function WeightRow({
         (next: string) => setWeight(domain.key, next),
         [setWeight, domain.key],
     );
+    // The step itself is not a domain, but each row IS one — so the row carries
+    // that domain's colours, the same ones it will wear on its own audit step.
     return (
-        <QuestionCard label={domain.prompt}>
-            <OptionGrid value={value} options={options} onChange={onChange} disabled={readOnly} />
-        </QuestionCard>
+        <SurveyDomainContext.Provider value={asMobileYeeDomainKey(domain.key)}>
+            <QuestionCard label={domain.prompt}>
+                <OptionGrid
+                    value={value}
+                    options={options}
+                    onChange={onChange}
+                    disabled={readOnly}
+                />
+            </QuestionCard>
+        </SurveyDomainContext.Provider>
     );
 });
 

@@ -1,6 +1,6 @@
 import { createAnimations } from "@tamagui/animations-react-native";
 import { defaultConfig } from "@tamagui/config/v5";
-import { createFont, createTamagui } from "tamagui";
+import { createFont, createTamagui, type CreateTamaguiProps } from "tamagui";
 import { themes } from "./themes";
 
 /**
@@ -17,6 +17,14 @@ const animations = createAnimations({
     lazy: { type: "spring", damping: 20, stiffness: 60 },
     slow: { type: "spring", damping: 15, stiffness: 40 },
 });
+
+/**
+ * Bun's isolated install can expose more than one declaration instance of
+ * `@tamagui/web`. React Native 0.83.10 makes those otherwise-identical animation
+ * driver types fail structural assignment, so normalize the driver at the
+ * `createTamagui` boundary without weakening the rest of the config.
+ */
+const compatibleAnimations = animations as unknown as NonNullable<CreateTamaguiProps["animations"]>;
 
 /**
  * Create a Tamagui font token backed by a single native family.
@@ -52,7 +60,7 @@ const dyslexicBoldFont = createStaticFont("OpenDyslexic-Bold", defaultConfig.fon
 
 export const config = createTamagui({
     ...defaultConfig,
-    animations,
+    animations: compatibleAnimations,
     fonts: {
         ...defaultConfig.fonts,
         body: bodyFont,

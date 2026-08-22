@@ -112,6 +112,16 @@ export function getOpenHoursAccessLabel(value: string | null | undefined): strin
     return getOptionLabel(openHoursAccessOptions, value);
 }
 
+/**
+ * Narrow a raw key from the cached instrument to one of the six scored domains.
+ * Anything else (a key a future instrument adds, a typo) is not a domain and
+ * must render neutral rather than borrow another domain's colour.
+ */
+export function asMobileYeeDomainKey(key: string | null | undefined): MobileYeeDomainKey | null {
+    if (!key) return null;
+    return Object.hasOwn(mobileYeeDomainLabels, key) ? (key as MobileYeeDomainKey) : null;
+}
+
 export function getDomainForStep(step: MobileYeeStepNumber): MobileYeeDomainKey | null {
     switch (step) {
         case 3:

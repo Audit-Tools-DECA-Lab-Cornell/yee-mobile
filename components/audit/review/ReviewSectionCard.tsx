@@ -2,7 +2,7 @@ import { memo } from "react";
 import { Button, Paragraph, Text, XStack, YStack } from "tamagui";
 import { useDesignSystem } from "lib/design-system";
 import type { MobileYeeDomainKey, MobileYeeStepNumber } from "lib/yee-mobile-audit-config";
-import { useSurveyPalette } from "components/audit/survey-theme";
+import { SurveyDomainContext, useSurveyPalette } from "components/audit/survey-theme";
 import { SurveyCard } from "components/audit/primitives";
 
 export type ReviewRow = {
@@ -25,7 +25,28 @@ export type ReviewSection = {
  * list only re-renders the section whose underlying data actually changed —
  * every other section keeps its previous render output.
  */
-export const ReviewSectionCard = memo(function ReviewSectionCard({
+/**
+ * One domain's read-only summary, wrapped in that domain's colour context.
+ *
+ * The provider is what makes the review screen match the audit itself: every
+ * primitive inside — the card tint, the edit button, the nested rows — reads
+ * `useSurveyPalette()`, which resolves the hue from {@link SurveyDomainContext}.
+ * Without it all six sections rendered in the same neutral green and the review
+ * lost the one cue telling the auditor which section they were looking at.
+ */
+export const ReviewSectionCard = memo(function ReviewSectionCard(props: {
+    section: ReviewSection;
+    sectionComment: string;
+    onEditSection: (step: MobileYeeStepNumber) => void;
+}) {
+    return (
+        <SurveyDomainContext.Provider value={props.section.domain}>
+            <ReviewSectionCardBody {...props} />
+        </SurveyDomainContext.Provider>
+    );
+});
+
+const ReviewSectionCardBody = memo(function ReviewSectionCardBody({
     section,
     sectionComment,
     onEditSection,

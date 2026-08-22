@@ -67,12 +67,43 @@ top of the user's setting.
 Mirrors the web's tokenized data-viz system (`yee-frontend/globals.css`), read
 through `useDesignSystem()`:
 
-- **Domain palettes** (`designSystem.domains`) — six OKLCH-harmonized hues, one
-  per YEE domain (access green, activity indigo, amenities ochre, experience
-  teal, aesthetics rose, use violet), each with `text` / `strong` / `fill` /
-  `light` roles. The audit wizard's domain steps (3–8) consume them through
-  `useSurveyPalette()` + `SurveyDomainContext`; non-domain steps stay
-  brand-green.
+- **Domain palettes** (`designSystem.domains`) — six hues, one per YEE domain
+  (access green, activity indigo, amenities ochre, experience teal, aesthetics
+  rose, use violet), each with `text` / `strong` / `fill` / `light` roles, in
+  both themes.
+
+    The **single source of truth is `lib/domain-palette.json`**, committed with
+    identical contents in **yee-frontend** (`src/styles/domain-palette.json`),
+    where the same file generates the web's `--domain-*` CSS tokens and feeds its
+    PDF/Excel exports. Never hardcode a domain colour anywhere in this app —
+    `tests/unit/domain-palette.test.ts` fails if a domain hex appears outside the
+    spec, if a contrast floor slips, or if the two repos' copies drift.
+
+    Each role is tuned to its job, which is why one hue per domain is not enough:
+
+    | Role     | Used for                             | Floor (enforced)                               |
+    | -------- | ------------------------------------ | ---------------------------------------------- |
+    | `text`   | labels, headings, small text         | ≥ 7:1 on the card, the app bg and its own tint |
+    | `strong` | borders, dots, solid button surfaces | ≥ 4.5:1 on the same three                      |
+    | `fill`   | chart bars, progress fills, meters   | ≥ 3:1 on the card (WCAG 1.4.11)                |
+    | `light`  | tint backgrounds                     | the surface the two above are measured against |
+
+    The six `fill` steps also clear categorical separation (OKLab ΔE ≥ 15 in full
+    colour, ≥ 8 under protanopia/deuteranopia). Domain colour is never the only
+    signal — a domain mark always sits with its name (WCAG 1.4.1).
+
+    **Where they are consumed:** the audit wizard's domain steps (3–8) and the
+    review screen's section cards get them through `useSurveyPalette()` +
+    `SurveyDomainContext`; the weighting step and its review summary wrap each
+    _row_ in the provider, since the step is not a domain but each row is; the
+    report screen uses `designSystem.domains` directly via `components/DomainLabel`
+    (all six show at once, so there is no single active domain to provide).
+    Non-domain steps stay brand-green.
+
+    In `SurveyPalette`, `accent` is the domain's `strong` step — it backs solid
+    surfaces that carry light text, where `fill`'s 3:1 would be below the 4.5:1 a
+    label needs. `accentFill` is the vivid `fill`, for bars nothing is written on.
+
 - **Score bands** (`designSystem.scoreBands` + `scoreBandKey()` /
   `getScoreBandTone()`) — deep brand green high, muted gold mid, restrained clay
   low. Thresholds shared with the web: `<34` low, `<67` mid, otherwise high. Use

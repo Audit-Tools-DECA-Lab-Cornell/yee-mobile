@@ -46,7 +46,14 @@ export interface SurveyPalette {
     readonly optionText: string;
     readonly intro: string;
     readonly introBorder: string;
+    /**
+     * Solid surface for buttons, dots and rules that may carry light text on top.
+     * This is the domain's `strong` step, not `fill`: `fill` is tuned to 3:1 as a
+     * chart mark, which is below the 4.5:1 a button label needs.
+     */
     readonly accent: string;
+    /** Chart/progress fill — a bar nothing is written on, so `fill` is right here. */
+    readonly accentFill: string;
     readonly accentText: string;
     readonly mutedAccent: string;
     readonly mutedAccentText: string;
@@ -78,7 +85,8 @@ export function getSurveyPalette(colors: ColorTokens, domain?: DomainPalette): S
             // Web instruction/callout: domain-strong border + domain-light surface.
             intro: domain.light,
             introBorder: domain.strong,
-            accent: domain.fill,
+            accent: domain.strong,
+            accentFill: domain.fill,
             accentText: domain.text,
             mutedAccent: colors.secondaryForeground,
             mutedAccentText: colors.secondaryForeground,
@@ -107,6 +115,7 @@ export function getSurveyPalette(colors: ColorTokens, domain?: DomainPalette): S
         intro: colors.successSoft,
         introBorder: colors.border,
         accent: colors.primary,
+        accentFill: colors.primary,
         accentText: colors.primaryText,
         mutedAccent: colors.secondaryForeground,
         mutedAccentText: colors.secondaryForeground,
