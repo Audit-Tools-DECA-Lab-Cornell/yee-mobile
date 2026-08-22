@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView } from "react-native";
+import { ScrollView, type LayoutChangeEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
@@ -345,7 +345,9 @@ export default function AuditViewScreen() {
 
                 <YStack
                     position="absolute"
-                    onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
+                    onLayout={(event: LayoutChangeEvent) =>
+                        setFooterHeight(event.nativeEvent.layout.height)
+                    }
                     style={{
                         left: 0,
                         right: 0,

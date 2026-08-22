@@ -7,6 +7,7 @@ import {
     useState,
     type PropsWithChildren,
 } from "react";
+import type { LayoutChangeEvent } from "react-native";
 import {
     KeyboardAwareScrollView,
     type KeyboardAwareScrollViewRef,
@@ -1231,7 +1232,7 @@ const ReviewFooter = memo(function ReviewFooter({
     return (
         <YStack
             position="absolute"
-            onLayout={(event) => onMeasure(event.nativeEvent.layout.height)}
+            onLayout={(event: LayoutChangeEvent) => onMeasure(event.nativeEvent.layout.height)}
             style={{
                 left: 0,
                 right: 0,

@@ -1,4 +1,5 @@
 import { memo } from "react";
+import type { LayoutChangeEvent } from "react-native";
 import { Button, XStack, YStack } from "tamagui";
 import { ArrowLeft, ArrowRight, Save } from "components/icons";
 import { BrandSpinner } from "components/ui";
@@ -36,7 +37,7 @@ export const AuditFooterNav = memo(function AuditFooterNav({
     return (
         <YStack
             position="absolute"
-            onLayout={(event) => onMeasure(event.nativeEvent.layout.height)}
+            onLayout={(event: LayoutChangeEvent) => onMeasure(event.nativeEvent.layout.height)}
             style={{
                 left: 0,
                 right: 0,

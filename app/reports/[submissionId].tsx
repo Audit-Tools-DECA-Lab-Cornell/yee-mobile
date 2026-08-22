@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PropsWithChildren, ReactNode } from "react";
-import { Platform, ScrollView, Share } from "react-native";
+import { Platform, ScrollView, Share, type LayoutChangeEvent } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useShallow } from "zustand/react/shallow";
@@ -506,7 +506,9 @@ export default function MobileReportDetailScreen() {
 
                 <YStack
                     position="absolute"
-                    onLayout={(event) => setFooterHeight(event.nativeEvent.layout.height)}
+                    onLayout={(event: LayoutChangeEvent) =>
+                        setFooterHeight(event.nativeEvent.layout.height)
+                    }
                     style={{
                         left: 0,
                         right: 0,
