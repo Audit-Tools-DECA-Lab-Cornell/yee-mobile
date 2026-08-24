@@ -55,7 +55,7 @@
         "@react-native-community/netinfo": "11.5.2",
         "@react-navigation/native": "^7.1.33",
         "@sentry/react-native": "~7.11.0",
-        "@tamagui/animations-react-native": "2.4.2",
+        "@tamagui/animations-react-native": "2.7.7",
         "@tamagui/config": "2.4.2",
         "@tamagui/helpers-icon": "2.4.2",
         "@tamagui/lucide-icons-2": "2.4.2",
