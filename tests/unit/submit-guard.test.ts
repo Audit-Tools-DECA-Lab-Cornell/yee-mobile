@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import {
     deriveSubmitStatus,
     findFirstIncompleteStep,
+    recoveryStepForSubmission,
     findPendingSubmission,
     getCompletedSteps,
     type SubmitGuardDraft,
@@ -448,5 +449,73 @@ describe("deriveSubmitStatus", () => {
                 hasSyncedSubmission: false,
             }),
         ).toBe("retry_scheduled");
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Recovery from a submission parked for missing answers
+// ---------------------------------------------------------------------------
+
+describe("deriveSubmitStatus — incomplete answers", () => {
+    it("is answers_incomplete, not queued, when the item was parked for missing answers", () => {
+        // "queued" would promise an upload that can never happen: the payload as
+        // sent is missing required answers, so it is never retried.
+        expect(
+            deriveSubmitStatus({
+                pendingSubmission: makeSubmissionItem("p", {
+                    failureReason: "incomplete",
+                    isTerminal: true,
+                }),
+                hasSyncedSubmission: false,
+            }),
+        ).toBe("answers_incomplete");
+    });
+
+    it("keeps an opaque rejection distinct from a fixable one", () => {
+        expect(
+            deriveSubmitStatus({
+                pendingSubmission: makeSubmissionItem("p", { failureReason: "validation" }),
+                hasSyncedSubmission: false,
+            }),
+        ).toBe("sync_failed");
+    });
+});
+
+describe("recoveryStepForSubmission", () => {
+    it("returns the recorded step so recovery opens the earliest gap", () => {
+        expect(
+            recoveryStepForSubmission(
+                makeSubmissionItem("p", {
+                    failureReason: "incomplete",
+                    incompleteQuestionKeys: {
+                        missingQuestionKeys: ["QID1#1:1"],
+                        firstMissingStep: 5,
+                    },
+                }),
+            ),
+        ).toBe(5);
+    });
+
+    it("returns null when the item records no step, so the caller falls back", () => {
+        // A backend 422 names authoring ids this UI cannot navigate to, and an
+        // item from an older build has no keys at all.
+        expect(
+            recoveryStepForSubmission(makeSubmissionItem("p", { failureReason: "incomplete" })),
+        ).toBeNull();
+    });
+
+    it("returns null for a failure the auditor cannot fix by answering", () => {
+        expect(
+            recoveryStepForSubmission(
+                makeSubmissionItem("p", {
+                    failureReason: "validation",
+                    incompleteQuestionKeys: { missingQuestionKeys: [], firstMissingStep: 5 },
+                }),
+            ),
+        ).toBeNull();
+    });
+
+    it("returns null when nothing is queued", () => {
+        expect(recoveryStepForSubmission(null)).toBeNull();
     });
 });

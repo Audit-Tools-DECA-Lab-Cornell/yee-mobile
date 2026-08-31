@@ -150,6 +150,7 @@ export type SubmitUiStatus =
     | "auth_required"
     | "retry_scheduled"
     | "sync_failed"
+    | "answers_incomplete"
     | "submitted";
 
 /**
@@ -158,6 +159,7 @@ export type SubmitUiStatus =
  * - no item, with a synced submission present → `submitted`
  * - no item, nothing submitted               → `idle`
  * - item, failureReason "auth"               → `auth_required`
+ * - item, failureReason "incomplete"         → `answers_incomplete`
  * - item, failureReason "terminal"/"validation" → `sync_failed`
  * - item, backing off (nextAttemptAtIso set) → `retry_scheduled`
  * - item, otherwise                          → `queued`
@@ -174,10 +176,33 @@ export function deriveSubmitStatus(input: {
     switch (pendingSubmission.failureReason) {
         case "auth":
             return "auth_required";
+        case "incomplete":
+            // Separate from sync_failed on purpose: this one the auditor can fix
+            // by answering a question, so the UI offers that instead of a retry
+            // that would be rejected again.
+            return "answers_incomplete";
         case "terminal":
         case "validation":
             return "sync_failed";
         default:
             return pendingSubmission.nextAttemptAtIso !== null ? "retry_scheduled" : "queued";
     }
+}
+
+/**
+ * The step to open so an auditor lands on the earliest unanswered question.
+ *
+ * `null` when nothing was recorded — an item parked by the backend's 422 names
+ * authoring ids the audit UI cannot navigate to, and a queue item serialized
+ * before this existed has no keys at all. The caller falls back to the ordinary
+ * "edit audit" path, which finds the first incomplete step on its own.
+ */
+export function recoveryStepForSubmission(
+    pendingSubmission: YeeSyncQueueItem | null,
+): MobileYeeStepNumber | null {
+    if (pendingSubmission === null || pendingSubmission.failureReason !== "incomplete") {
+        return null;
+    }
+    const step = pendingSubmission.incompleteQuestionKeys?.firstMissingStep ?? null;
+    return step === null ? null : (step as MobileYeeStepNumber);
 }

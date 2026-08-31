@@ -59,6 +59,7 @@ import {
 import { useAuditConfirm } from "components/audit/AuditConfirmDialog";
 import {
     deriveSubmitStatus,
+    recoveryStepForSubmission,
     findFirstIncompleteStep,
     findPendingSubmission,
     type SubmitUiStatus,
@@ -347,11 +348,24 @@ export default function AuditReviewScreen() {
         () => deriveSubmitStatus({ pendingSubmission, hasSyncedSubmission }),
         [pendingSubmission, hasSyncedSubmission],
     );
+    // Where recovery should land when the queued submission was parked for
+    // missing answers. Kept beside the status it belongs to, and above the
+    // loading return, so the hook order never changes between renders.
+    const recoveryStep = useMemo(
+        () => recoveryStepForSubmission(pendingSubmission),
+        [pendingSubmission],
+    );
     // Disable the final-submit affordance while a submission is in flight OR a
     // persisted submission queue item exists for this place (survives restart),
     // OR the audit has already been submitted.
+    //
+    // A queued item parked for missing answers is the one exception: it will
+    // never upload as it stands, so the affordance stays live and becomes the
+    // way back into the audit rather than a dead "Retry".
     const submitDisabled =
-        isSubmitting || pendingSubmission !== null || submitStatus === "submitted";
+        isSubmitting ||
+        submitStatus === "submitted" ||
+        (pendingSubmission !== null && submitStatus !== "answers_incomplete");
     const scrollToOffset = useCallback((offset: number) => {
         scrollViewRef.current?.scrollTo({ y: offset, animated: false });
     }, []);
@@ -409,6 +423,21 @@ export default function AuditReviewScreen() {
     }
 
     const currentDraft = draft;
+
+    /**
+     * What the primary button does, which depends on why the audit has not
+     * uploaded. A parked-for-missing-answers item has nothing to retry — the
+     * payload as sent is incomplete — so the button opens the earliest gap
+     * instead. With no recorded step, the ordinary edit path lands on the first
+     * incomplete section by itself.
+     */
+    function handlePrimaryAction() {
+        if (submitStatus === "answers_incomplete") {
+            goToStep(recoveryStep ?? 1);
+            return;
+        }
+        void submitNow();
+    }
 
     async function submitNow() {
         // Persisted in-flight guard. Block a rapid double-tap OR a re-tap after an
@@ -603,7 +632,7 @@ export default function AuditReviewScreen() {
                         incompleteLabel={incompleteStep?.label ?? null}
                         onBackToDashboard={() => router.replace("/(tabs)")}
                         onEditAudit={() => goToStep(1)}
-                        onSubmit={() => void submitNow()}
+                        onSubmit={handlePrimaryAction}
                     />
 
                     <SurveyPagesCard onJump={goToStep} />
@@ -654,7 +683,7 @@ export default function AuditReviewScreen() {
                     contentWidth={getContentTrackInnerWidth(layout)}
                     bottomInset={insets.bottom}
                     onBack={() => goToStep(9)}
-                    onSubmit={() => void submitNow()}
+                    onSubmit={handlePrimaryAction}
                     submitDisabled={submitDisabled}
                     isSubmitting={isSubmitting}
                     submitLabel={submitActionLabel(submitStatus, isSubmitting)}
@@ -706,6 +735,8 @@ function submitActionLabel(status: SubmitUiStatus, isSubmitting: boolean): strin
             return "Sign in to upload";
         case "sync_failed":
             return "Retry upload";
+        case "answers_incomplete":
+            return "Fix missing answers";
         case "submitted":
             return "Submitted";
         default:
@@ -748,6 +779,13 @@ function submitStatusCopy(status: SubmitUiStatus): SubmitStatusCopy | null {
                 title: "Sign in to upload",
                 message:
                     "Your session expired before the upload finished. The audit is safe on this device — sign in again to upload it.",
+                tone: "warning",
+            };
+        case "answers_incomplete":
+            return {
+                title: "Missing required answers",
+                message:
+                    "This audit cannot be sent until a few required answers are filled in. Your answers are safe on this device — open the section below to finish it, then submit again.",
                 tone: "warning",
             };
         case "sync_failed":
