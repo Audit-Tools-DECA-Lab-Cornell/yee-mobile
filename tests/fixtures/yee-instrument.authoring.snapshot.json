@@ -1,0 +1,2146 @@
+{
+    "schemaVersion": 2,
+    "sections": [
+        {
+            "id": "access",
+            "title": "Access",
+            "instructions": "<strong>Access:</strong> this section asks about access to the park/space and about the surrounding area. Do your best to look around the space and its entrances to answer the questions. If asked to rate the condition of a feature consider whether it is <strong>poor</strong> <em>(Ex: poorly maintained, unsafe, broken and/or dirty</em>), <strong>acceptable</strong> <em>(Ex: clean, in good shape, well maintained and/or relatively safe)</em> or <strong>great</strong> <em>(Ex: in really good shape, really well maintained, feels very safe)</em>",
+            "commentPrompt": "Are there any comments you want to add about the Access of this space? (optional)",
+            "questions": [
+                {
+                    "id": "access.q1",
+                    "prompt": "Is there at least 1 public transportation stop (Ex: bus or metro/subway stop) nearby?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "access"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID1#1",
+                        "choiceId": "1",
+                        "conditionItemId": "QID1#2"
+                    }
+                },
+                {
+                    "id": "access.q2",
+                    "prompt": "Are there sidewalks leading to the main entrance to the space?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "access"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID1#1",
+                        "choiceId": "2",
+                        "conditionItemId": "QID1#2"
+                    }
+                },
+                {
+                    "id": "access.q3",
+                    "prompt": "Does this space feel near to or well connected to other community spaces that you like to use?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "access"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID11#1",
+                        "choiceId": "1",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "access.q4",
+                    "prompt": "Does the area or neighborhood surrounding the space feel safe (Ex: from traffic, from strangers, from dangerous people or activities)",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "access"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID11#1",
+                        "choiceId": "2",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "access.q5",
+                    "prompt": "Is there signage with details about the space on it (Ex: name of space, open/closing times, space map, event program information, etc)",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "access"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID11#1",
+                        "choiceId": "3",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "access.q6",
+                    "prompt": "Are there posted rules about using the space? (Ex: who can use the space or when; activities not allowed, etc)",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "access"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID11#1",
+                        "choiceId": "4",
+                        "conditionItemId": null
+                    }
+                }
+            ]
+        },
+        {
+            "id": "activitySpaces",
+            "title": "Activity Spaces",
+            "instructions": "<strong>Activity Spaces</strong>: This section asks you to evaluate opportunities and spaces for recreational and social activities. If asked to rate the condition of a feature consider whether it is <strong>poor</strong> <em>(Ex: poorly maintained, unsafe, broken and/or dirty</em>), <strong>acceptable</strong> <em>(Ex: clean, in good shape, well maintained and/or relatively safe)</em> or <strong>great</strong> <em>(Ex: in really good shape, really well maintained, feels very safe)</em>",
+            "commentPrompt": "Are there any comments you want to add about the Activity Spaces of this space? (optional)",
+            "questions": [
+                {
+                    "id": "activitySpaces.q1",
+                    "prompt": "Are there sports fields (Ex: football, soccer, baseball, etc.)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "activitySpaces"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID4#1",
+                        "choiceId": "1",
+                        "conditionItemId": "QID4#2"
+                    }
+                },
+                {
+                    "id": "activitySpaces.q2",
+                    "prompt": "Are there any sports/game courts (Ex: basketball, tennis, wall/handball, etc.)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "activitySpaces"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID4#1",
+                        "choiceId": "2",
+                        "conditionItemId": "QID4#2"
+                    }
+                },
+                {
+                    "id": "activitySpaces.q3",
+                    "prompt": "Is there an open field or space (where you could walk, play games, etc.)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "activitySpaces"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID4#1",
+                        "choiceId": "3",
+                        "conditionItemId": "QID4#2"
+                    }
+                },
+                {
+                    "id": "activitySpaces.q4",
+                    "prompt": "Is there a playground or play structure (typically for younger kids)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "activitySpaces"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID4#1",
+                        "choiceId": "4",
+                        "conditionItemId": "QID4#2"
+                    }
+                },
+                {
+                    "id": "activitySpaces.q5",
+                    "prompt": "Is there fixed equipment/features you can play with (Ex: climbing wall, fitness equipment, skate rails or ramps, etc.)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "activitySpaces"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID4#1",
+                        "choiceId": "5",
+                        "conditionItemId": "QID4#2"
+                    }
+                },
+                {
+                    "id": "activitySpaces.q6",
+                    "prompt": "Is there loose equipment available (Ex: basketballs, soccer balls, nets, etc.)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "activitySpaces"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID4#1",
+                        "choiceId": "6",
+                        "conditionItemId": "QID4#2"
+                    }
+                },
+                {
+                    "id": "activitySpaces.q7",
+                    "prompt": "Are there places where you could hang out with a small group of friends?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "activitySpaces"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID7#1",
+                        "choiceId": "1",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "activitySpaces.q8",
+                    "prompt": "Are there places where you could gather with a larger group of people (Ex. family parties, community events)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "activitySpaces"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID7#1",
+                        "choiceId": "2",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "activitySpaces.q9",
+                    "prompt": "Are there places where you could be by yourself if you wanted to?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "activitySpaces"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID7#1",
+                        "choiceId": "3",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "activitySpaces.q10",
+                    "prompt": "Are there places where you could have privacy if you wanted it (on your own or with others)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "activitySpaces"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID7#1",
+                        "choiceId": "4",
+                        "conditionItemId": null
+                    }
+                }
+            ]
+        },
+        {
+            "id": "amenities",
+            "title": "Amenities",
+            "instructions": "<strong>Amenities:</strong> This section asks about the presence and conditions of different amenities within the space. If asked to rate the condition of a feature consider whether it is <strong>poor</strong> <em>(Ex: poorly maintained, unsafe, broken and/or dirty</em>), <strong>acceptable</strong> <em>(Ex: clean, in good shape, well maintained and/or relatively safe)</em> or <strong>great</strong> <em>(Ex: in really good shape, really well maintained, feels very safe)</em>",
+            "commentPrompt": "Are there any comments you want to add about the Amenities of this space? (optional)",
+            "questions": [
+                {
+                    "id": "amenities.q1",
+                    "prompt": "Are there public bathrooms?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "amenities"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID12#1",
+                        "choiceId": "1",
+                        "conditionItemId": "QID12#2"
+                    }
+                },
+                {
+                    "id": "amenities.q2",
+                    "prompt": "Are there paths for walking and/or cycling?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "amenities"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID12#1",
+                        "choiceId": "2",
+                        "conditionItemId": "QID12#2"
+                    }
+                },
+                {
+                    "id": "amenities.q3",
+                    "prompt": "Is there public WiFi access?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "amenities"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID12#1",
+                        "choiceId": "3",
+                        "conditionItemId": "QID12#2"
+                    }
+                },
+                {
+                    "id": "amenities.q4",
+                    "prompt": "Are there places where you can buy food or drinks?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "amenities"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID13#1",
+                        "choiceId": "1",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "amenities.q5",
+                    "prompt": "Are there trash and/or recycling bins available?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "amenities"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID13#1",
+                        "choiceId": "2",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "amenities.q6",
+                    "prompt": "Are there any structures that could protect you from the rain or the sun (Ex: covered patio, gazebo, shade sails)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "amenities"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID13#1",
+                        "choiceId": "3",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "amenities.q7",
+                    "prompt": "Are there places to sit on your own or with a small group?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "amenities"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID13#1",
+                        "choiceId": "4",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "amenities.q8",
+                    "prompt": "Are there places to sit with larger groups?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "amenities"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID13#1",
+                        "choiceId": "5",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "amenities.q9",
+                    "prompt": "Are there any tables with seats/chairs (Ex: for eating or playing games)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "amenities"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID13#1",
+                        "choiceId": "6",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "amenities.q10",
+                    "prompt": "Is there seating that is movable or rearrangeable?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "amenities"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID13#1",
+                        "choiceId": "7",
+                        "conditionItemId": null
+                    }
+                }
+            ]
+        },
+        {
+            "id": "experienceOfSpace",
+            "title": "Experience of Space",
+            "instructions": "<strong>EXPERIENCE OF THE SPACE:</strong> This section asks about how you feel in or experience the space.",
+            "commentPrompt": "Are there any comments you want to add about the Experience of Space of this space? (optional)",
+            "questions": [
+                {
+                    "id": "experienceOfSpace.q1",
+                    "prompt": "Are there loud or unpleasant noises?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 0
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 2
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "experienceOfSpace"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID15#1",
+                        "choiceId": "1",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "experienceOfSpace.q2",
+                    "prompt": "Is there an opportunity to hear nature sounds (Ex: water, birds, animals)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "experienceOfSpace"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID15#1",
+                        "choiceId": "2",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "experienceOfSpace.q3",
+                    "prompt": "Are there interesting and/or colorful things to look at in this space?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "experienceOfSpace"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID15#1",
+                        "choiceId": "3",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "experienceOfSpace.q4",
+                    "prompt": "Are there scenic views from this space?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "experienceOfSpace"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID15#1",
+                        "choiceId": "4",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "experienceOfSpace.q5",
+                    "prompt": "Does this place give you opportunities to interact with nature (plants and/or wildlife)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "experienceOfSpace"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID15#1",
+                        "choiceId": "5",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "experienceOfSpace.q6",
+                    "prompt": "Is there evidence that the community is involved in or cares about the space (Ex: signs for community events, a community garden, a free book library, etc.)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "experienceOfSpace"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID15#1",
+                        "choiceId": "6",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "experienceOfSpace.q7",
+                    "prompt": "Are there historical or educational features in the space (Ex: monuments, displays, educational signs, etc.)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "experienceOfSpace"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID15#1",
+                        "choiceId": "7",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "experienceOfSpace.q8",
+                    "prompt": "Are there spaces or features that feel unsafe to use (Ex: tripping hazards, unsafe equipment)",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 0
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 2
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "experienceOfSpace"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID15#1",
+                        "choiceId": "8",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "experienceOfSpace.q9",
+                    "prompt": "Are there generally people in the space that make you feel afraid or uncomfortable?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 0
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 2
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "experienceOfSpace"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID15#1",
+                        "choiceId": "9",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "experienceOfSpace.q10",
+                    "prompt": "Is there evidence of alcohol/drug use that makes this space feel unsafe or uncomfortable?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 0
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 2
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "experienceOfSpace"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID15#1",
+                        "choiceId": "10",
+                        "conditionItemId": null
+                    }
+                }
+            ]
+        },
+        {
+            "id": "aestheticsAndCare",
+            "title": "Aesthetics & Care",
+            "instructions": "<strong>Aesthetics & Care:</strong> This section asks about how the space looks and how well it is cared for or maintained. If asked to rate the condition of a feature consider whether it is <strong>poor</strong> <em>(Ex: poorly maintained, unsafe, broken and/or dirty</em>), <strong>acceptable</strong> <em>(Ex: clean, in good shape, well maintained and/or relatively safe)</em> or <strong>great</strong> <em>(Ex: in really good shape, really well maintained, feels very safe)</em>",
+            "commentPrompt": "Are there any comments you want to add about the Aesthetics & Care of this space? (optional)",
+            "questions": [
+                {
+                    "id": "aestheticsAndCare.q1",
+                    "prompt": "Are there landscaped areas in the space (Ex: flower beds, planters, gardens)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "aestheticsAndCare"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID16#2",
+                        "choiceId": "1",
+                        "conditionItemId": "QID16#1"
+                    }
+                },
+                {
+                    "id": "aestheticsAndCare.q2",
+                    "prompt": "Are there natural or wild areas that include greenery, flowers, or other natural elements?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "aestheticsAndCare"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID16#2",
+                        "choiceId": "2",
+                        "conditionItemId": "QID16#1"
+                    }
+                },
+                {
+                    "id": "aestheticsAndCare.q3",
+                    "prompt": "Is there a water feature in the space (Ex: pond, river, fountain)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "aestheticsAndCare"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID16#2",
+                        "choiceId": "3",
+                        "conditionItemId": "QID16#1"
+                    }
+                },
+                {
+                    "id": "aestheticsAndCare.q4",
+                    "prompt": "Does the place feel well maintained / cared for (Ex: feels like someone is taking care of the space, grass is being cut, no overgrown or unhealthy plants/gardens, clear/clean paths, etc.)",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "aestheticsAndCare"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID16#2",
+                        "choiceId": "4",
+                        "conditionItemId": "QID16#1"
+                    }
+                },
+                {
+                    "id": "aestheticsAndCare.q5",
+                    "prompt": "Is there evidence of vandalism (Ex: deliberate destruction or defacement of property)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 0
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 2
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "aestheticsAndCare"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID17#1",
+                        "choiceId": "1",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "aestheticsAndCare.q6",
+                    "prompt": "Is there litter in the space?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 0
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 2
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "aestheticsAndCare"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID17#1",
+                        "choiceId": "2",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "aestheticsAndCare.q7",
+                    "prompt": "Are there trees in the space?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "aestheticsAndCare"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID17#1",
+                        "choiceId": "3",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "aestheticsAndCare.q8",
+                    "prompt": "Are there dangerous spots in the space (tripping hazards, holes in the ground)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 0
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 2
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "aestheticsAndCare"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID17#1",
+                        "choiceId": "4",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "aestheticsAndCare.q9",
+                    "prompt": "Is there any damaged/broken equipment or features?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 0
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 2
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "aestheticsAndCare"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID17#1",
+                        "choiceId": "5",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "aestheticsAndCare.q10",
+                    "prompt": "Is there public art in this space (Ex: sculptures, murals)",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "aestheticsAndCare"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID17#1",
+                        "choiceId": "6",
+                        "conditionItemId": null
+                    }
+                }
+            ]
+        },
+        {
+            "id": "useAndUsability",
+            "title": "Use & Usability",
+            "instructions": "<strong>Use & Usability:</strong> This section asks about how the space can be or is used. If asked to rate the condition of a feature consider whether it is <strong>poor</strong> <em>(Ex: poorly maintained, unsafe, broken and/or dirty</em>), <strong>acceptable</strong> <em>(Ex: clean, in good shape, well maintained and/or relatively safe)</em> or <strong>great</strong> <em>(Ex: in really good shape, really well maintained, feels very safe)</em>",
+            "commentPrompt": "Are there any comments you want to add about the Use & Usability of this space? (optional)",
+            "questions": [
+                {
+                    "id": "useAndUsability.q1",
+                    "prompt": "Is there a designated area for pets (Ex: dog park or off-leash area)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "useAndUsability"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID19#1",
+                        "choiceId": "1",
+                        "conditionItemId": "QID19#2"
+                    }
+                },
+                {
+                    "id": "useAndUsability.q2",
+                    "prompt": "Is the space suitable for youth activity programs or events?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": {
+                        "triggerOptionIds": ["1"],
+                        "requiredWhenShown": true,
+                        "prompt": "If yes, please rate the condition that this feature or area is in.",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Poor",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "Acceptable",
+                                "score": 2
+                            },
+                            {
+                                "id": "3",
+                                "label": "Great",
+                                "score": 3
+                            }
+                        ]
+                    },
+                    "scoring": {
+                        "method": "presence_condition_product",
+                        "domain": "useAndUsability"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID19#1",
+                        "choiceId": "2",
+                        "conditionItemId": "QID19#2"
+                    }
+                },
+                {
+                    "id": "useAndUsability.q3",
+                    "prompt": "Does the layout / design of the space feel appropriate for community needs (Ex: is there enough space for activities? Are there some areas that are not used a lot? Are there some spaces / features that feel unnecessary)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "useAndUsability"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID20#1",
+                        "choiceId": "1",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "useAndUsability.q4",
+                    "prompt": "Is there a variety of spaces for different types of activities?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "useAndUsability"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID20#1",
+                        "choiceId": "2",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "useAndUsability.q5",
+                    "prompt": "Are there lights present that would allow activity areas to be used at night?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes, a lot",
+                                "score": 2
+                            },
+                            {
+                                "id": "2",
+                                "label": "Yes, a little",
+                                "score": 1
+                            },
+                            {
+                                "id": "3",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "useAndUsability"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID20#1",
+                        "choiceId": "3",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "useAndUsability.q6",
+                    "prompt": "Looking at the recreation facilities or activity areas, would someone who has difficulty walking, seeing, or hearing be able to comfortably use the space?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 0
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 1
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "useAndUsability"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID21#1",
+                        "choiceId": "1",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "useAndUsability.q7",
+                    "prompt": "Can the space always be accessed for use (Ex: the space and all its activity areas are not locked/fenced off at any time)?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 1
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 0
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "useAndUsability"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID21#1",
+                        "choiceId": "2",
+                        "conditionItemId": null
+                    }
+                },
+                {
+                    "id": "useAndUsability.q8",
+                    "prompt": "Do you have to pay a fee to enter or use this space or any of its activity areas?",
+                    "primary": {
+                        "type": "single_select",
+                        "options": [
+                            {
+                                "id": "1",
+                                "label": "Yes",
+                                "score": 0
+                            },
+                            {
+                                "id": "2",
+                                "label": "No",
+                                "score": 1
+                            }
+                        ]
+                    },
+                    "followUp": null,
+                    "scoring": {
+                        "method": "option_score",
+                        "domain": "useAndUsability"
+                    },
+                    "responseBinding": {
+                        "presenceItemId": "QID21#1",
+                        "choiceId": "3",
+                        "conditionItemId": null
+                    }
+                }
+            ]
+        }
+    ]
+}
