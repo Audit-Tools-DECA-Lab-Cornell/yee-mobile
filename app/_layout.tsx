@@ -29,8 +29,9 @@ import { useDesignSystem, type ColorTokens } from "lib/design-system";
 import { useEasUpdateBootstrap } from "lib/eas-updates";
 import { useReleasePolicyGate } from "lib/release-policy";
 import { useHiddenAndroidNavBar } from "lib/system-bars";
+import { shouldDrainQueue } from "lib/yee-sync-triggers";
 import { useEffect, useMemo, useState } from "react";
-import { Appearance, KeyboardAvoidingView, Platform } from "react-native";
+import { AppState, Appearance, KeyboardAvoidingView, Platform } from "react-native";
 import { useAuthStore } from "stores/auth-store";
 import { usePreferencesStore, type ResolvedTheme } from "stores/preferences-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
@@ -159,6 +160,7 @@ function RootLayoutNav() {
     const syncPendingQueue = useYeeMobileStore((state) => state.syncPendingQueue);
     const setConnectivityState = useYeeMobileStore((state) => state.setConnectivityState);
     const isOnline = useYeeMobileStore((state) => state.isOnline);
+    const offlineStatus = useYeeMobileStore((state) => state.status);
     const resolvedTheme = usePreferencesStore((state) => state.resolvedTheme);
     const syncSystemTheme = usePreferencesStore((state) => state.syncSystemTheme);
     const designSystem = useDesignSystem();
@@ -219,13 +221,40 @@ function RootLayoutNav() {
         };
     }, [setConnectivityState]);
 
+    // Drives the offline submission queue. `offlineStatus` is part of the
+    // condition, not decoration: draining before the persisted queue is loaded
+    // finds an empty store and reports success without sending anything, and
+    // nothing would re-run this afterwards. See lib/yee-sync-triggers.ts.
+    const canDrainQueue = shouldDrainQueue({
+        authStatus,
+        hasSession: session !== null,
+        isOnline,
+        offlineStatus,
+    });
+
     useEffect(() => {
-        if (authStatus !== "authenticated" || session === null || !isOnline) {
+        if (!canDrainQueue || session === null) {
             return;
         }
 
         void syncPendingQueue(session).then(() => refreshRemoteState(session));
-    }, [authStatus, isOnline, refreshRemoteState, session, syncPendingQueue]);
+    }, [canDrainQueue, refreshRemoteState, session, syncPendingQueue]);
+
+    // Reopening the app is the other moment a stranded queue can move. Without
+    // this, an audit queued offline waits for a connectivity or sign-in change
+    // that may never come while the app is simply reopened on working wifi.
+    useEffect(() => {
+        const subscription = AppState.addEventListener("change", (next) => {
+            if (next !== "active" || !canDrainQueue || session === null) {
+                return;
+            }
+            void syncPendingQueue(session);
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [canDrainQueue, session, syncPendingQueue]);
 
     useEffect(() => {
         if (authStatus !== "loading") {
