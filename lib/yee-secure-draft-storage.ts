@@ -25,7 +25,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createMMKV } from "react-native-mmkv";
 import { readAuthSession } from "lib/auth/storage";
-import type { YeeLocalDraft, YeeSyncQueueItem } from "lib/yee-types";
+import type { YeeInstrumentResponse, YeeLocalDraft, YeeSyncQueueItem } from "lib/yee-types";
 
 /**
  * Minimal subset of the MMKV v4 instance API this module depends on.
@@ -60,10 +60,24 @@ export class YeeStorageError extends Error {
 
 const DRAFT_KEY_PREFIX = "draft.";
 const QUEUE_KEY_PREFIX = "queue.";
+const INSTRUMENT_KEY_PREFIX = "instrument.version.";
+const ACTIVE_INSTRUMENT_STAMP_KEY = "instrument.active-stamp";
 const MIGRATION_MARKER_KEY = "yee.migration.async-to-mmkv.v1";
+const INSTRUMENT_MIGRATION_MARKER_KEY = "yee.migration.instrument-to-mmkv.v1";
 
 const LEGACY_DRAFTS_KEY = "yee.mobile.local-drafts.v1";
 const LEGACY_SYNC_QUEUE_KEY = "yee.mobile.sync-queue.v1";
+const LEGACY_INSTRUMENT_KEY = "yee.mobile.instrument.v1";
+
+export interface YeeInstrumentStamp {
+    readonly instrumentKey: string;
+    readonly instrumentVersion: string;
+}
+
+interface InstrumentCacheEntry {
+    readonly cachedAtIso: string;
+    readonly instrument: YeeInstrumentResponse;
+}
 
 /**
  * Per-account MMKV instances, memoized by account id so we open each native
@@ -155,6 +169,7 @@ async function getActiveInstance(): Promise<MmkvInstance> {
     const accountId = await resolveAccountId();
     const instance = getInstance(accountId);
     await runMigrationIfNeeded(instance);
+    await runInstrumentMigrationIfNeeded(instance);
     return instance;
 }
 
@@ -164,6 +179,10 @@ function draftKey(placeId: string): string {
 
 function queueKey(itemId: string): string {
     return `${QUEUE_KEY_PREFIX}${itemId}`;
+}
+
+function instrumentStorageKey(stamp: YeeInstrumentStamp): string {
+    return `${INSTRUMENT_KEY_PREFIX}${encodeURIComponent(stamp.instrumentKey)}.${encodeURIComponent(stamp.instrumentVersion)}`;
 }
 
 /**
@@ -238,6 +257,37 @@ async function runMigrationIfNeeded(instance: MmkvInstance): Promise<void> {
     instance.set(MIGRATION_MARKER_KEY, new Date().toISOString());
 }
 
+async function runInstrumentMigrationIfNeeded(instance: MmkvInstance): Promise<void> {
+    if (instance.contains(INSTRUMENT_MIGRATION_MARKER_KEY)) {
+        return;
+    }
+
+    const legacyRaw = await readLegacyAsyncValue(LEGACY_INSTRUMENT_KEY);
+    if (legacyRaw !== null) {
+        try {
+            const instrument = JSON.parse(legacyRaw) as YeeInstrumentResponse;
+            const stamp = instrumentStamp(instrument);
+            if (stamp !== null) {
+                const key = instrumentStorageKey(stamp);
+                if (!instance.contains(key)) {
+                    instance.set(
+                        key,
+                        JSON.stringify({
+                            cachedAtIso: new Date().toISOString(),
+                            instrument,
+                        } satisfies InstrumentCacheEntry),
+                    );
+                }
+                if (!instance.contains(ACTIVE_INSTRUMENT_STAMP_KEY)) {
+                    instance.set(ACTIVE_INSTRUMENT_STAMP_KEY, JSON.stringify(stamp));
+                }
+            }
+        } catch {}
+    }
+
+    instance.set(INSTRUMENT_MIGRATION_MARKER_KEY, new Date().toISOString());
+}
+
 /**
  * Read a legacy AsyncStorage value, tolerating storage failures (treated as
  * "nothing to migrate") but NOT swallowing parse errors — those are surfaced by
@@ -249,6 +299,133 @@ async function readLegacyAsyncValue(key: string): Promise<string | null> {
     } catch {
         return null;
     }
+}
+
+function instrumentStamp(instrument: YeeInstrumentResponse): YeeInstrumentStamp | null {
+    const instrumentKey = instrument.instrument_key?.trim() ?? "";
+    const instrumentVersion = instrument.instrument_version?.trim() ?? "";
+    if (instrumentKey.length === 0 || instrumentVersion.length === 0) {
+        return null;
+    }
+    return { instrumentKey, instrumentVersion };
+}
+
+function sameInstrumentStamp(left: YeeInstrumentStamp, right: YeeInstrumentStamp): boolean {
+    return (
+        left.instrumentKey === right.instrumentKey &&
+        left.instrumentVersion === right.instrumentVersion
+    );
+}
+
+export async function readInstrumentFromMmkv(
+    stamp: YeeInstrumentStamp,
+): Promise<YeeInstrumentResponse | null> {
+    const instance = await getActiveInstance();
+    const key = instrumentStorageKey(stamp);
+    const raw = instance.getString(key);
+    if (raw === undefined) {
+        return null;
+    }
+    return parseJson<InstrumentCacheEntry>(raw, key).instrument;
+}
+
+export async function readActiveInstrumentFromMmkv(): Promise<YeeInstrumentResponse | null> {
+    const instance = await getActiveInstance();
+    const rawStamp = instance.getString(ACTIVE_INSTRUMENT_STAMP_KEY);
+    if (rawStamp === undefined) {
+        return null;
+    }
+    const stamp = parseJson<YeeInstrumentStamp>(rawStamp, ACTIVE_INSTRUMENT_STAMP_KEY);
+    const key = instrumentStorageKey(stamp);
+    const rawInstrument = instance.getString(key);
+    if (rawInstrument === undefined) {
+        throw new YeeStorageError(
+            "The active instrument pointer refers to a missing cached version.",
+            key,
+        );
+    }
+    return parseJson<InstrumentCacheEntry>(rawInstrument, key).instrument;
+}
+
+export async function writeInstrumentToMmkv(
+    instrument: YeeInstrumentResponse,
+    options: { readonly asActive?: boolean } = {},
+): Promise<YeeInstrumentStamp> {
+    const instance = await getActiveInstance();
+    const stamp = instrumentStamp(instrument);
+    if (stamp === null) {
+        throw new YeeStorageError(
+            "Cannot cache an instrument without instrument_key and instrument_version.",
+            "<instrument-stamp>",
+        );
+    }
+
+    instance.set(
+        instrumentStorageKey(stamp),
+        JSON.stringify({
+            cachedAtIso: new Date().toISOString(),
+            instrument,
+        } satisfies InstrumentCacheEntry),
+    );
+    if (options.asActive !== false) {
+        instance.set(ACTIVE_INSTRUMENT_STAMP_KEY, JSON.stringify(stamp));
+    }
+    return stamp;
+}
+
+export async function evictUnpinnedInstrumentsFromMmkv(
+    pinnedStamps: readonly YeeInstrumentStamp[],
+): Promise<void> {
+    const instance = await getActiveInstance();
+    const rawActive = instance.getString(ACTIVE_INSTRUMENT_STAMP_KEY);
+    const activeStamp =
+        rawActive === undefined
+            ? null
+            : parseJson<YeeInstrumentStamp>(rawActive, ACTIVE_INSTRUMENT_STAMP_KEY);
+
+    const entries = instance
+        .getAllKeys()
+        .filter((key) => key.startsWith(INSTRUMENT_KEY_PREFIX))
+        .map((key) => {
+            const raw = instance.getString(key);
+            if (raw === undefined) {
+                return null;
+            }
+            const entry = parseJson<InstrumentCacheEntry>(raw, key);
+            const stamp = instrumentStamp(entry.instrument);
+            return stamp === null ? null : { key, entry, stamp };
+        })
+        .filter((value): value is NonNullable<typeof value> => value !== null)
+        .sort((left, right) => right.entry.cachedAtIso.localeCompare(left.entry.cachedAtIso));
+
+    for (const candidate of entries) {
+        const isPinned =
+            (activeStamp !== null && sameInstrumentStamp(candidate.stamp, activeStamp)) ||
+            pinnedStamps.some((stamp) => sameInstrumentStamp(candidate.stamp, stamp));
+        if (isPinned) {
+            continue;
+        }
+        instance.remove(candidate.key);
+    }
+}
+
+export async function listCachedInstrumentStampsFromMmkv(): Promise<readonly YeeInstrumentStamp[]> {
+    const instance = await getActiveInstance();
+    const stamps: YeeInstrumentStamp[] = [];
+    for (const key of instance.getAllKeys()) {
+        if (!key.startsWith(INSTRUMENT_KEY_PREFIX)) {
+            continue;
+        }
+        const raw = instance.getString(key);
+        if (raw === undefined) {
+            continue;
+        }
+        const stamp = instrumentStamp(parseJson<InstrumentCacheEntry>(raw, key).instrument);
+        if (stamp !== null) {
+            stamps.push(stamp);
+        }
+    }
+    return stamps;
 }
 
 // ---------------------------------------------------------------------------

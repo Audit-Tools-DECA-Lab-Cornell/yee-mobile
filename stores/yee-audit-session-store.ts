@@ -6,7 +6,6 @@ import {
 } from "lib/yee-mobile-draft";
 import type { MobileYeeDomainKey, MobileYeeStepNumber } from "lib/yee-mobile-audit-config";
 import {
-    isAffirmativeAnswer,
     normalizeInstrument,
     type InstrumentLogicalQuestion,
     type NormalizedInstrument,
@@ -21,6 +20,8 @@ import { useYeeMobileStore } from "stores/yee-mobile-store";
 const SURVEY_NOT_CACHED_MESSAGE =
     "This device has not cached the full YEE survey instrument yet. Connect once online and refresh the mobile app before starting or continuing this audit offline.";
 const SURVEY_LOAD_FAILED_MESSAGE = "Unable to load this audit's survey instrument.";
+const SURVEY_VERSION_NOT_CACHED_MESSAGE =
+    "This audit's exact survey version is not cached on this device. Connect online before continuing this audit.";
 
 /** First paint state of the active audit. */
 export type AuditLoadPhase = "idle" | "loading" | "ready" | "error";
@@ -158,6 +159,34 @@ function resolveAuditorId(storedDraft: YeeLocalDraft | null): string {
     return storedDraft?.participantInfo.auditor_id?.toString() ?? "AUDITOR";
 }
 
+function draftInstrumentStamp(
+    draft: YeeLocalDraft | MobileAuditFormState | null,
+): { readonly instrumentKey: string; readonly instrumentVersion: string } | undefined {
+    const instrumentKey = draft?.instrumentKey?.trim() ?? "";
+    const instrumentVersion = draft?.instrumentVersion?.trim() ?? "";
+    return instrumentKey.length > 0 && instrumentVersion.length > 0
+        ? { instrumentKey, instrumentVersion }
+        : undefined;
+}
+
+function applyInstrumentStamp(
+    draft: MobileAuditFormState,
+    instrument: NormalizedInstrument | null,
+): MobileAuditFormState {
+    if (
+        instrument === null ||
+        instrument.instrumentKey == null ||
+        instrument.instrumentVersion == null
+    ) {
+        return draft;
+    }
+    return {
+        ...draft,
+        instrumentKey: instrument.instrumentKey,
+        instrumentVersion: instrument.instrumentVersion,
+    };
+}
+
 export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
     /**
      * Apply a pure mutation to the draft, marking local edits. Returning the same
@@ -204,8 +233,9 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
             });
 
             let instrument: NormalizedInstrument | null = null;
+            const requestedStamp = draftInstrumentStamp(storedDraft);
             try {
-                const cached = await readInstrumentCache();
+                const cached = await readInstrumentCache(requestedStamp);
                 if (cached !== null) {
                     instrument = normalizeInstrument(cached);
                 }
@@ -218,20 +248,26 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
                 return;
             }
 
-            const draft = buildFormStateFromSources({
-                placeId,
-                placeName: resolvePlaceName(place, storedDraft),
-                auditorId: resolveAuditorId(storedDraft),
-                storedDraft,
-                auditState: null,
-            });
+            const draft = applyInstrumentStamp(
+                buildFormStateFromSources({
+                    placeId,
+                    placeName: resolvePlaceName(place, storedDraft),
+                    auditorId: resolveAuditorId(storedDraft),
+                    storedDraft,
+                    auditState: null,
+                }),
+                instrument,
+            );
 
             if (instrument === null && !isOnline) {
                 set({
                     draft,
                     instrument: null,
                     loadPhase: "error",
-                    errorMessage: SURVEY_NOT_CACHED_MESSAGE,
+                    errorMessage:
+                        requestedStamp === undefined
+                            ? SURVEY_NOT_CACHED_MESSAGE
+                            : SURVEY_VERSION_NOT_CACHED_MESSAGE,
                 });
                 return;
             }
@@ -263,9 +299,10 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
             });
 
             let instrument = options?.instrument ?? null;
+            const requestedStamp = draftInstrumentStamp(formState);
             if (instrument === null) {
                 try {
-                    const cached = await readInstrumentCache();
+                    const cached = await readInstrumentCache(requestedStamp);
                     if (cached !== null) {
                         instrument = normalizeInstrument(cached);
                     }
@@ -287,12 +324,18 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
             // No cached instrument: fetch it once if online, else surface the same
             // "survey not cached" error the edit path uses. No draft/remote merge.
             if (!useYeeMobileStore.getState().isOnline) {
-                set({ loadPhase: "error", errorMessage: SURVEY_NOT_CACHED_MESSAGE });
+                set({
+                    loadPhase: "error",
+                    errorMessage:
+                        requestedStamp === undefined
+                            ? SURVEY_NOT_CACHED_MESSAGE
+                            : SURVEY_VERSION_NOT_CACHED_MESSAGE,
+                });
                 return;
             }
             try {
-                const payload = await fetchYeeInstrument();
-                await writeInstrumentCache(payload);
+                const payload = await fetchYeeInstrument(requestedStamp);
+                await writeInstrumentCache(payload, { asActive: requestedStamp === undefined });
                 if (get().placeId === formState.placeId && get().readOnly) {
                     set({ instrument: normalizeInstrument(payload), loadPhase: "ready" });
                 }
@@ -387,7 +430,7 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
             patchDraft((draft) => {
                 const clearsCondition =
                     question.conditionItemId !== null &&
-                    !isAffirmativeAnswer(question.presenceAnswers, answerId);
+                    !question.conditionTriggerAnswerIds.includes(answerId);
                 return {
                     ...draft,
                     responses: {
@@ -601,16 +644,37 @@ function reflectMirrorStatus(placeId: string, set: StoreSet): void {
 async function backgroundRefresh(placeId: string, place: YeeAssignedPlace | null): Promise<void> {
     const set = useAuditSessionStore.setState;
     const get = useAuditSessionStore.getState;
+    const session = useAuthStore.getState().session;
+    const isOnline = useYeeMobileStore.getState().isOnline;
+    if (session === null || !isOnline) {
+        return;
+    }
+
+    const remoteState = await useYeeMobileStore
+        .getState()
+        .loadPlaceAuditState(placeId, session)
+        .catch(() => null);
+    const mobileStore = useYeeMobileStore.getState();
+    const storedDraft = mobileStore.draftsByPlace[placeId] ?? null;
+    const requestedStamp =
+        remoteState?.instrument_key && remoteState.instrument_version
+            ? {
+                  instrumentKey: remoteState.instrument_key,
+                  instrumentVersion: remoteState.instrument_version,
+              }
+            : draftInstrumentStamp(storedDraft);
 
     try {
-        const payload = await fetchYeeInstrument();
+        const payload = await fetchYeeInstrument(requestedStamp);
         const normalized = normalizeInstrument(payload);
-        await writeInstrumentCache(payload);
+        await writeInstrumentCache(payload, { asActive: requestedStamp === undefined });
         if (get().placeId === placeId) {
             set((state) => {
                 const nowReady = state.loadPhase === "loading" || state.loadPhase === "error";
                 return {
                     instrument: normalized,
+                    draft:
+                        state.draft === null ? null : applyInstrumentStamp(state.draft, normalized),
                     loadPhase: nowReady ? "ready" : state.loadPhase,
                     errorMessage: nowReady ? null : state.errorMessage,
                     step:
@@ -627,21 +691,9 @@ async function backgroundRefresh(placeId: string, place: YeeAssignedPlace | null
         }
     }
 
-    const session = useAuthStore.getState().session;
-    const isOnline = useYeeMobileStore.getState().isOnline;
-    if (session === null || !isOnline) {
-        return;
-    }
-
-    const remoteState = await useYeeMobileStore
-        .getState()
-        .loadPlaceAuditState(placeId, session)
-        .catch(() => null);
-
     // Local truth wins: never hydrate the remote draft over in-progress edits or
     // work still waiting in the sync queue. loadPlaceAuditState applies the same
     // guard to MMKV; this guards the in-memory session on top of it.
-    const mobileStore = useYeeMobileStore.getState();
     const hasPendingQueueItem = mobileStore.syncQueue.some((item) => item.placeId === placeId);
     if (
         remoteState === null ||
@@ -652,7 +704,6 @@ async function backgroundRefresh(placeId: string, place: YeeAssignedPlace | null
         return;
     }
 
-    const storedDraft = mobileStore.draftsByPlace[placeId] ?? null;
     const merged = buildFormStateFromSources({
         placeId,
         placeName: resolvePlaceName(place, storedDraft),

@@ -12,6 +12,8 @@ import {
     computeBackoffMs,
     decideNextQueueState,
     isInBackoff,
+    isTerminallyFailed,
+    parseIncompleteAuditResponses,
     selectDrainableItems,
 } from "lib/yee-sync-logic";
 import { YEE_SYNC_MAX_ATTEMPTS, type YeeSyncQueueItem } from "lib/yee-types";
@@ -263,5 +265,165 @@ describe("selectDrainableItems", () => {
     it("preserves queue order", () => {
         const items = [makeItem({ id: "x" }), makeItem({ id: "y" }), makeItem({ id: "z" })];
         expect(selectDrainableItems(items, nowIso).map((i) => i.id)).toEqual(["x", "y", "z"]);
+    });
+});
+
+describe("terminal items never drain again", () => {
+    const NOW = "2026-01-01T00:00:00.000Z";
+
+    function queued(overrides: Partial<YeeSyncQueueItem> = {}): YeeSyncQueueItem {
+        return {
+            id: "submission-1",
+            placeId: "place-1",
+            createdAt: NOW,
+            updatedAt: NOW,
+            kind: "submission",
+            payload: { participant_info: {}, responses: {} },
+            attempts: 1,
+            lastError: null,
+            nextAttemptAtIso: null,
+            maxAttempts: YEE_SYNC_MAX_ATTEMPTS,
+            failureReason: null,
+            ...overrides,
+        };
+    }
+
+    it("parks a rejected payload instead of re-POSTing it forever", () => {
+        // A 400/404/409/422 is recorded as "validation". Filtering only on the
+        // literal "terminal" left these drainable on every tick.
+        const rejected = queued({ failureReason: "validation", isTerminal: true });
+        expect(isTerminallyFailed(rejected)).toBe(true);
+        expect(selectDrainableItems([rejected], NOW)).toEqual([]);
+    });
+
+    it("parks an item serialized before the isTerminal flag existed", () => {
+        // Queue items persist in MMKV across app updates, so an item written by
+        // an older build has no isTerminal key at all.
+        const legacyRejected = queued({ failureReason: "validation" });
+        const legacyExhausted = queued({ failureReason: "terminal" });
+        expect("isTerminal" in legacyRejected).toBe(false);
+        expect(isTerminallyFailed(legacyRejected)).toBe(true);
+        expect(isTerminallyFailed(legacyExhausted)).toBe(true);
+        expect(selectDrainableItems([legacyRejected, legacyExhausted], NOW)).toEqual([]);
+    });
+
+    it("keeps retryable and auth-paused work drainable", () => {
+        const networkFailure = queued({ failureReason: "network" });
+        const authPaused = queued({ failureReason: "auth" });
+        const fresh = queued();
+        expect(selectDrainableItems([networkFailure, authPaused, fresh], NOW)).toHaveLength(3);
+    });
+
+    it("honors an explicit non-terminal flag over the reason string", () => {
+        const recoverable = queued({ failureReason: "validation", isTerminal: false });
+        expect(isTerminallyFailed(recoverable)).toBe(false);
+        expect(selectDrainableItems([recoverable], NOW)).toHaveLength(1);
+    });
+
+    it("carries the decision from decideNextQueueState onto the item", () => {
+        const next = decideNextQueueState(
+            queued(),
+            { classification: "terminal", statusCode: 422, message: "rejected" },
+            NOW,
+        );
+        expect(next.isTerminal).toBe(true);
+        const parked = queued({ failureReason: next.failureReason, isTerminal: next.isTerminal });
+        expect(selectDrainableItems([parked], NOW)).toEqual([]);
+    });
+});
+
+describe("incomplete_audit_responses is recoverable, not opaque", () => {
+    const NOW = "2026-01-01T00:00:00.000Z";
+    const DETAIL = {
+        code: "incomplete_audit_responses",
+        message: "This audit is missing required answers.",
+        missing_primary_question_ids: ["access.q3"],
+        missing_follow_up_question_ids: ["access.q1"],
+    };
+
+    function queued(overrides: Partial<YeeSyncQueueItem> = {}): YeeSyncQueueItem {
+        return {
+            id: "submission-1",
+            placeId: "place-1",
+            createdAt: NOW,
+            updatedAt: NOW,
+            kind: "submission",
+            payload: { participant_info: {}, responses: {} },
+            attempts: 0,
+            lastError: null,
+            nextAttemptAtIso: null,
+            maxAttempts: YEE_SYNC_MAX_ATTEMPTS,
+            failureReason: null,
+            ...overrides,
+        };
+    }
+
+    it("reads the framework-wrapped body the backend actually sends", () => {
+        expect(parseIncompleteAuditResponses({ detail: DETAIL })).toEqual({
+            missingPrimaryQuestionIds: ["access.q3"],
+            missingFollowUpQuestionIds: ["access.q1"],
+        });
+    });
+
+    it("reads a bare body too", () => {
+        expect(parseIncompleteAuditResponses(DETAIL)).toEqual({
+            missingPrimaryQuestionIds: ["access.q3"],
+            missingFollowUpQuestionIds: ["access.q1"],
+        });
+    });
+
+    it("refuses anything that is not this exact rejection", () => {
+        // An unrecognized failure must not be dressed up as something the
+        // auditor can fix by answering a question.
+        expect(parseIncompleteAuditResponses(null)).toBeNull();
+        expect(parseIncompleteAuditResponses("Not Found")).toBeNull();
+        expect(parseIncompleteAuditResponses({ detail: "plain string detail" })).toBeNull();
+        expect(parseIncompleteAuditResponses({ detail: { code: "something_else" } })).toBeNull();
+        // The code with no question to fix leaves the auditor nowhere to go.
+        expect(
+            parseIncompleteAuditResponses({
+                detail: { code: "incomplete_audit_responses", missing_primary_question_ids: [] },
+            }),
+        ).toBeNull();
+    });
+
+    it("drops non-string ids rather than trusting the payload", () => {
+        expect(
+            parseIncompleteAuditResponses({
+                detail: {
+                    code: "incomplete_audit_responses",
+                    missing_primary_question_ids: ["access.q3", 42, null],
+                    missing_follow_up_question_ids: "not-a-list",
+                },
+            }),
+        ).toEqual({ missingPrimaryQuestionIds: ["access.q3"], missingFollowUpQuestionIds: [] });
+    });
+
+    it("parks as incomplete, distinct from an opaque rejection", () => {
+        const incomplete = decideNextQueueState(
+            queued(),
+            {
+                classification: "terminal",
+                statusCode: 422,
+                message: "missing answers",
+                incomplete: parseIncompleteAuditResponses({ detail: DETAIL }),
+            },
+            NOW,
+        );
+        expect(incomplete.failureReason).toBe("incomplete");
+        expect(incomplete.isTerminal).toBe(true);
+
+        const opaque = decideNextQueueState(
+            queued(),
+            { classification: "terminal", statusCode: 409, message: "conflict", incomplete: null },
+            NOW,
+        );
+        expect(opaque.failureReason).toBe("validation");
+    });
+
+    it("never re-POSTs an incomplete submission", () => {
+        const parked = queued({ failureReason: "incomplete", isTerminal: true });
+        expect(isTerminallyFailed(parked)).toBe(true);
+        expect(selectDrainableItems([parked], NOW)).toEqual([]);
     });
 });

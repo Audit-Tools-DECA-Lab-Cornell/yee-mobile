@@ -21,6 +21,13 @@ interface RawScoringItem {
     readonly item_kind: string | undefined;
     readonly choices: Readonly<Record<string, RawTextEntry>>;
     readonly answers: Readonly<Record<string, RawTextEntry>>;
+    readonly scoreEntries: readonly RawScoreEntry[];
+}
+
+interface RawScoreEntry {
+    readonly choiceId: string;
+    readonly answerId: string;
+    readonly scores: Readonly<Record<string, number>>;
 }
 
 export interface InstrumentOption {
@@ -36,6 +43,9 @@ export interface InstrumentLogicalQuestion {
     readonly presenceAnswers: readonly InstrumentOption[];
     readonly conditionItemId: string | null;
     readonly conditionAnswers: readonly InstrumentOption[];
+    readonly followUpPrompt?: string | null;
+    readonly conditionTriggerAnswerIds: readonly string[];
+    readonly conditionRequiredWhenShown: boolean;
 }
 
 export interface InstrumentSectionDefinition {
@@ -80,6 +90,8 @@ export interface NormalizedInstrument {
     readonly conditionPrompt: string;
     /** Prompt for the overall/final comments field before review & submit. */
     readonly finalCommentsPrompt: string;
+    readonly instrumentKey?: string | null;
+    readonly instrumentVersion?: string | null;
 }
 
 /** Stable ids for the visit-context questions the client binds to draft slices. */
@@ -181,8 +193,31 @@ function parseRawScoringItems(value: unknown): readonly RawScoringItem[] {
                 item_kind: optionalString(rawItem, "item_kind"),
                 choices: parseTextEntries(rawItem["choices"]),
                 answers: parseTextEntries(rawItem["answers"]),
+                scoreEntries: parseScoreEntries(rawItem["score_entries"]),
             },
         ];
+    });
+}
+
+function parseScoreEntries(value: unknown): readonly RawScoreEntry[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    return value.flatMap((entry): readonly RawScoreEntry[] => {
+        if (!isUnknownRecord(entry) || !isUnknownRecord(entry["scores_by_category_id"])) {
+            return [];
+        }
+        const choiceId = optionalString(entry, "choice_id");
+        const answerId = optionalString(entry, "answer_id");
+        if (choiceId === undefined || answerId === undefined) {
+            return [];
+        }
+        const scores = Object.fromEntries(
+            Object.entries(entry["scores_by_category_id"]).filter(
+                (candidate): candidate is [string, number] => typeof candidate[1] === "number",
+            ),
+        );
+        return [{ choiceId, answerId, scores }];
     });
 }
 
@@ -201,6 +236,7 @@ function toOptionList(
 }
 
 export function normalizeInstrument(instrument: YeeInstrumentResponse): NormalizedInstrument {
+    const authoringSections = normalizeAuthoringSections(instrument);
     const rawSections = parseRawSections(instrument.sections);
     const rawItems = parseRawScoringItems(instrument.scoring_items);
 
@@ -243,53 +279,58 @@ export function normalizeInstrument(instrument: YeeInstrumentResponse): Normaliz
         itemsByDomain.set(domain, grouped);
     }
 
-    const normalizedSections = DOMAIN_KEYS.flatMap(
-        (domain): readonly InstrumentSectionDefinition[] => {
-            const section = sectionsByDomain.get(domain);
-            if (section === undefined) {
-                return [];
-            }
+    const legacySections = DOMAIN_KEYS.flatMap((domain): readonly InstrumentSectionDefinition[] => {
+        const section = sectionsByDomain.get(domain);
+        if (section === undefined) {
+            return [];
+        }
 
-            const grouped = itemsByDomain.get(domain) ?? new Map<string, RawScoringItem[]>();
-            const questions = [...grouped.entries()].flatMap(
-                ([baseQuestionId, items]): readonly InstrumentLogicalQuestion[] => {
-                    const presence = items.find((entry) => entry.item_kind === "presence");
-                    if (presence === undefined) {
-                        return [];
-                    }
+        const grouped = itemsByDomain.get(domain) ?? new Map<string, RawScoringItem[]>();
+        const questions = [...grouped.entries()].flatMap(
+            ([baseQuestionId, items]): readonly InstrumentLogicalQuestion[] => {
+                const presence = items.find((entry) => entry.item_kind === "presence");
+                if (presence === undefined) {
+                    return [];
+                }
 
-                    const condition =
-                        items.find((entry) => entry.item_kind === "condition") ?? null;
-                    const choices = normalizeOptions(presence.choices ?? {}, "question");
-                    const presenceAnswers = normalizeOptions(presence.answers ?? {}, "answer");
-                    const conditionAnswers = normalizeOptions(condition?.answers ?? {}, "answer");
-                    const presenceItemId = presence.item_id?.trim() || baseQuestionId;
-                    const rawConditionItemId = condition?.item_id?.trim() || null;
-                    const hasCondition = rawConditionItemId !== null && conditionAnswers.length > 0;
+                const condition = items.find((entry) => entry.item_kind === "condition") ?? null;
+                const choices = normalizeOptions(presence.choices ?? {}, "question");
+                const presenceAnswers = normalizeOptions(presence.answers ?? {}, "answer");
+                const conditionAnswers = normalizeOptions(condition?.answers ?? {}, "answer");
+                const presenceItemId = presence.item_id?.trim() || baseQuestionId;
+                const rawConditionItemId = condition?.item_id?.trim() || null;
+                const hasCondition = rawConditionItemId !== null && conditionAnswers.length > 0;
 
-                    return choices.map((choice): InstrumentLogicalQuestion => ({
-                        key: `${presenceItemId}:${choice.id}`,
-                        choiceId: choice.id,
-                        prompt: choice.label,
-                        presenceItemId,
-                        presenceAnswers,
-                        conditionItemId: hasCondition ? rawConditionItemId : null,
-                        conditionAnswers: hasCondition ? conditionAnswers : [],
-                    }));
-                },
-            );
+                return choices.map((choice): InstrumentLogicalQuestion => ({
+                    key: `${presenceItemId}:${choice.id}`,
+                    choiceId: choice.id,
+                    prompt: choice.label,
+                    presenceItemId,
+                    presenceAnswers,
+                    conditionItemId: hasCondition ? rawConditionItemId : null,
+                    conditionAnswers: hasCondition ? conditionAnswers : [],
+                    followUpPrompt: hasCondition
+                        ? sanitizeRichText(instrument.condition_prompt ?? "") ||
+                          DEFAULT_CONDITION_PROMPT
+                        : null,
+                    conditionTriggerAnswerIds: hasCondition
+                        ? positiveAnswerIds(presence, choice.id)
+                        : [],
+                    conditionRequiredWhenShown: hasCondition,
+                }));
+            },
+        );
 
-            return [
-                {
-                    ...section,
-                    questions,
-                },
-            ];
-        },
-    );
+        return [
+            {
+                ...section,
+                questions,
+            },
+        ];
+    });
 
     return {
-        sections: normalizedSections,
+        sections: authoringSections ?? legacySections,
         contextQuestions: normalizeContextQuestions(instrument),
         weighting: normalizeWeighting(instrument),
         conditionPrompt:
@@ -297,7 +338,79 @@ export function normalizeInstrument(instrument: YeeInstrumentResponse): Normaliz
         finalCommentsPrompt:
             sanitizeRichText(instrument.final_comments_prompt ?? "") ||
             DEFAULT_FINAL_COMMENTS_PROMPT,
+        instrumentKey: instrument.instrument_key ?? null,
+        instrumentVersion: instrument.instrument_version ?? null,
     };
+}
+
+function positiveAnswerIds(item: RawScoringItem, choiceId: string): readonly string[] {
+    return [
+        ...new Set(
+            item.scoreEntries
+                .filter((entry) => entry.choiceId === choiceId)
+                .filter((entry) => Object.values(entry.scores).some((score) => score > 0))
+                .map((entry) => entry.answerId),
+        ),
+    ];
+}
+
+function normalizeAuthoringSections(
+    instrument: YeeInstrumentResponse,
+): readonly InstrumentSectionDefinition[] | null {
+    if (instrument.authoring?.schemaVersion !== 2) {
+        return null;
+    }
+    return instrument.authoring.sections.flatMap(
+        (section): readonly InstrumentSectionDefinition[] => {
+            const domain = isDomainKey(section.id) ? section.id : blockToDomain(section.title);
+            const step = domain === null ? null : domainToStep(domain);
+            if (domain === null || step === null) {
+                return [];
+            }
+            const questions = section.questions.flatMap(
+                (question): readonly InstrumentLogicalQuestion[] => {
+                    const binding = question.responseBinding;
+                    if (binding === null) {
+                        return [];
+                    }
+                    const followUp = question.followUp;
+                    return [
+                        {
+                            key: `${binding.presenceItemId}:${binding.choiceId}`,
+                            choiceId: binding.choiceId,
+                            prompt: ensureReadableLabel(question.prompt),
+                            presenceItemId: binding.presenceItemId,
+                            presenceAnswers: question.primary.options.map((option) => ({
+                                id: option.id,
+                                label: readableLabel(option.label),
+                            })),
+                            conditionItemId: binding.conditionItemId,
+                            conditionAnswers:
+                                followUp?.options.map((option) => ({
+                                    id: option.id,
+                                    label: readableLabel(option.label),
+                                })) ?? [],
+                            followUpPrompt: followUp?.prompt ?? null,
+                            conditionTriggerAnswerIds: followUp?.triggerOptionIds ?? [],
+                            conditionRequiredWhenShown:
+                                followUp === null ? false : (followUp.requiredWhenShown ?? true),
+                        },
+                    ];
+                },
+            );
+            return [
+                {
+                    domain,
+                    step,
+                    title: section.title.trim() || fallbackTitle(domain),
+                    blockLabel: section.title.trim() || fallbackTitle(domain),
+                    introText: sanitizeRichText(section.instructions),
+                    commentPrompt: sanitizeRichText(section.commentPrompt),
+                    questions,
+                },
+            ];
+        },
+    );
 }
 
 /**
@@ -420,14 +533,6 @@ export function answerLabel(
     }
 
     return options.find((option) => option.id === id)?.label ?? null;
-}
-
-export function isAffirmativeAnswer(
-    options: readonly InstrumentOption[],
-    answerId: string | undefined,
-): boolean {
-    const label = answerLabel(options, answerId)?.toLowerCase() ?? "";
-    return label.startsWith("yes") || label.includes("yes,") || label === "yes";
 }
 
 /**

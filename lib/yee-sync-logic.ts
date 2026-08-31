@@ -106,6 +106,12 @@ export interface YeeQueueFailure {
     readonly statusCode: number;
     /** Human-readable error message persisted on the item for diagnostics. */
     readonly message: string;
+    /**
+     * Parsed `incomplete_audit_responses` report, when the rejection carried
+     * one. Present only for a terminal rejection the auditor can fix by
+     * answering the named questions.
+     */
+    readonly incomplete?: IncompleteAuditResponses | null;
 }
 
 /** The next persisted shape of a queue item after a failed drain attempt. */
@@ -167,7 +173,9 @@ export function decideNextQueueState(
         return {
             attempts: item.attempts + 1,
             nextAttemptAtIso: null,
-            failureReason: "validation",
+            // Both stop draining; only `incomplete` tells the auditor what to do
+            // about it, so the distinction has to survive onto the item.
+            failureReason: failure.incomplete ? "incomplete" : "validation",
             syncState: "sync_failed",
             lastError: failure.message,
             isTerminal: true,
@@ -218,13 +226,98 @@ export function isInBackoff(item: YeeSyncQueueItem, nowIso: string): boolean {
     return Date.parse(item.nextAttemptAtIso) > Date.parse(nowIso);
 }
 
+/** The backend's `incomplete_audit_responses` code, matched exactly. */
+const INCOMPLETE_AUDIT_CODE = "incomplete_audit_responses";
+
+/**
+ * Which logical questions a rejected submission still needs answered.
+ *
+ * Ids only — the backend deliberately sends no question text, so the client
+ * looks the wording up in its own cached instrument.
+ */
+export interface IncompleteAuditResponses {
+    readonly missingPrimaryQuestionIds: readonly string[];
+    readonly missingFollowUpQuestionIds: readonly string[];
+}
+
+function stringList(value: unknown): readonly string[] {
+    return Array.isArray(value)
+        ? value.filter((entry): entry is string => typeof entry === "string")
+        : [];
+}
+
+/**
+ * Read a rejection body as an incomplete-submission report, or `null`.
+ *
+ * Accepts both the framework-wrapped `{ detail: {...} }` shape and a bare
+ * object, and returns `null` for anything that does not carry the exact code —
+ * an unrecognized rejection must stay a plain terminal failure rather than be
+ * presented to the auditor as something they can fix by answering a question.
+ */
+export function parseIncompleteAuditResponses(body: unknown): IncompleteAuditResponses | null {
+    if (body === null || typeof body !== "object") {
+        return null;
+    }
+    const envelope = body as Record<string, unknown>;
+    const candidate =
+        envelope.detail !== null && typeof envelope.detail === "object"
+            ? (envelope.detail as Record<string, unknown>)
+            : envelope;
+    if (candidate.code !== INCOMPLETE_AUDIT_CODE) {
+        return null;
+    }
+    const missingPrimaryQuestionIds = stringList(candidate.missing_primary_question_ids);
+    const missingFollowUpQuestionIds = stringList(candidate.missing_follow_up_question_ids);
+    if (missingPrimaryQuestionIds.length === 0 && missingFollowUpQuestionIds.length === 0) {
+        // The code without any question to fix gives the auditor nowhere to go.
+        return null;
+    }
+    return { missingPrimaryQuestionIds, missingFollowUpQuestionIds };
+}
+
+/**
+ * Failure reasons that mean "the backend rejected this payload and always will".
+ *
+ * `decideNextQueueState` records a terminal HTTP rejection (400 / 404 / 409 /
+ * 422) as `"validation"`, and exhausted retries as `"terminal"`. Both are dead
+ * ends: re-POSTing either one produces the same rejection forever.
+ */
+const TERMINAL_FAILURE_REASONS: readonly YeeSyncFailureReason[] = [
+    "terminal",
+    "validation",
+    // Recoverable by editing the audit, but never by re-POSTing the same
+    // payload — so it must stop draining like any other terminal rejection.
+    "incomplete",
+];
+
+/**
+ * Whether an item is parked for good.
+ *
+ * Prefers the explicit {@link YeeSyncQueueItem.isTerminal} flag and falls back
+ * to the failure reason for items serialized before that flag existed, so a
+ * queue restored from MMKV after an app update is classified correctly rather
+ * than silently becoming drainable again.
+ */
+export function isTerminallyFailed(item: YeeSyncQueueItem): boolean {
+    if (typeof item.isTerminal === "boolean") {
+        return item.isTerminal;
+    }
+    return TERMINAL_FAILURE_REASONS.includes(item.failureReason);
+}
+
 /**
  * Select the items eligible to drain at `nowIso`: not terminally failed and not
  * inside a backoff window. Order is preserved (oldest-first by queue order).
+ *
+ * A terminally-failed item is excluded on EVERY reason that means it, not just
+ * the literal `"terminal"` string. Filtering on that one value let a rejected
+ * payload (recorded as `"validation"`) stay drainable and re-POST on every tick
+ * — an unbounded loop against a deterministic rejection, with the audit locked
+ * behind a "Retry upload" affordance that could never succeed.
  */
 export function selectDrainableItems(
     queue: readonly YeeSyncQueueItem[],
     nowIso: string,
 ): readonly YeeSyncQueueItem[] {
-    return queue.filter((item) => item.failureReason !== "terminal" && !isInBackoff(item, nowIso));
+    return queue.filter((item) => !isTerminallyFailed(item) && !isInBackoff(item, nowIso));
 }

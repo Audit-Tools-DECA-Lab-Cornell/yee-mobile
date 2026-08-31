@@ -250,6 +250,10 @@ export default function AuditReviewScreen() {
                     place_id: placeId,
                     participant_info: buildParticipantInfo(draft),
                     responses: draft.responses,
+                    ...(draft.instrumentKey ? { instrument_key: draft.instrumentKey } : {}),
+                    ...(draft.instrumentVersion
+                        ? { instrument_version: draft.instrumentVersion }
+                        : {}),
                 });
                 if (cancelled) {
                     return;

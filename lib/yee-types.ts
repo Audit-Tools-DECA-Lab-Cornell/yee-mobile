@@ -37,6 +37,8 @@ export interface YeeAuditStateResponse {
     readonly participant_info: Record<string, unknown>;
     readonly responses: Record<string, unknown>;
     readonly score: YeeScoreResult | null;
+    readonly instrument_key?: string | null;
+    readonly instrument_version?: string | null;
 }
 
 export interface YeeSubmissionResponse {
@@ -49,6 +51,8 @@ export interface YeeSubmissionResponse {
     readonly participant_info: Record<string, unknown>;
     readonly responses: Record<string, unknown>;
     readonly score: YeeScoreResult;
+    readonly instrument_key?: string | null;
+    readonly instrument_version?: string | null;
     readonly syncState?: YeeSyncState;
 }
 
@@ -67,6 +71,8 @@ export interface YeeMyAuditItem {
     readonly submitted_at: string;
     readonly total_score: number;
     readonly syncState?: YeeSyncState;
+    readonly instrument_key?: string | null;
+    readonly instrument_version?: string | null;
 }
 
 export interface YeeDraftParticipantInfo extends Record<string, unknown> {
@@ -120,6 +126,8 @@ export interface YeeLocalDraft {
     readonly lastKnownSubmissionId: string | null;
     readonly scorePreview: YeeScoreResult | null;
     readonly syncState: YeeSyncState;
+    readonly instrumentKey?: string | null;
+    readonly instrumentVersion?: string | null;
 }
 
 export type YeeSyncState = "local_only" | "pending_upload" | "synced" | "sync_failed";
@@ -138,11 +146,18 @@ export const YEE_SYNC_MAX_ATTEMPTS = 8;
  * values mirror the buckets produced by the pure error classifier:
  * - `network`  — transport/timeout/rate-limit (retryable; backed off).
  * - `auth`     — 401 token expiry (PAUSED; does not burn an attempt).
- * - `validation` — 400/409/422/404 (terminal; backend rejected the payload).
+ * - `validation` — 400/404/409/422 the client cannot interpret (terminal).
+ * - `incomplete` — a 422 naming logical questions that are still unanswered.
  * - `server`   — 5xx (retryable; backed off).
  * - `terminal` — attempts exhausted or an otherwise non-recoverable failure.
+ *
+ * `incomplete` is deliberately separate from `validation`. Both are terminal for
+ * the payload as sent, so neither may be re-POSTed — but only `incomplete` names
+ * questions the auditor can answer to make the same submission succeed, so the
+ * UI offers a correction instead of a dead "Retry upload".
  */
-export type YeeSyncFailureReason = "network" | "auth" | "validation" | "server" | "terminal" | null;
+export type YeeSyncFailureReason =
+    "network" | "auth" | "validation" | "incomplete" | "server" | "terminal" | null;
 
 export interface YeeSyncQueueItem {
     readonly id: string;
@@ -170,6 +185,8 @@ export interface YeeSyncQueueItem {
          * queued submission. Only meaningful for `submission` items.
          */
         readonly draft_version?: number;
+        readonly instrument_key?: string;
+        readonly instrument_version?: string;
     };
     readonly attempts: number;
     readonly lastError: string | null;
@@ -183,6 +200,42 @@ export interface YeeSyncQueueItem {
     readonly maxAttempts: number;
     /** Typed classification of the last failure, or `null` if none yet. */
     readonly failureReason: YeeSyncFailureReason;
+    /**
+     * Whether this item is parked for good and must never be re-POSTed.
+     *
+     * Optional because the queue is persisted: items serialized before this
+     * field existed simply lack it, and {@link isTerminallyFailed} falls back to
+     * the failure reason for those. Never write `undefined` here — omit the key
+     * or write a real boolean (`exactOptionalPropertyTypes` is on).
+     */
+    readonly isTerminal?: boolean;
+    /**
+     * Logical question ids the backend said are still unanswered, when the
+     * rejection was `incomplete`.
+     *
+     * Persisted with the item so a correction survives an app restart: the
+     * auditor may be offline and hours from the place when they reopen it.
+     * Optional for the same reason as {@link isTerminal} — items serialized
+     * before this existed simply lack it.
+     */
+    readonly incompleteQuestionIds?: {
+        readonly missingPrimaryQuestionIds: readonly string[];
+        readonly missingFollowUpQuestionIds: readonly string[];
+    };
+    /**
+     * The same gap expressed in keys this app can navigate to, when the drain
+     * gate found it locally rather than being told by the backend.
+     *
+     * Separate from {@link incompleteQuestionIds} because the two use different
+     * vocabularies: the backend reports logical authoring ids (`access.q3`),
+     * while the audit UI is keyed by `auditRowKey` (`presenceItemId:choiceId`).
+     * Only these keys can open the control an auditor has to fill in.
+     */
+    readonly incompleteQuestionKeys?: {
+        readonly missingQuestionKeys: readonly string[];
+        /** Wizard step holding the earliest gap, or `null` if none was located. */
+        readonly firstMissingStep: number | null;
+    };
 }
 
 export interface YeeInstrumentOptionData {
@@ -214,7 +267,50 @@ export interface YeeInstrumentWeightingData {
     readonly domains?: readonly YeeInstrumentWeightingDomainData[];
 }
 
+export interface YeeAuthoringOptionData {
+    readonly id: string;
+    readonly label: string;
+    readonly score: number;
+}
+
+export interface YeeAuthoringQuestionData {
+    readonly id: string;
+    readonly prompt: string;
+    readonly primary: {
+        readonly type: "single_select";
+        readonly options: readonly YeeAuthoringOptionData[];
+    };
+    readonly followUp: {
+        readonly triggerOptionIds: readonly string[];
+        readonly requiredWhenShown?: boolean;
+        readonly prompt: string;
+        readonly options: readonly YeeAuthoringOptionData[];
+    } | null;
+    readonly scoring: {
+        readonly method: "option_score" | "presence_condition_product";
+        readonly domain: string;
+    };
+    readonly responseBinding: {
+        readonly presenceItemId: string;
+        readonly choiceId: string;
+        readonly conditionItemId: string | null;
+    } | null;
+}
+
+export interface YeeAuthoringInstrumentData {
+    readonly schemaVersion: 2;
+    readonly sections: readonly {
+        readonly id: string;
+        readonly title: string;
+        readonly instructions: string;
+        readonly commentPrompt: string;
+        readonly questions: readonly YeeAuthoringQuestionData[];
+    }[];
+}
+
 export interface YeeInstrumentResponse {
+    readonly instrument_key?: string;
+    readonly instrument_version?: string;
     readonly SurveyEntry?: Record<string, unknown>;
     readonly SurveyElements?: unknown[];
     readonly scoring_items?: unknown[];
@@ -228,4 +324,5 @@ export interface YeeInstrumentResponse {
     readonly condition_prompt?: string;
     /** Prompt for the overall/final comments field before review & submit. */
     readonly final_comments_prompt?: string;
+    readonly authoring?: YeeAuthoringInstrumentData | null;
 }

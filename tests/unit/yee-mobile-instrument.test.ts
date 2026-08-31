@@ -105,11 +105,14 @@ describe(`normalizeInstrument fixture from ${SNAPSHOT_SOURCE}`, () => {
                 { id: "2", label: "No" },
             ],
             conditionItemId: "QID1#2",
+            followUpPrompt: "If yes, please rate the condition that this feature or area is in.",
             conditionAnswers: [
                 { id: "1", label: "Poor" },
                 { id: "2", label: "Acceptable" },
                 { id: "3", label: "Great" },
             ],
+            conditionTriggerAnswerIds: ["1"],
+            conditionRequiredWhenShown: true,
         });
         for (const question of normalized.sections.flatMap((section) => section.questions)) {
             expect(question.key).toBe(`${question.presenceItemId}:${question.choiceId}`);

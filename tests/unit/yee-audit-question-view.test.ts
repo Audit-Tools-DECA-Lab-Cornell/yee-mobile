@@ -4,6 +4,7 @@ import {
     countTotalQuestions,
     firstUnansweredQuestion,
     isQuestionAnswered,
+    isQuestionComplete,
     questionPositionLabel,
     shouldShowFollowUp,
 } from "lib/yee-audit-question-view";
@@ -31,6 +32,8 @@ function makeQuestion(
         presenceAnswers: PRESENCE_ANSWERS,
         conditionItemId: "condition-item",
         conditionAnswers: [{ id: "good", label: "Good" }],
+        conditionTriggerAnswerIds: ["1", "2", "3"],
+        conditionRequiredWhenShown: true,
         ...overrides,
     };
 }
@@ -89,21 +92,46 @@ describe("question collection helpers", () => {
         expect(countAnsweredQuestions(section, responses)).toBe(2);
     });
 
-    it("returns the first unanswered question in instrument order", () => {
+    it("returns an answered question whose required follow-up is missing", () => {
         const first = makeQuestion("q1");
         const second = makeQuestion("q2");
         const third = makeQuestion("q3");
         const section = makeSection([first, second, third]);
         const responses = { "presence-item": { q1: "1", q2: "", q3: "4" } };
 
-        expect(firstUnansweredQuestion(section, responses)).toBe(second);
+        expect(firstUnansweredQuestion(section, responses)).toBe(first);
+        expect(
+            firstUnansweredQuestion(section, {
+                ...responses,
+                "condition-item": { q1: "good" },
+            }),
+        ).toBe(second);
     });
 
     it("returns null when every primary question is answered", () => {
         const section = makeSection([makeQuestion("q1"), makeQuestion("q2")]);
-        const responses = { "presence-item": { q1: "1", q2: "4" } };
+        const responses = { "presence-item": { q1: "4", q2: "4" } };
 
         expect(firstUnansweredQuestion(section, responses)).toBeNull();
+    });
+});
+
+describe("isQuestionComplete", () => {
+    it("requires a visible required follow-up but preserves primary-only answered state", () => {
+        const question = makeQuestion("q1");
+        const responses = { "presence-item": { q1: "1" } };
+
+        expect(isQuestionAnswered(question, responses)).toBe(true);
+        expect(isQuestionComplete(question, responses)).toBe(false);
+        expect(
+            isQuestionComplete(question, {
+                ...responses,
+                "condition-item": { q1: "good" },
+            }),
+        ).toBe(true);
+        expect(
+            isQuestionComplete({ ...question, conditionRequiredWhenShown: false }, responses),
+        ).toBe(true);
     });
 });
 

@@ -179,6 +179,8 @@ export default function AuditViewScreen() {
                     participant_info: submission.participant_info,
                     responses: submission.responses,
                     score: submission.score,
+                    instrument_key: submission.instrument_key ?? null,
+                    instrument_version: submission.instrument_version ?? null,
                 };
                 await openReadOnly(
                     buildFormStateFromSources({

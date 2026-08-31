@@ -123,6 +123,8 @@ function makeRemoteDraftState(placeId: string): YeeAuditStateResponse {
 }
 
 const INSTRUMENT_FIXTURE: YeeInstrumentResponse = {
+    instrument_key: "yee-active",
+    instrument_version: "0.9.0",
     sections: [{ block: "Access", title: "Access", intro_text: "", comment_prompt: "" }],
     scoring_items: [],
 } as unknown as YeeInstrumentResponse;
@@ -144,6 +146,8 @@ function binaryQuestion(
             { id: "2", label: "Good" },
             { id: "3", label: "Poor" },
         ],
+        conditionTriggerAnswerIds: ["1"],
+        conditionRequiredWhenShown: true,
         ...overrides,
     };
 }

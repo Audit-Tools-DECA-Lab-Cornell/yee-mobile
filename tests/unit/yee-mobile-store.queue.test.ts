@@ -11,8 +11,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuthSession } from "lib/auth/types";
 import { YeeMobileApiError } from "lib/yee-api";
-import { readDraft, readSyncQueue, upsertSyncQueueItem } from "lib/yee-offline-storage";
+import { normalizeInstrument } from "lib/yee-mobile-instrument";
+import {
+    readDraft,
+    readSyncQueue,
+    upsertSyncQueueItem,
+    writeInstrumentCache,
+} from "lib/yee-offline-storage";
 import { setActiveAccount } from "lib/yee-secure-draft-storage";
+import instrumentFixture from "../fixtures/yee-instrument.snapshot.json";
 import type {
     YeeAssignedPlace,
     YeeInstrumentResponse,
@@ -530,5 +537,129 @@ describe("refreshRemoteState — same-place submission reconciliation", () => {
         expect(useYeeMobileStore.getState().submittedAudits.map((audit) => audit.id)).toEqual([
             "server-sub-1",
         ]);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// Drain-time completeness gate
+// ---------------------------------------------------------------------------
+
+/** The real 54-question schema-v1 instrument, stamped so it can be cached. */
+const STAMPED_INSTRUMENT: YeeInstrumentResponse = {
+    ...instrumentFixture,
+    instrument_key: "yee",
+    instrument_version: "2.0",
+};
+
+/** Every logical question of {@link STAMPED_INSTRUMENT} answered affirmatively. */
+function completeResponses(): Record<string, Record<string, string>> {
+    const responses: Record<string, Record<string, string>> = {};
+    for (const section of normalizeInstrument(STAMPED_INSTRUMENT).sections) {
+        for (const question of section.questions) {
+            const presence = (responses[question.presenceItemId] ??= {});
+            presence[question.choiceId] = question.presenceAnswers[0]?.id ?? "1";
+            if (question.conditionItemId === null) {
+                continue;
+            }
+            const condition = (responses[question.conditionItemId] ??= {});
+            condition[question.choiceId] = question.conditionAnswers[0]?.id ?? "1";
+        }
+    }
+    return responses;
+}
+
+function stampedDraft(
+    placeId: string,
+    responses: Record<string, Record<string, string>>,
+): YeeLocalDraft {
+    return {
+        ...makeDraft(placeId),
+        responses,
+        instrumentKey: "yee",
+        instrumentVersion: "2.0",
+    };
+}
+
+describe("syncPendingQueue — drain-time completeness gate", () => {
+    it("parks an incomplete stamped submission WITHOUT calling the API", async () => {
+        await writeInstrumentCache(STAMPED_INSTRUMENT);
+        const draft = stampedDraft("place-1", { "QID1#1": { "1": "1" } });
+        await useYeeMobileStore.getState().saveDraftLocally(draft);
+        await useYeeMobileStore.getState().queueSubmissionSync(draft, null);
+
+        await useYeeMobileStore.getState().syncPendingQueue(makeSession());
+
+        // The whole point: a payload the backend would reject never leaves.
+        expect(submitAuditMock).not.toHaveBeenCalled();
+
+        const queue = await readSyncQueue();
+        expect(queue).toHaveLength(1);
+        expect(queue[0]?.failureReason).toBe("incomplete");
+        expect(queue[0]?.isTerminal).toBe(true);
+        // No request was made, so no attempt may be spent.
+        expect(queue[0]?.attempts).toBe(0);
+        // The follow-up to the one answered question is the earliest gap.
+        expect(queue[0]?.incompleteQuestionKeys?.missingQuestionKeys).toContain("QID1#1:1");
+        expect(queue[0]?.incompleteQuestionKeys?.firstMissingStep).toBe(
+            normalizeInstrument(STAMPED_INSTRUMENT).sections[0]?.step,
+        );
+    });
+
+    it("does not re-drain a parked incomplete item on the next sync", async () => {
+        await writeInstrumentCache(STAMPED_INSTRUMENT);
+        const draft = stampedDraft("place-1", {});
+        await useYeeMobileStore.getState().saveDraftLocally(draft);
+        await useYeeMobileStore.getState().queueSubmissionSync(draft, null);
+
+        await useYeeMobileStore.getState().syncPendingQueue(makeSession());
+        await useYeeMobileStore.getState().syncPendingQueue(makeSession());
+
+        expect(submitAuditMock).not.toHaveBeenCalled();
+        expect((await readSyncQueue())[0]?.attempts).toBe(0);
+    });
+
+    it("submits a stamped submission once every required answer is present", async () => {
+        await writeInstrumentCache(STAMPED_INSTRUMENT);
+        const draft = stampedDraft("place-1", completeResponses());
+        await useYeeMobileStore.getState().saveDraftLocally(draft);
+        await useYeeMobileStore.getState().queueSubmissionSync(draft, null);
+
+        submitAuditMock.mockResolvedValue(makeSubmissionResponse("place-1"));
+        await useYeeMobileStore.getState().syncPendingQueue(makeSession());
+
+        expect(submitAuditMock).toHaveBeenCalledTimes(1);
+        expect(await readSyncQueue()).toHaveLength(0);
+    });
+
+    it("retains a stamped submission whose exact version is not cached, without POSTing", async () => {
+        // A different version is cached, and it must not stand in for the one
+        // this audit was taken under.
+        await writeInstrumentCache({ ...STAMPED_INSTRUMENT, instrument_version: "3.0" });
+        const draft = stampedDraft("place-1", completeResponses());
+        await useYeeMobileStore.getState().saveDraftLocally(draft);
+        await useYeeMobileStore.getState().queueSubmissionSync(draft, null);
+
+        await useYeeMobileStore.getState().syncPendingQueue(makeSession());
+
+        expect(submitAuditMock).not.toHaveBeenCalled();
+        const queue = await readSyncQueue();
+        expect(queue).toHaveLength(1);
+        // Retained, not failed: nothing went wrong and nothing was lost.
+        expect(queue[0]?.failureReason).toBeNull();
+        expect(queue[0]?.isTerminal).toBeUndefined();
+        expect(queue[0]?.attempts).toBe(0);
+        expect(useYeeMobileStore.getState().errorMessage).toContain("Reconnect");
+    });
+
+    it("submits an unstamped legacy payload even with no instrument cached", async () => {
+        const draft = makeDraft("place-1");
+        await useYeeMobileStore.getState().saveDraftLocally(draft);
+        await useYeeMobileStore.getState().queueSubmissionSync(draft, null);
+
+        submitAuditMock.mockResolvedValue(makeSubmissionResponse("place-1"));
+        await useYeeMobileStore.getState().syncPendingQueue(makeSession());
+
+        expect(submitAuditMock).toHaveBeenCalledTimes(1);
+        expect(await readSyncQueue()).toHaveLength(0);
     });
 });

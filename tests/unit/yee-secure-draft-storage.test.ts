@@ -18,16 +18,22 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
     YeeStorageError,
     clearAccountStorage,
+    evictUnpinnedInstrumentsFromMmkv,
+    listCachedInstrumentStampsFromMmkv,
+    readActiveInstrumentFromMmkv,
     readDraftFromMmkv,
     readDraftMapFromMmkv,
+    readInstrumentFromMmkv,
     readSyncQueueFromMmkv,
     setActiveAccount,
     writeDraftToMmkv,
+    writeInstrumentToMmkv,
 } from "lib/yee-secure-draft-storage";
-import type { YeeLocalDraft, YeeSyncQueueItem } from "lib/yee-types";
+import type { YeeInstrumentResponse, YeeLocalDraft, YeeSyncQueueItem } from "lib/yee-types";
 
 const LEGACY_DRAFTS_KEY = "yee.mobile.local-drafts.v1";
 const LEGACY_SYNC_QUEUE_KEY = "yee.mobile.sync-queue.v1";
+const LEGACY_INSTRUMENT_KEY = "yee.mobile.instrument.v1";
 
 let accountCounter = 0;
 
@@ -69,6 +75,14 @@ function makeQueueItem(id: string, placeId: string): YeeSyncQueueItem {
         nextAttemptAtIso: null,
         maxAttempts: 8,
         failureReason: null,
+    };
+}
+
+function makeInstrument(version: string): YeeInstrumentResponse {
+    return {
+        instrument_key: "yee-active",
+        instrument_version: version,
+        sections: [{ id: `section-${version}` }],
     };
 }
 
@@ -141,6 +155,68 @@ describe("migration: AsyncStorage -> MMKV", () => {
         expect(drafts).toEqual({});
         const queue = await readSyncQueueFromMmkv();
         expect(queue).toEqual([]);
+    });
+
+    it("imports an identifiable legacy instrument into the active version slot", async () => {
+        await AsyncStorage.setItem(LEGACY_INSTRUMENT_KEY, JSON.stringify(makeInstrument("1.2.3")));
+        freshAccount();
+
+        await expect(readActiveInstrumentFromMmkv()).resolves.toEqual(makeInstrument("1.2.3"));
+    });
+
+    it("does not import an unversioned legacy instrument", async () => {
+        await AsyncStorage.setItem(
+            LEGACY_INSTRUMENT_KEY,
+            JSON.stringify({ sections: [{ id: "unknown" }] }),
+        );
+        freshAccount();
+
+        await expect(readActiveInstrumentFromMmkv()).resolves.toBeNull();
+    });
+});
+
+describe("version-pinned instrument cache", () => {
+    it("keeps exact versions distinct and changes active only when requested", async () => {
+        freshAccount();
+        await writeInstrumentToMmkv(makeInstrument("1.0.0"));
+        await writeInstrumentToMmkv(makeInstrument("2.0.0"), { asActive: false });
+
+        await expect(readActiveInstrumentFromMmkv()).resolves.toEqual(makeInstrument("1.0.0"));
+        await expect(
+            readInstrumentFromMmkv({
+                instrumentKey: "yee-active",
+                instrumentVersion: "2.0.0",
+            }),
+        ).resolves.toEqual(makeInstrument("2.0.0"));
+    });
+
+    it("rejects a cache write without an exact instrument stamp", async () => {
+        freshAccount();
+        await expect(writeInstrumentToMmkv({ sections: [] })).rejects.toBeInstanceOf(
+            YeeStorageError,
+        );
+    });
+
+    it("retains active and pinned versions while bounding unpinned history", async () => {
+        freshAccount();
+        await writeInstrumentToMmkv(makeInstrument("1.0.0"));
+        for (const version of ["2.0.0", "3.0.0", "4.0.0", "5.0.0"]) {
+            await writeInstrumentToMmkv(makeInstrument(version), { asActive: false });
+        }
+        await evictUnpinnedInstrumentsFromMmkv([
+            { instrumentKey: "yee-active", instrumentVersion: "2.0.0" },
+        ]);
+
+        const stamps = await listCachedInstrumentStampsFromMmkv();
+        expect(stamps).toHaveLength(2);
+        expect(stamps).toContainEqual({
+            instrumentKey: "yee-active",
+            instrumentVersion: "1.0.0",
+        });
+        expect(stamps).toContainEqual({
+            instrumentKey: "yee-active",
+            instrumentVersion: "2.0.0",
+        });
     });
 });
 

@@ -5,6 +5,7 @@ import { ArrowRight } from "components/icons";
 import { useDesignSystem } from "lib/design-system";
 import {
     countAnsweredQuestions,
+    countRequiredFollowUpsRemaining,
     countTotalQuestions,
     firstUnansweredQuestion,
     questionPositionLabel,
@@ -142,6 +143,9 @@ const SectionQuickActions = memo(function SectionQuickActions({
             ? 0
             : countTotalQuestions(section) - countAnsweredQuestions(section, state.draft.responses),
     );
+    const requiredFollowUps = useAuditSessionStore((state) =>
+        state.draft === null ? 0 : countRequiredFollowUpsRemaining(section, state.draft.responses),
+    );
 
     const onJump = useCallback(() => {
         const draft = useAuditSessionStore.getState().draft;
@@ -154,7 +158,7 @@ const SectionQuickActions = memo(function SectionQuickActions({
         }
     }, [section, scrollToRow]);
 
-    if (readOnly || unansweredCount === 0) {
+    if (readOnly || (unansweredCount === 0 && requiredFollowUps === 0)) {
         return null;
     }
 
@@ -165,8 +169,9 @@ const SectionQuickActions = memo(function SectionQuickActions({
                 fontFamily={designSystem.fonts.bodyMedium}
                 fontSize={13}
             >
-                {unansweredCount} {unansweredCount === 1 ? "question" : "questions"} still
-                unanswered
+                {unansweredCount > 0
+                    ? `${unansweredCount} ${unansweredCount === 1 ? "question" : "questions"} still unanswered`
+                    : `${requiredFollowUps} required ${requiredFollowUps === 1 ? "follow-up" : "follow-ups"} still needed`}
             </Paragraph>
             <QuickActionButton label="Jump to next unanswered" onPress={onJump} />
         </XStack>
@@ -240,8 +245,17 @@ const DomainQuestionCard = memo(function DomainQuestionCard({
                             style={{ color: palette.accentText, flexShrink: 1 }}
                             fontFamily={designSystem.fonts.bodyBold}
                         >
-                            {conditionPrompt}
+                            {question.followUpPrompt || conditionPrompt}
                         </Paragraph>
+                        {question.conditionRequiredWhenShown ? (
+                            <Paragraph
+                                color={designSystem.colors.mutedForeground}
+                                fontFamily={designSystem.fonts.bodyMedium}
+                                fontSize={12}
+                            >
+                                This follow-up is required before the section is complete.
+                            </Paragraph>
+                        ) : null}
                         <OptionGrid
                             value={conditionValue}
                             options={question.conditionAnswers}
@@ -292,10 +306,17 @@ const DomainProgress = memo(function DomainProgress({
     const completedCount = useAuditSessionStore((state) =>
         state.draft === null ? 0 : countAnsweredQuestions(section, state.draft.responses),
     );
+    const requiredFollowUps = useAuditSessionStore((state) =>
+        state.draft === null ? 0 : countRequiredFollowUpsRemaining(section, state.draft.responses),
+    );
     return (
         <SectionProgressCard
             title={`${section.title} progress`}
-            helperText="Updates as you answer each question."
+            helperText={
+                requiredFollowUps > 0
+                    ? `${requiredFollowUps} required ${requiredFollowUps === 1 ? "follow-up is" : "follow-ups are"} still needed.`
+                    : "Updates as you answer each question."
+            }
             completedCount={completedCount}
             totalCount={countTotalQuestions(section)}
         />

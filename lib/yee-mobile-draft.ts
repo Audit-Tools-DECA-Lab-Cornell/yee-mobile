@@ -10,6 +10,8 @@ export interface MobileAuditFormState {
     readonly placeId: string;
     readonly placeName: string;
     readonly auditorId: string;
+    readonly instrumentKey: string | null;
+    readonly instrumentVersion: string | null;
     /** Optional study/workshop participant ID linking this audit to a person. */
     readonly participantId: string;
     readonly auditDate: string;
@@ -39,6 +41,8 @@ export function createEmptyFormState(
         placeId,
         placeName,
         auditorId,
+        instrumentKey: null,
+        instrumentVersion: null,
         participantId: "",
         auditDate: startedAt.toISOString().slice(0, 10),
         startTime: startedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -78,6 +82,9 @@ export function buildFormStateFromSources(input: {
 
     return {
         ...base,
+        instrumentKey: input.storedDraft?.instrumentKey ?? input.auditState?.instrument_key ?? null,
+        instrumentVersion:
+            input.storedDraft?.instrumentVersion ?? input.auditState?.instrument_version ?? null,
         placeName: asString(draftPayload.place_name) ?? input.placeName,
         auditorId:
             asString(draftPayload.auditor_id) ??
@@ -130,6 +137,8 @@ export function buildStoredDraft(
         schemaVersion: YEE_DRAFT_SCHEMA_VERSION,
         version: nextVersion,
         placeId: state.placeId,
+        instrumentKey: state.instrumentKey,
+        instrumentVersion: state.instrumentVersion,
         updatedAt: nowIso,
         lastUpdatedIso: nowIso,
         participantInfo: buildParticipantInfo(state),

@@ -11,7 +11,18 @@ import {
     submitAudit,
 } from "lib/yee-api";
 import { buildIdempotencyKey } from "lib/yee-id";
-import { classifyError, decideNextQueueState, selectDrainableItems } from "lib/yee-sync-logic";
+import { normalizeInstrument } from "lib/yee-mobile-instrument";
+import {
+    type QueuedSubmissionGate,
+    gateQueuedSubmission,
+    toAuditResponses,
+} from "lib/yee-queued-submission-gate";
+import {
+    classifyError,
+    decideNextQueueState,
+    parseIncompleteAuditResponses,
+    selectDrainableItems,
+} from "lib/yee-sync-logic";
 import {
     deleteDraft,
     readAssignedPlacesCache,
@@ -280,6 +291,10 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                     // it to avoid marking a NEWER local edit as synced off the back
                     // of this (older) mirror PUT — the stale-draft guard.
                     draft_version: draft.version,
+                    ...(draft.instrumentKey ? { instrument_key: draft.instrumentKey } : {}),
+                    ...(draft.instrumentVersion
+                        ? { instrument_version: draft.instrumentVersion }
+                        : {}),
                 },
                 attempts: existing?.attempts ?? 0,
                 lastError: existing?.lastError ?? null,
@@ -414,6 +429,8 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                 schemaVersion: YEE_DRAFT_SCHEMA_VERSION,
                 version: (previousDraft?.version ?? 0) + 1,
                 placeId,
+                instrumentKey: state.instrument_key ?? null,
+                instrumentVersion: state.instrument_version ?? null,
                 updatedAt: nowIso,
                 lastUpdatedIso: nowIso,
                 participantInfo: state.participant_info,
@@ -521,6 +538,8 @@ async function queueSubmissionInternal(
             responses: draft.responses,
             idempotency_key: idempotencyKey,
             draft_version: draft.version,
+            ...(draft.instrumentKey ? { instrument_key: draft.instrumentKey } : {}),
+            ...(draft.instrumentVersion ? { instrument_version: draft.instrumentVersion } : {}),
             ...(existing?.payload.provisional_submission_id
                 ? { provisional_submission_id: existing.payload.provisional_submission_id }
                 : {}),
@@ -562,6 +581,10 @@ async function queueSubmissionInternal(
                   place_name: provisionalSubmission.place_name ?? provisionalSubmission.place_id,
                   submitted_at: provisionalSubmission.submitted_at,
                   total_score: provisionalSubmission.score.total_score,
+                  instrument_key:
+                      provisionalSubmission.instrument_key ?? draft.instrumentKey ?? null,
+                  instrument_version:
+                      provisionalSubmission.instrument_version ?? draft.instrumentVersion ?? null,
                   syncState: "pending_upload" as const,
               };
 
@@ -607,6 +630,104 @@ function statusCodeFromError(error: unknown): number {
     return 0;
 }
 
+/** Shown when an audit cannot be sent until its missing answers are filled in. */
+const INCOMPLETE_SUBMISSION_MESSAGE = "This audit still needs a few answers before it can be sent.";
+
+/** Shown when the questions an audit was completed with are not on this device. */
+const UNRESOLVED_INSTRUMENT_MESSAGE =
+    "Reconnect once to download the questions this audit was completed with, then it will send.";
+
+/**
+ * The instrument a queued submission must be judged against, from local cache.
+ *
+ * A payload carrying a stamp resolves to that EXACT version or to nothing —
+ * never to whatever is active now, which would judge an audit against a
+ * contract it was never taken under. A payload carrying no stamp at all
+ * predates stamping, so it is checked against the cached active instrument only
+ * while that instrument is still schema-v1: the frozen contract those payloads
+ * were authored under. Once a v2 instrument is active it can no longer speak
+ * for them, and the gate falls back to the backend's unstamped resolution.
+ */
+async function readInstrumentForQueuedItem(
+    stampKey: string,
+    stampVersion: string,
+): Promise<ReturnType<typeof normalizeInstrument> | null> {
+    try {
+        if (stampKey === "" && stampVersion === "") {
+            const active = await readInstrumentCache();
+            if (active === null || (active.authoring ?? null) !== null) {
+                return null;
+            }
+            return normalizeInstrument(active);
+        }
+        if (stampKey === "" || stampVersion === "") {
+            // Half a stamp names no version, so there is nothing to look up.
+            return null;
+        }
+        const exact = await readInstrumentCache({
+            instrumentKey: stampKey,
+            instrumentVersion: stampVersion,
+        });
+        return exact === null ? null : normalizeInstrument(exact);
+    } catch {
+        // An unreadable cache is the same as an absent one, and the gate already
+        // treats that safely: a stamped item is retained, an unstamped legacy
+        // item is sent for the backend to resolve.
+        return null;
+    }
+}
+
+/** Whether a queued submission may be POSTed, decided from local state alone. */
+async function resolveQueuedSubmissionGate(item: YeeSyncQueueItem): Promise<QueuedSubmissionGate> {
+    const stampKey = (item.payload.instrument_key ?? "").trim();
+    const stampVersion = (item.payload.instrument_version ?? "").trim();
+    return gateQueuedSubmission({
+        stampKey,
+        stampVersion,
+        instrument: await readInstrumentForQueuedItem(stampKey, stampVersion),
+        responses: toAuditResponses(item.payload.responses),
+    });
+}
+
+/**
+ * Record a gate decision that stopped a submission before it was sent.
+ *
+ * Neither branch burns an attempt: no request was made, so counting one would
+ * push an item toward the terminal cap for something it cannot influence.
+ */
+async function applyQueuedSubmissionGate(
+    item: YeeSyncQueueItem,
+    gate: Exclude<QueuedSubmissionGate, { readonly outcome: "submit" }>,
+    set: StoreSet,
+): Promise<void> {
+    if (gate.outcome === "retain_unresolved_instrument") {
+        // Nothing failed and nothing is lost. The payload and its stamp stay
+        // queued exactly as they are until that version is cached again, so this
+        // is a message rather than a persisted failure.
+        set(() => ({ errorMessage: UNRESOLVED_INSTRUMENT_MESSAGE }));
+        return;
+    }
+
+    const parkedItem: YeeSyncQueueItem = {
+        ...item,
+        updatedAt: new Date().toISOString(),
+        lastError: INCOMPLETE_SUBMISSION_MESSAGE,
+        nextAttemptAtIso: null,
+        failureReason: "incomplete",
+        isTerminal: true,
+        incompleteQuestionKeys: {
+            missingQuestionKeys: gate.incomplete.missingQuestionKeys,
+            firstMissingStep: gate.incomplete.firstMissingStep,
+        },
+    };
+    await upsertSyncQueueItem(parkedItem);
+    set((state) => ({
+        syncQueue: upsertLocalQueue(state.syncQueue, parkedItem),
+        draftsByPlace: stampDraftSyncState(state.draftsByPlace, parkedItem.placeId, "sync_failed"),
+        errorMessage: INCOMPLETE_SUBMISSION_MESSAGE,
+    }));
+}
+
 /**
  * Drain the pending queue once. Serialized by the caller; respects per-item
  * backoff windows, pauses on auth failure without burning an attempt, and parks
@@ -629,6 +750,17 @@ async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): P
         const liveItem = get().syncQueue.find((entry) => entry.id === item.id) ?? null;
         if (liveItem === null) {
             continue;
+        }
+
+        // Decide locally, before any network call, whether this submission may
+        // go at all. A payload the backend would reject for missing answers is
+        // parked here instead of being POSTed and rejected.
+        if (liveItem.kind === "submission") {
+            const gate = await resolveQueuedSubmissionGate(liveItem);
+            if (gate.outcome !== "submit") {
+                await applyQueuedSubmissionGate(liveItem, gate, set);
+                continue;
+            }
         }
 
         try {
@@ -666,9 +798,15 @@ async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): P
             const statusCode = statusCodeFromError(error);
             const classification = classifyError(statusCode);
             const message = error instanceof Error ? error.message : "Sync failed.";
+            // A rejection naming unanswered questions is recoverable by editing
+            // the audit; anything else stays an opaque terminal failure.
+            const incomplete =
+                error instanceof YeeMobileApiError
+                    ? parseIncompleteAuditResponses(error.body)
+                    : null;
             const next = decideNextQueueState(
                 liveItem,
-                { classification, statusCode, message },
+                { classification, statusCode, message, incomplete },
                 new Date().toISOString(),
             );
 
@@ -679,6 +817,14 @@ async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): P
                 lastError: next.lastError,
                 nextAttemptAtIso: next.nextAttemptAtIso,
                 failureReason: next.failureReason,
+                // Persist the parked decision itself. Without this the queue
+                // could only infer "stop retrying" from the reason string, and a
+                // rejected payload kept draining forever.
+                isTerminal: next.isTerminal,
+                // Carry the questions to fix across restarts. Spread rather than
+                // assigning undefined: exactOptionalPropertyTypes forbids it,
+                // and an absent key is what an unaffected item should have.
+                ...(incomplete === null ? {} : { incompleteQuestionIds: incomplete }),
             };
             await upsertSyncQueueItem(failedItem);
             set((state) => ({
@@ -744,6 +890,10 @@ async function drainDraftSave(
     const savedState = await saveAuditDraft(item.placeId, session, {
         participant_info: item.payload.participant_info,
         responses: item.payload.responses,
+        ...(item.payload.instrument_key ? { instrument_key: item.payload.instrument_key } : {}),
+        ...(item.payload.instrument_version
+            ? { instrument_version: item.payload.instrument_version }
+            : {}),
     });
 
     const existingDraft = get().draftsByPlace[item.placeId] ?? null;
@@ -764,6 +914,8 @@ async function drainDraftSave(
         scorePreview: savedState.score,
         lastKnownBackendStatus: savedState.status,
         lastKnownSubmissionId: savedState.submission_id,
+        instrumentKey: savedState.instrument_key ?? existingDraft.instrumentKey ?? null,
+        instrumentVersion: savedState.instrument_version ?? existingDraft.instrumentVersion ?? null,
         syncState: "synced",
         updatedAt: syncedAtIso,
         lastUpdatedIso: syncedAtIso,
@@ -789,6 +941,10 @@ async function drainSubmission(
         place_id: item.placeId,
         participant_info: item.payload.participant_info,
         responses: item.payload.responses,
+        ...(item.payload.instrument_key ? { instrument_key: item.payload.instrument_key } : {}),
+        ...(item.payload.instrument_version
+            ? { instrument_version: item.payload.instrument_version }
+            : {}),
         ...(item.payload.idempotency_key ? { idempotency_key: item.payload.idempotency_key } : {}),
     });
 
@@ -811,6 +967,9 @@ async function drainSubmission(
         place_name: submission.place_name ?? item.placeId,
         submitted_at: submission.submitted_at,
         total_score: submission.score.total_score,
+        instrument_key: submission.instrument_key ?? item.payload.instrument_key ?? null,
+        instrument_version:
+            submission.instrument_version ?? item.payload.instrument_version ?? null,
         syncState: "synced",
     };
     const nextSubmittedAudits = [

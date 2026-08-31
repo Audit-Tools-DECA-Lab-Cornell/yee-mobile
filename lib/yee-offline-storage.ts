@@ -1,13 +1,18 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
     deleteDraftFromMmkv,
+    evictUnpinnedInstrumentsFromMmkv,
+    readActiveInstrumentFromMmkv,
     readDraftFromMmkv,
     readDraftMapFromMmkv,
+    readInstrumentFromMmkv,
     readSyncQueueFromMmkv,
     removeSyncQueueItemFromMmkv,
     upsertSyncQueueItemInMmkv,
     writeDraftToMmkv,
+    writeInstrumentToMmkv,
     writeSyncQueueToMmkv,
+    type YeeInstrumentStamp,
 } from "lib/yee-secure-draft-storage";
 import type {
     YeeAssignedPlace,
@@ -30,7 +35,6 @@ const STORAGE_KEYS = {
     places: "yee.mobile.assigned-places.v1",
     audits: "yee.mobile.submitted-audits.v1",
     metadata: "yee.mobile.offline-metadata.v1",
-    instrument: "yee.mobile.instrument.v1",
 } as const;
 
 const inMemoryFallback = new Map<string, string>();
@@ -108,12 +112,44 @@ export async function writeOfflineMetadata(metadata: YeeOfflineMetadata): Promis
     await writeJson(STORAGE_KEYS.metadata, metadata);
 }
 
-export async function readInstrumentCache(): Promise<YeeInstrumentResponse | null> {
-    return readJson<YeeInstrumentResponse | null>(STORAGE_KEYS.instrument, null);
+export async function readInstrumentCache(
+    stamp?: YeeInstrumentStamp | null,
+): Promise<YeeInstrumentResponse | null> {
+    return stamp === null || stamp === undefined
+        ? readActiveInstrumentFromMmkv()
+        : readInstrumentFromMmkv(stamp);
 }
 
-export async function writeInstrumentCache(instrument: YeeInstrumentResponse): Promise<void> {
-    await writeJson(STORAGE_KEYS.instrument, instrument);
+export async function writeInstrumentCache(
+    instrument: YeeInstrumentResponse,
+    options: { readonly asActive?: boolean } = {},
+): Promise<void> {
+    const stamp = await writeInstrumentToMmkv(instrument, options);
+    const [drafts, submittedAudits] = await Promise.all([
+        readDraftMapFromMmkv(),
+        readSubmittedAuditsCache(),
+    ]);
+    const pinnedStamps = [
+        ...Object.values(drafts).flatMap((draft) =>
+            stampFromValues(draft.instrumentKey, draft.instrumentVersion),
+        ),
+        ...submittedAudits.flatMap((audit) =>
+            stampFromValues(audit.instrument_key, audit.instrument_version),
+        ),
+        stamp,
+    ];
+    await evictUnpinnedInstrumentsFromMmkv(pinnedStamps);
+}
+
+function stampFromValues(
+    instrumentKey: string | null | undefined,
+    instrumentVersion: string | null | undefined,
+): readonly YeeInstrumentStamp[] {
+    const key = instrumentKey?.trim() ?? "";
+    const version = instrumentVersion?.trim() ?? "";
+    return key.length > 0 && version.length > 0
+        ? [{ instrumentKey: key, instrumentVersion: version }]
+        : [];
 }
 
 async function readJson<T>(key: string, fallback: T): Promise<T> {

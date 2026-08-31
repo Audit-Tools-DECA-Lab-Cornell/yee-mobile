@@ -42,6 +42,8 @@ function makeQuestion(presenceItemId: string, choiceId: string): InstrumentLogic
         presenceAnswers: [{ id: "ans1", label: "Yes" }],
         conditionItemId: null,
         conditionAnswers: [],
+        conditionTriggerAnswerIds: [],
+        conditionRequiredWhenShown: false,
     };
 }
 
@@ -258,16 +260,29 @@ describe("findFirstIncompleteStep — Steps 3–8 (Domain sections)", () => {
         });
     });
 
-    it("does not require a condition answer after an affirmative primary answer", () => {
+    it("requires a shown condition answer unless the instrument marks it optional", () => {
         const question: InstrumentLogicalQuestion = {
             ...makeQuestion("item-1", "ch-1"),
             conditionItemId: "condition-1",
             conditionAnswers: [{ id: "good", label: "Good" }],
+            conditionTriggerAnswerIds: ["ans1"],
+            conditionRequiredWhenShown: true,
         };
         const instrument = makeInstrument([makeSection(3, "Access", [question])]);
         const responses = { "item-1": { "ch-1": "ans1" } };
 
-        expect(findFirstIncompleteStep(makeDraft({ responses }), instrument)).toBeNull();
+        expect(findFirstIncompleteStep(makeDraft({ responses }), instrument)).toEqual({
+            step: 3,
+            label: "Access",
+        });
+        expect(
+            findFirstIncompleteStep(
+                makeDraft({ responses }),
+                makeInstrument([
+                    makeSection(3, "Access", [{ ...question, conditionRequiredWhenShown: false }]),
+                ]),
+            ),
+        ).toBeNull();
     });
 });
 

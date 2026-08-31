@@ -13,12 +13,27 @@ const DEFAULT_API_BASE_URL =
 export class YeeMobileApiError extends Error {
     readonly statusCode: number;
     readonly details: string | null;
+    /**
+     * The parsed JSON error body, when the response had one.
+     *
+     * `details` flattens the body to a human string, which loses any structure
+     * the backend sent. A rejection the auditor can act on — a submission
+     * missing required answers names those questions — needs the object, so the
+     * raw payload rides along and typed readers narrow it themselves.
+     */
+    readonly body: unknown;
 
-    constructor(message: string, statusCode: number, details: string | null = null) {
+    constructor(
+        message: string,
+        statusCode: number,
+        details: string | null = null,
+        body: unknown = null,
+    ) {
         super(message);
         this.name = "YeeMobileApiError";
         this.statusCode = statusCode;
         this.details = details;
+        this.body = body;
     }
 }
 
@@ -54,8 +69,15 @@ interface RequestOptions {
     readonly timeoutMs?: number;
 }
 
-export async function fetchYeeInstrument(): Promise<YeeInstrumentResponse> {
-    return getJson<YeeInstrumentResponse>("/yee/instrument");
+export async function fetchYeeInstrument(stamp?: {
+    readonly instrumentKey: string;
+    readonly instrumentVersion: string;
+}): Promise<YeeInstrumentResponse> {
+    const query =
+        stamp === undefined
+            ? ""
+            : `?instrument_key=${encodeURIComponent(stamp.instrumentKey)}&instrument_version=${encodeURIComponent(stamp.instrumentVersion)}`;
+    return getJson<YeeInstrumentResponse>(`/yee/instrument${query}`);
 }
 
 export async function fetchAssignedPlaces(
@@ -81,6 +103,8 @@ export async function saveAuditDraft(
     payload: {
         participant_info: Record<string, unknown>;
         responses: Record<string, unknown>;
+        instrument_key?: string;
+        instrument_version?: string;
     },
 ): Promise<YeeAuditStateResponse> {
     // Best-effort remote mirror — short timeout so a stalled PUT gives up fast
@@ -100,6 +124,8 @@ export async function previewScore(
         place_id: string;
         participant_info: Record<string, unknown>;
         responses: Record<string, unknown>;
+        instrument_key?: string;
+        instrument_version?: string;
     },
 ): Promise<YeeAuditStateResponse["score"]> {
     // Score preview is optional UI sugar — same short budget as the draft mirror.
@@ -118,6 +144,8 @@ export async function submitAudit(
         place_id: string;
         participant_info: Record<string, unknown>;
         responses: Record<string, unknown>;
+        instrument_key?: string;
+        instrument_version?: string;
         /**
          * Stable idempotency key (max 64 chars). Sent as `idempotency_key` in
          * the POST body so an exact-key replay returns the existing record (200)
@@ -131,6 +159,8 @@ export async function submitAudit(
         place_id: payload.place_id,
         participant_info: payload.participant_info,
         responses: payload.responses,
+        ...(payload.instrument_key ? { instrument_key: payload.instrument_key } : {}),
+        ...(payload.instrument_version ? { instrument_version: payload.instrument_version } : {}),
     };
     if (typeof payload.idempotency_key === "string" && payload.idempotency_key.length > 0) {
         body.idempotency_key = payload.idempotency_key;
@@ -244,7 +274,12 @@ async function requestJson<T>(
 
     if (!response.ok) {
         const details = extractErrorDetails(payload, response.statusText);
-        throw new YeeMobileApiError("YEE mobile request failed.", response.status, details);
+        throw new YeeMobileApiError(
+            "YEE mobile request failed.",
+            response.status,
+            details,
+            payload,
+        );
     }
 
     return payload as T;
@@ -262,6 +297,12 @@ function extractErrorDetails(payload: unknown, fallback: string): string | null 
     if (payload !== null && typeof payload === "object") {
         const details = payload as Record<string, unknown>;
         if (typeof details.detail === "string") return details.detail;
+        // A structured rejection nests its human message inside the detail
+        // object; without this the caller fell through to the bare status text.
+        if (details.detail !== null && typeof details.detail === "object") {
+            const nested = details.detail as Record<string, unknown>;
+            if (typeof nested.message === "string") return nested.message;
+        }
         if (typeof details.error === "string") return details.error;
         if (typeof details.message === "string") return details.message;
     }
