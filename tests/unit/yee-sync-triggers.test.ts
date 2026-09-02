@@ -1,11 +1,20 @@
 /**
  * When the offline submission queue may be drained.
  *
- * The bug these pin: an audit completed offline sat at "Queued for upload"
- * indefinitely, on a tablet with working wifi, because the drain ran once at
- * startup against a store whose persisted queue had not loaded yet. It found an
- * empty queue, reported success, and nothing re-ran it — for that session or any
- * later one, since the race repeats on every launch.
+ * Two bugs are pinned here, and the second was caused by the fix for the first.
+ *
+ * 1. An audit completed offline sat at "Queued for upload" indefinitely on a
+ *    tablet with working wifi, because the drain ran once at startup against a
+ *    store whose persisted queue had not loaded yet, saw an empty queue, and was
+ *    never re-run.
+ *
+ * 2. Gating that drain on the store's `status` sent the app into a request
+ *    storm. `refreshRemoteState` moves `status` "ready" -> "loading" -> "ready",
+ *    and the same effect calls it — so the gate re-enabled itself on every
+ *    refresh and the app called the backend continuously from the home screen.
+ *
+ * Hence the flag: the gate must be MONOTONIC — something no refresh can move
+ * back.
  */
 import { describe, expect, it } from "vitest";
 import { shouldDrainQueue, type QueueDrainConditions } from "lib/yee-sync-triggers";
@@ -15,7 +24,7 @@ function conditions(overrides: Partial<QueueDrainConditions> = {}): QueueDrainCo
         authStatus: "authenticated",
         hasSession: true,
         isOnline: true,
-        offlineStatus: "ready",
+        hasLoadedOfflineState: true,
         ...overrides,
     };
 }
@@ -26,20 +35,10 @@ describe("shouldDrainQueue", () => {
     });
 
     it("does NOT drain before the persisted queue has loaded", () => {
-        // The regression. Auth resolves first because it reads two keys, while
-        // hydration reads six and awaits a reachability probe. Draining here
-        // reads an unloaded queue as an empty outbox.
-        expect(shouldDrainQueue(conditions({ offlineStatus: "loading" }))).toBe(false);
-    });
-
-    it("does not drain from the store's initial state", () => {
-        expect(shouldDrainQueue(conditions({ offlineStatus: "idle" }))).toBe(false);
-    });
-
-    it("does not drain when loading the offline state failed", () => {
-        // The queue is unknown, not empty. Sending nothing is right; claiming
-        // there was nothing to send is not.
-        expect(shouldDrainQueue(conditions({ offlineStatus: "error" }))).toBe(false);
+        // Bug 1. Auth resolves first because it reads two keys, while hydration
+        // reads six and awaits a reachability probe. Draining here reads an
+        // unloaded queue as an empty outbox.
+        expect(shouldDrainQueue(conditions({ hasLoadedOfflineState: false }))).toBe(false);
     });
 
     it("does not drain while signed out", () => {
@@ -59,9 +58,17 @@ describe("shouldDrainQueue", () => {
         // The startup sequence that used to strand a submission: auth lands
         // first and the drain is refused, then hydration completes and it is
         // allowed. The value CHANGING is what re-runs the effect.
-        const beforeHydration = shouldDrainQueue(conditions({ offlineStatus: "loading" }));
-        const afterHydration = shouldDrainQueue(conditions({ offlineStatus: "ready" }));
-        expect(beforeHydration).toBe(false);
-        expect(afterHydration).toBe(true);
+        expect(shouldDrainQueue(conditions({ hasLoadedOfflineState: false }))).toBe(false);
+        expect(shouldDrainQueue(conditions({ hasLoadedOfflineState: true }))).toBe(true);
+    });
+
+    it("stays true across a remote refresh, so the drain cannot re-trigger itself", () => {
+        // Bug 2. A refresh must not be able to flip the gate off and back on;
+        // that is what turned one drain into an unbounded request loop. The
+        // store-level guarantee behind this is covered in
+        // yee-mobile-store.hydration.test.ts.
+        const duringRefresh = conditions({ hasLoadedOfflineState: true });
+        expect(shouldDrainQueue(duringRefresh)).toBe(true);
+        expect(shouldDrainQueue({ ...duringRefresh, hasLoadedOfflineState: true })).toBe(true);
     });
 });

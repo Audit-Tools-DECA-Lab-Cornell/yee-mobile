@@ -18,35 +18,45 @@
  * than an extra trigger on purpose: an empty-looking queue must not be read as
  * "nothing to send".
  *
+ * The gate has to be MONOTONIC. Gating on the store's `status` instead caused a
+ * request storm: `refreshRemoteState` sets "loading" then "ready", so an effect
+ * that both reads `status` and calls that refresh re-enables itself forever.
+ *
  * Pure and free of React Native imports so the rule is unit-tested in Node —
  * the effect that consumes it lives in `app/_layout.tsx`, which cannot be
  * rendered in this environment.
  */
 
 import type { AuthStatus } from "stores/auth-store";
-import type { YeeMobileStoreStatus } from "stores/yee-mobile-store";
 
 export interface QueueDrainConditions {
     readonly authStatus: AuthStatus;
     /** Whether a restored session is available to authorize the requests. */
     readonly hasSession: boolean;
     readonly isOnline: boolean;
-    /** Status of the offline store, i.e. whether the persisted queue is loaded. */
-    readonly offlineStatus: YeeMobileStoreStatus;
+    /**
+     * Whether the persisted queue has been read off disk at least once.
+     *
+     * Must be a value nothing this effect triggers can change back. The store's
+     * `status` field looks like the natural choice and is not: `refreshRemoteState`
+     * moves it "ready" -> "loading" -> "ready" on every call, so a drain that also
+     * refreshes would re-enable itself and loop, calling the backend continuously.
+     */
+    readonly hasLoadedOfflineState: boolean;
 }
 
 /**
  * Whether the queue may be drained right now.
  *
- * Every condition is required. `offlineStatus` is the one that is easy to
- * forget: without it the drain can run against a queue that has not been read
- * off disk yet and mistake that for an empty outbox.
+ * Every condition is required. `hasLoadedOfflineState` is the one that is
+ * easy to forget: without it the drain can run against a queue that has not been
+ * read off disk yet and mistake that for an empty outbox.
  */
 export function shouldDrainQueue(conditions: QueueDrainConditions): boolean {
     return (
         conditions.authStatus === "authenticated" &&
         conditions.hasSession &&
         conditions.isOnline &&
-        conditions.offlineStatus === "ready"
+        conditions.hasLoadedOfflineState
     );
 }

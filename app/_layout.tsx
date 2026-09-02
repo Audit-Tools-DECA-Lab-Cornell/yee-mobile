@@ -160,7 +160,7 @@ function RootLayoutNav() {
     const syncPendingQueue = useYeeMobileStore((state) => state.syncPendingQueue);
     const setConnectivityState = useYeeMobileStore((state) => state.setConnectivityState);
     const isOnline = useYeeMobileStore((state) => state.isOnline);
-    const offlineStatus = useYeeMobileStore((state) => state.status);
+    const hasLoadedOfflineState = useYeeMobileStore((state) => state.hasLoadedOfflineState);
     const resolvedTheme = usePreferencesStore((state) => state.resolvedTheme);
     const syncSystemTheme = usePreferencesStore((state) => state.syncSystemTheme);
     const designSystem = useDesignSystem();
@@ -221,15 +221,17 @@ function RootLayoutNav() {
         };
     }, [setConnectivityState]);
 
-    // Drives the offline submission queue. `offlineStatus` is part of the
+    // Drives the offline submission queue. The hydration flag is part of the
     // condition, not decoration: draining before the persisted queue is loaded
     // finds an empty store and reports success without sending anything, and
-    // nothing would re-run this afterwards. See lib/yee-sync-triggers.ts.
+    // nothing would re-run this afterwards. It must be the monotonic flag rather
+    // than the store `status` this effect's own refresh keeps toggling — see
+    // lib/yee-sync-triggers.ts.
     const canDrainQueue = shouldDrainQueue({
         authStatus,
         hasSession: session !== null,
         isOnline,
-        offlineStatus,
+        hasLoadedOfflineState,
     });
 
     useEffect(() => {

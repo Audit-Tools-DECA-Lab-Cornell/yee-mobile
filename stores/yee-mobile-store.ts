@@ -95,6 +95,16 @@ interface YeeMobileStoreState {
     readonly lastPlacesSyncAt: string | null;
     readonly lastAuditsSyncAt: string | null;
     readonly lastDraftSyncAt: string | null;
+    /**
+     * Whether the persisted offline state has been read off disk at least once.
+     *
+     * Monotonic on purpose: it flips false -> true exactly once and is never
+     * reset. The queue drain gates on it, and `refreshRemoteState` toggles
+     * `status` through "loading" on every call — so gating the drain on `status`
+     * makes the drain re-trigger its own refresh in a loop that hammers the
+     * backend. A flag no refresh can move cannot do that.
+     */
+    readonly hasLoadedOfflineState: boolean;
     readonly hasCachedInstrument: boolean;
     readonly hasCachedAssignedPlaces: boolean;
     readonly isOfflineReady: boolean;
@@ -135,6 +145,7 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
     lastPlacesSyncAt: null,
     lastAuditsSyncAt: null,
     lastDraftSyncAt: null,
+    hasLoadedOfflineState: false,
     hasCachedInstrument: false,
     hasCachedAssignedPlaces: false,
     isOfflineReady: false,
@@ -169,6 +180,7 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
 
             set(() => ({
                 status: "ready",
+                hasLoadedOfflineState: true,
                 isOnline: Boolean(netInfo.isConnected && netInfo.isInternetReachable !== false),
                 assignedPlaces,
                 submittedAudits,
@@ -184,6 +196,7 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
         } catch (error) {
             set(() => ({
                 status: "error",
+                hasLoadedOfflineState: true,
                 errorMessage:
                     error instanceof Error
                         ? error.message
