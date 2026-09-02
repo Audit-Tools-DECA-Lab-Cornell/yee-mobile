@@ -164,6 +164,10 @@ function freshAccount(): void {
 function resetStores(): void {
     useYeeMobileStore.setState({
         status: "ready",
+        // Draft mirroring drains the queue too, and a drain now requires the
+        // signed-in account's own queue to be loaded. `makeSession()` is
+        // "auditor-1".
+        hydratedAccountId: "auditor-1",
         isOnline: true,
         assignedPlaces: [],
         submittedAudits: [],

@@ -154,13 +154,16 @@ function RootLayoutNav() {
     const routeKey = segments.join("/");
     const authStatus = useAuthStore((state) => state.status);
     const session = useAuthStore((state) => state.session);
+    const sessionUserId = useAuthStore((state) => state.session?.user.id ?? null);
     const initializeAuth = useAuthStore((state) => state.initialize);
     const hydrateOfflineState = useYeeMobileStore((state) => state.hydrateOfflineState);
     const refreshRemoteState = useYeeMobileStore((state) => state.refreshRemoteState);
     const syncPendingQueue = useYeeMobileStore((state) => state.syncPendingQueue);
     const setConnectivityState = useYeeMobileStore((state) => state.setConnectivityState);
     const isOnline = useYeeMobileStore((state) => state.isOnline);
-    const hasLoadedOfflineState = useYeeMobileStore((state) => state.hasLoadedOfflineState);
+    const hydratedAccountId = useYeeMobileStore((state) => state.hydratedAccountId);
+    const clearOfflineSnapshot = useYeeMobileStore((state) => state.clearOfflineSnapshot);
+    const probeOfflineReadiness = useYeeMobileStore((state) => state.probeOfflineReadiness);
     const resolvedTheme = usePreferencesStore((state) => state.resolvedTheme);
     const syncSystemTheme = usePreferencesStore((state) => state.syncSystemTheme);
     const designSystem = useDesignSystem();
@@ -198,8 +201,24 @@ function RootLayoutNav() {
 
     useEffect(() => {
         void initializeAuth();
-        void hydrateOfflineState();
-    }, [hydrateOfflineState, initializeAuth]);
+        // Readiness flags only — the pre-sign-in checklist needs them, and this
+        // cannot open the drain gate because it never sets a hydrated account.
+        void probeOfflineReadiness();
+    }, [initializeAuth, probeOfflineReadiness]);
+
+    // Load the signed-in account's offline state. Ordering this AFTER auth, rather
+    // than racing it at mount, is what removes the startup race: there is no
+    // longer a concurrent load for the drain trigger to miss. `hydrateOfflineState`
+    // is idempotent per account, so this may fire freely.
+    //
+    // Depends only on the account id — never on what it writes.
+    useEffect(() => {
+        if (sessionUserId === null) {
+            clearOfflineSnapshot();
+            return;
+        }
+        void hydrateOfflineState(sessionUserId);
+    }, [clearOfflineSnapshot, hydrateOfflineState, sessionUserId]);
 
     useEffect(() => {
         const subscription = Appearance.addChangeListener(() => {
@@ -221,42 +240,66 @@ function RootLayoutNav() {
         };
     }, [setConnectivityState]);
 
-    // Drives the offline submission queue. The hydration flag is part of the
-    // condition, not decoration: draining before the persisted queue is loaded
-    // finds an empty store and reports success without sending anything, and
-    // nothing would re-run this afterwards. It must be the monotonic flag rather
-    // than the store `status` this effect's own refresh keeps toggling — see
-    // lib/yee-sync-triggers.ts.
     const canDrainQueue = shouldDrainQueue({
         authStatus,
-        hasSession: session !== null,
         isOnline,
-        hasLoadedOfflineState,
+        sessionUserId,
+        hydratedAccountId,
     });
 
+    // Pull remote state. Kept SEPARATE from the drain below: chaining a refresh
+    // onto the drain is what turned a trigger defect into a request storm, since
+    // the refresh moved the very state the trigger read.
+    useEffect(() => {
+        if (authStatus !== "authenticated" || session === null || !isOnline) {
+            return;
+        }
+
+        void refreshRemoteState(session);
+    }, [authStatus, isOnline, refreshRemoteState, session]);
+
+    // Push the outbox. Makes no network call when the queue is empty, so even a
+    // misbehaving trigger cannot generate traffic on its own.
     useEffect(() => {
         if (!canDrainQueue || session === null) {
             return;
         }
 
-        void syncPendingQueue(session).then(() => refreshRemoteState(session));
-    }, [canDrainQueue, refreshRemoteState, session, syncPendingQueue]);
+        void syncPendingQueue(session, { throttle: true });
+    }, [canDrainQueue, session, syncPendingQueue]);
 
-    // Reopening the app is the other moment a stranded queue can move. Without
-    // this, an audit queued offline waits for a connectivity or sign-in change
-    // that may never come while the app is simply reopened on working wifi.
+    // Reopening the app is the other moment a stranded queue can move — and the
+    // retry for a hydration that failed, since that leaves no account loaded and
+    // nothing else would attempt it again this session.
     useEffect(() => {
         const subscription = AppState.addEventListener("change", (next) => {
-            if (next !== "active" || !canDrainQueue || session === null) {
+            if (next !== "active") {
                 return;
             }
-            void syncPendingQueue(session);
+            // Read current state at FIRE time rather than capturing it in deps.
+            // Depending on `hydratedAccountId` here would make this effect depend
+            // on state its own body writes — the shape of the production request
+            // storm — and would re-register the listener on every change.
+            const currentSession = useAuthStore.getState().session;
+            if (currentSession === null) {
+                return;
+            }
+            // Local read, so worth attempting with or without a network. This is
+            // also the retry for a hydration that failed at sign-in.
+            void useYeeMobileStore.getState().hydrateOfflineState(currentSession.user.id);
+            if (useYeeMobileStore.getState().isOnline) {
+                // Self-guarding: drainQueue refuses a session that does not own
+                // the loaded queue, and the interval floor bounds the rate.
+                void useYeeMobileStore
+                    .getState()
+                    .syncPendingQueue(currentSession, { throttle: true });
+            }
         });
 
         return () => {
             subscription.remove();
         };
-    }, [canDrainQueue, session, syncPendingQueue]);
+    }, []);
 
     useEffect(() => {
         if (authStatus !== "loading") {

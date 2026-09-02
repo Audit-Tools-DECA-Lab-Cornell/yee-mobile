@@ -1,4 +1,3 @@
-import NetInfo from "@react-native-community/netinfo";
 import { create } from "zustand";
 import type { AuthSession } from "lib/auth/types";
 import {
@@ -84,6 +83,42 @@ function runSerialized<T>(operation: () => Promise<T>): Promise<T> {
  */
 let activeDrain: Promise<void> | null = null;
 
+/** Account whose hydration is currently running, so it is not started twice. */
+let hydrationInFlightFor: string | null = null;
+
+/**
+ * Shortest gap between two drain STARTS.
+ *
+ * A floor on how often this app can talk to the backend, independent of whether
+ * the triggering logic is correct. A defect in that logic once turned one drain
+ * into a continuous request loop; with this, the same defect costs a handful of
+ * requests a minute instead of taking the backend down.
+ */
+const MIN_DRAIN_INTERVAL_MS = 5_000;
+
+let lastDrainStartedAtMs = 0;
+/** A drain deferred by the interval floor, so a request is delayed, never dropped. */
+let trailingDrain: { timer: ReturnType<typeof setTimeout>; promise: Promise<void> } | null = null;
+
+/** The in-memory offline snapshot with nothing loaded. Never touches storage. */
+function emptyOfflineSnapshot() {
+    return {
+        status: "idle" as const,
+        hydratedAccountId: null,
+        assignedPlaces: [],
+        submittedAudits: [],
+        draftsByPlace: {},
+        syncQueue: [],
+        errorMessage: null,
+        lastPlacesSyncAt: null,
+        lastAuditsSyncAt: null,
+        lastDraftSyncAt: null,
+        hasCachedInstrument: false,
+        hasCachedAssignedPlaces: false,
+        isOfflineReady: false,
+    };
+}
+
 interface YeeMobileStoreState {
     readonly status: YeeMobileStoreStatus;
     readonly isOnline: boolean;
@@ -96,20 +131,40 @@ interface YeeMobileStoreState {
     readonly lastAuditsSyncAt: string | null;
     readonly lastDraftSyncAt: string | null;
     /**
-     * Whether the persisted offline state has been read off disk at least once.
+     * The account whose persisted state is currently loaded in this store, or
+     * `null` when none has been successfully read.
      *
-     * Monotonic on purpose: it flips false -> true exactly once and is never
-     * reset. The queue drain gates on it, and `refreshRemoteState` toggles
-     * `status` through "loading" on every call — so gating the drain on `status`
-     * makes the drain re-trigger its own refresh in a loop that hammers the
-     * backend. A flag no refresh can move cannot do that.
+     * The queue drain requires this to equal the signed-in user. Two failures
+     * that reached production are closed by that one equality:
+     *
+     * - Draining before the queue is read off disk saw the empty default and
+     *   reported success without sending anything, stranding an audit taken
+     *   offline. An unread queue now has no account, so it cannot be drained.
+     * - MMKV is namespaced per account and re-pointed on login, but this store
+     *   was never reloaded, so after switching accounts the drain could send one
+     *   auditor's queued work under another's session.
+     *
+     * Set only by a SUCCESSFUL read: a failed read leaves the store holding the
+     * empty default, and calling that "loaded" is the same lie as the first
+     * failure above.
      */
-    readonly hasLoadedOfflineState: boolean;
+    readonly hydratedAccountId: string | null;
     readonly hasCachedInstrument: boolean;
     readonly hasCachedAssignedPlaces: boolean;
     readonly isOfflineReady: boolean;
     setConnectivityState: (isOnline: boolean) => void;
-    hydrateOfflineState: () => Promise<void>;
+    hydrateOfflineState: (accountId: string) => Promise<void>;
+    /**
+     * Populate ONLY the offline-readiness flags, for the pre-sign-in checklist.
+     *
+     * Full hydration is account-bound and runs after sign-in, so the login screen
+     * would otherwise always report "not ready". This reads the same caches that
+     * checklist describes and deliberately sets nothing else — in particular not
+     * `hydratedAccountId`, so it can never open the drain gate.
+     */
+    probeOfflineReadiness: () => Promise<void>;
+    /** Drop the in-memory snapshot on sign-out. Never touches persisted storage. */
+    clearOfflineSnapshot: () => void;
     refreshRemoteState: (session: AuthSession) => Promise<void>;
     saveDraftLocally: (draft: YeeLocalDraft) => Promise<void>;
     queueDraftSync: (draft: YeeLocalDraft) => Promise<void>;
@@ -117,7 +172,19 @@ interface YeeMobileStoreState {
         draft: YeeLocalDraft,
         provisionalSubmission?: YeeSubmissionResponse | null,
     ) => Promise<void>;
-    syncPendingQueue: (session: AuthSession) => Promise<void>;
+    /**
+     * Drain the outbox.
+     *
+     * `throttle` is for AUTOMATIC triggers (lifecycle, foreground), which are the
+     * ones that can misfire in a loop; they are held to a minimum interval and
+     * coalesced. A user-initiated drain — tapping submit, pulling to refresh —
+     * runs immediately, because a person tapping cannot storm the backend and
+     * must not be made to wait on a cooldown.
+     */
+    syncPendingQueue: (
+        session: AuthSession,
+        options?: { readonly throttle?: boolean },
+    ) => Promise<void>;
     /**
      * Secondary ambiguous-success fallback. When the idempotency-key drain is
      * inconclusive (e.g. timeout with no parsable response), ask the backend
@@ -145,7 +212,7 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
     lastPlacesSyncAt: null,
     lastAuditsSyncAt: null,
     lastDraftSyncAt: null,
-    hasLoadedOfflineState: false,
+    hydratedAccountId: null,
     hasCachedInstrument: false,
     hasCachedAssignedPlaces: false,
     isOfflineReady: false,
@@ -154,12 +221,25 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
         set(() => ({ isOnline }));
     },
 
-    hydrateOfflineState: async () => {
+    hydrateOfflineState: async (accountId: string) => {
+        // Idempotent and single-flight PER ACCOUNT, so callers can ask freely —
+        // on sign-in, on foreground, on retry — without coordinating. Keeping the
+        // guard here rather than in a React dependency is deliberate: an effect
+        // that both reads and writes the same state is what produced the
+        // production request storm.
+        if (get().hydratedAccountId === accountId || hydrationInFlightFor === accountId) {
+            return;
+        }
+        hydrationInFlightFor = accountId;
+        // Switching accounts: drop the previous auditor's snapshot before
+        // reading, so their drafts are never briefly visible to the new one.
+        if (get().hydratedAccountId !== null) {
+            set(() => emptyOfflineSnapshot());
+        }
         set(() => ({ status: "loading", errorMessage: null }));
 
         try {
             const [
-                netInfo,
                 assignedPlaces,
                 submittedAudits,
                 draftsByPlace,
@@ -167,7 +247,6 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                 metadata,
                 cachedInstrument,
             ] = await Promise.all([
-                NetInfo.fetch(),
                 readAssignedPlacesCache(),
                 readSubmittedAuditsCache(),
                 readDraftMap(),
@@ -180,8 +259,7 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
 
             set(() => ({
                 status: "ready",
-                hasLoadedOfflineState: true,
-                isOnline: Boolean(netInfo.isConnected && netInfo.isInternetReachable !== false),
+                hydratedAccountId: accountId,
                 assignedPlaces,
                 submittedAudits,
                 draftsByPlace,
@@ -194,23 +272,49 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                 isOfflineReady: hasCachedAssignedPlaces && hasCachedInstrument,
             }));
         } catch (error) {
+            // Deliberately leaves `hydratedAccountId` null. The store still holds
+            // the empty default, and treating that as loaded is exactly how an
+            // audit taken offline went missing. Nothing drains until a later
+            // attempt succeeds — foregrounding the app retries.
             set(() => ({
                 status: "error",
-                hasLoadedOfflineState: true,
                 errorMessage:
                     error instanceof Error
                         ? error.message
                         : "Failed to load offline YEE mobile state.",
             }));
+        } finally {
+            hydrationInFlightFor = null;
         }
+    },
+
+    probeOfflineReadiness: async () => {
+        try {
+            const [assignedPlaces, cachedInstrument] = await Promise.all([
+                readAssignedPlacesCache(),
+                readInstrumentCache(),
+            ]);
+            const hasCachedAssignedPlaces = assignedPlaces.length > 0;
+            const hasCachedInstrument = cachedInstrument !== null;
+            set(() => ({
+                hasCachedAssignedPlaces,
+                hasCachedInstrument,
+                isOfflineReady: hasCachedAssignedPlaces && hasCachedInstrument,
+            }));
+        } catch {
+            // A readiness checklist that cannot be read simply stays unchecked.
+        }
+    },
+
+    clearOfflineSnapshot: () => {
+        set(() => emptyOfflineSnapshot());
     },
 
     refreshRemoteState: async (session: AuthSession) => {
         set(() => ({ status: "loading", errorMessage: null }));
 
         try {
-            const [netInfo, assignedPlaces, submittedAudits, cachedInstrument] = await Promise.all([
-                NetInfo.fetch(),
+            const [assignedPlaces, submittedAudits, cachedInstrument] = await Promise.all([
                 fetchAssignedPlaces(session),
                 fetchMyAudits(session),
                 readInstrumentCache(),
@@ -247,7 +351,6 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
 
             set((state) => ({
                 status: "ready",
-                isOnline: Boolean(netInfo.isConnected && netInfo.isInternetReachable !== false),
                 assignedPlaces,
                 submittedAudits: mergedSubmittedAudits,
                 lastPlacesSyncAt: now,
@@ -341,7 +444,7 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
         });
     },
 
-    syncPendingQueue: async (session: AuthSession) => {
+    syncPendingQueue: async (session: AuthSession, options = {}) => {
         // Single-flight: a drain already in progress is shared with the caller
         // rather than starting a second overlapping pass that could double-submit
         // an in-flight item.
@@ -349,6 +452,31 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
             return activeDrain;
         }
 
+        // Interval floor. A request arriving inside the window is DEFERRED, never
+        // dropped — dropping it could strand queued work, which is the failure
+        // this whole path exists to prevent. Concurrent requests inside one
+        // window coalesce onto the single deferred run.
+        const sinceLastMs = Date.now() - lastDrainStartedAtMs;
+        if (options.throttle === true && sinceLastMs < MIN_DRAIN_INTERVAL_MS) {
+            if (trailingDrain !== null) {
+                return trailingDrain.promise;
+            }
+            let settle: () => void = () => undefined;
+            const promise = new Promise<void>((resolve) => {
+                settle = resolve;
+            });
+            const timer = setTimeout(() => {
+                trailingDrain = null;
+                // Re-check ownership at FIRE time, not schedule time: the account
+                // may have changed while this was waiting, and drainQueue must
+                // never run for a session that no longer owns the loaded queue.
+                void useYeeMobileStore.getState().syncPendingQueue(session).finally(settle);
+            }, MIN_DRAIN_INTERVAL_MS - sinceLastMs);
+            trailingDrain = { timer, promise };
+            return promise;
+        }
+
+        lastDrainStartedAtMs = Date.now();
         const drain = runSerialized(() => drainQueue(session, get, set)).finally(() => {
             activeDrain = null;
         });
@@ -748,6 +876,18 @@ async function applyQueuedSubmissionGate(
  * lib/yee-sync-logic.ts for every retry decision.
  */
 async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): Promise<void> {
+    // The queue in memory belongs to whichever account was hydrated. MMKV is
+    // namespaced per account and re-pointed on sign-in, so without this an
+    // account switch could transmit one auditor's queued work under another's
+    // session — and persist it into the new account's storage on failure.
+    //
+    // Checked HERE rather than only at the trigger because six call sites reach
+    // this function and only the lifecycle ones consult `shouldDrainQueue`. An
+    // invariant worth having is worth having on every path.
+    if (get().hydratedAccountId !== session.user.id) {
+        return;
+    }
+
     const nowIso = new Date().toISOString();
     const drainable = selectDrainableItems(get().syncQueue, nowIso);
     if (drainable.length === 0) {

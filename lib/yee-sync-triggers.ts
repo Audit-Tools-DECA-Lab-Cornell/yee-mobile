@@ -14,13 +14,16 @@
  * created offline stays at "Queued for upload" for the whole session, and for
  * every session after it, since the race repeats on each launch.
  *
- * Requiring the offline state to be loaded closes that. It is a gate rather
- * than an extra trigger on purpose: an empty-looking queue must not be read as
- * "nothing to send".
+ * Requiring the loaded account to MATCH the signed-in one closes that, and one
+ * more failure with it: MMKV is namespaced per account and re-pointed on
+ * sign-in, but this store was not reloaded, so after switching accounts a drain
+ * could send one auditor's queued work under another's session.
  *
- * The gate has to be MONOTONIC. Gating on the store's `status` instead caused a
- * request storm: `refreshRemoteState` sets "loading" then "ready", so an effect
- * that both reads `status` and calls that refresh re-enables itself forever.
+ * Two properties matter in how this is expressed. It is a gate, not an extra
+ * trigger — an empty-looking queue must never be read as "nothing to send". And
+ * nothing it gates on may be written by the work it permits: gating on the
+ * store's `status` caused a request storm, because `refreshRemoteState` moves
+ * `status` "ready" -> "loading" -> "ready" and the drain effect called it.
  *
  * Pure and free of React Native imports so the rule is unit-tested in Node —
  * the effect that consumes it lives in `app/_layout.tsx`, which cannot be
@@ -31,32 +34,25 @@ import type { AuthStatus } from "stores/auth-store";
 
 export interface QueueDrainConditions {
     readonly authStatus: AuthStatus;
-    /** Whether a restored session is available to authorize the requests. */
-    readonly hasSession: boolean;
+    /** Signed-in account, or `null` when there is no session to authorize with. */
+    readonly sessionUserId: string | null;
     readonly isOnline: boolean;
-    /**
-     * Whether the persisted queue has been read off disk at least once.
-     *
-     * Must be a value nothing this effect triggers can change back. The store's
-     * `status` field looks like the natural choice and is not: `refreshRemoteState`
-     * moves it "ready" -> "loading" -> "ready" on every call, so a drain that also
-     * refreshes would re-enable itself and loop, calling the backend continuously.
-     */
-    readonly hasLoadedOfflineState: boolean;
+    /** The account whose persisted queue is loaded, or `null` if none is. */
+    readonly hydratedAccountId: string | null;
 }
 
 /**
  * Whether the queue may be drained right now.
  *
- * Every condition is required. `hasLoadedOfflineState` is the one that is
+ * Every condition is required. the account equality is the one that is
  * easy to forget: without it the drain can run against a queue that has not been
- * read off disk yet and mistake that for an empty outbox.
+ * read off disk yet, or one belonging to a different auditor.
  */
 export function shouldDrainQueue(conditions: QueueDrainConditions): boolean {
     return (
         conditions.authStatus === "authenticated" &&
-        conditions.hasSession &&
+        conditions.sessionUserId !== null &&
         conditions.isOnline &&
-        conditions.hasLoadedOfflineState
+        conditions.hydratedAccountId === conditions.sessionUserId
     );
 }

@@ -123,6 +123,10 @@ function freshAccount(): void {
 function resetStore(): void {
     useYeeMobileStore.setState({
         status: "ready",
+        // A drain now requires the signed-in account's own queue to be loaded, so
+        // these mechanics tests must declare that precondition. `makeSession()`
+        // signs in as "auditor-1".
+        hydratedAccountId: "auditor-1",
         isOnline: true,
         assignedPlaces: [],
         submittedAudits: [],
