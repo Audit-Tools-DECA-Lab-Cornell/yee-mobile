@@ -63,13 +63,15 @@ vi.mock("lib/yee-api", async () => {
 
 // --- Fixtures ---------------------------------------------------------------
 
+let currentAccountId = "auditor-1";
+
 function makeSession(): AuthSession {
     return {
         accessToken: "token-123",
         tokenType: "bearer",
         expiresAt: "2099-01-01T00:00:00.000Z",
         user: {
-            id: "auditor-1",
+            id: currentAccountId,
             email: "a@b.com",
             name: "A",
             accountType: "AUDITOR",
@@ -157,7 +159,8 @@ function binaryQuestion(
 let accountSeq = 0;
 function freshAccount(): void {
     accountSeq += 1;
-    setActiveAccount(`session-acct-${accountSeq}`);
+    currentAccountId = `session-acct-${accountSeq}`;
+    setActiveAccount(currentAccountId);
 }
 
 /** Reset both stores + the session store's module-level dirty counters. */
@@ -167,7 +170,7 @@ function resetStores(): void {
         // Draft mirroring drains the queue too, and a drain now requires the
         // signed-in account's own queue to be loaded. `makeSession()` is
         // "auditor-1".
-        hydratedAccountId: "auditor-1",
+        hydratedAccountId: currentAccountId,
         isOnline: true,
         assignedPlaces: [],
         submittedAudits: [],

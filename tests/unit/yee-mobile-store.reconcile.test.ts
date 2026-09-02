@@ -43,13 +43,15 @@ vi.mock("lib/yee-id", () => ({
     },
 }));
 
+let currentAccountId = "auditor-1";
+
 function makeSession(): AuthSession {
     return {
         accessToken: "token-123",
         tokenType: "bearer",
         expiresAt: "2099-01-01T00:00:00.000Z",
         user: {
-            id: "auditor-1",
+            id: currentAccountId,
             email: "a@b.com",
             name: "A",
             accountType: "AUDITOR",
@@ -97,12 +99,14 @@ function makeAuditState(
 let accountSeq = 0;
 function freshAccount(): void {
     accountSeq += 1;
-    setActiveAccount(`acct-reconcile-${accountSeq}`);
+    currentAccountId = `acct-reconcile-${accountSeq}`;
+    setActiveAccount(currentAccountId);
 }
 
 function resetStore(): void {
     useYeeMobileStore.setState({
         status: "ready",
+        hydratedAccountId: currentAccountId,
         isOnline: true,
         assignedPlaces: [],
         submittedAudits: [],

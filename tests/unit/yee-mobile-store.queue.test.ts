@@ -61,13 +61,15 @@ vi.mock("lib/yee-id", () => ({
     },
 }));
 
+let currentAccountId = "auditor-1";
+
 function makeSession(): AuthSession {
     return {
         accessToken: "token-123",
         tokenType: "bearer",
         expiresAt: "2099-01-01T00:00:00.000Z",
         user: {
-            id: "auditor-1",
+            id: currentAccountId,
             email: "a@b.com",
             name: "A",
             accountType: "AUDITOR",
@@ -117,7 +119,8 @@ let accountSeq = 0;
 function freshAccount(): void {
     accountSeq += 1;
     // Distinct account id per test -> isolated MMKV instance.
-    setActiveAccount(`acct-${accountSeq}`);
+    currentAccountId = `acct-${accountSeq}`;
+    setActiveAccount(currentAccountId);
 }
 
 function resetStore(): void {
@@ -126,7 +129,7 @@ function resetStore(): void {
         // A drain now requires the signed-in account's own queue to be loaded, so
         // these mechanics tests must declare that precondition. `makeSession()`
         // signs in as "auditor-1".
-        hydratedAccountId: "auditor-1",
+        hydratedAccountId: currentAccountId,
         isOnline: true,
         assignedPlaces: [],
         submittedAudits: [],
@@ -230,6 +233,31 @@ describe("syncPendingQueue — successful submit cleanup", () => {
 });
 
 describe("syncPendingQueue — network failure backoff", () => {
+    it("retries at the persisted deadline without waiting for another app event", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-06-25T12:00:00.000Z"));
+        try {
+            const draft = makeDraft("place-1");
+            await useYeeMobileStore.getState().saveDraftLocally(draft);
+            await useYeeMobileStore.getState().queueSubmissionSync(draft, null);
+            submitAuditMock
+                .mockRejectedValueOnce(new YeeMobileApiError("offline", 0, "no net"))
+                .mockResolvedValueOnce(makeSubmissionResponse("place-1"));
+
+            await useYeeMobileStore.getState().syncPendingQueue(makeSession());
+            expect(submitAuditMock).toHaveBeenCalledTimes(1);
+
+            await vi.advanceTimersByTimeAsync(4_999);
+            expect(submitAuditMock).toHaveBeenCalledTimes(1);
+            await vi.advanceTimersByTimeAsync(1);
+
+            expect(submitAuditMock).toHaveBeenCalledTimes(2);
+            expect(await readSyncQueue()).toHaveLength(0);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
     it("a transport failure bumps attempts and schedules backoff (item retained)", async () => {
         const draft = makeDraft("place-1");
         await useYeeMobileStore.getState().saveDraftLocally(draft);

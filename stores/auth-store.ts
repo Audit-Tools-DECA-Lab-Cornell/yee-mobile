@@ -10,6 +10,8 @@ import {
 } from "lib/auth/storage";
 import type { AuthSession, LoginPayload, SignupPayload } from "lib/auth/types";
 import { setActiveAccount } from "lib/yee-secure-draft-storage";
+import { prepareLegacyMigrationOwner } from "lib/yee-legacy-draft-migration";
+import { useYeeMobileStore } from "stores/yee-mobile-store";
 
 const AUTH_INITIALIZE_TIMEOUT_MS = 5000;
 
@@ -57,6 +59,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
             );
             const persistedSession = await withTimeout(readAuthSession(), "auth session");
             if (persistedSession === null || !isSupportedFieldSession(persistedSession)) {
+                await prepareLegacyMigrationOwner(null);
+                activateOfflineAccount(null);
                 if (persistedSession !== null) {
                     await clearAuthSession();
                 }
@@ -75,13 +79,15 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
             // Keep the last valid auditor identity available for offline field work,
             // even if the backend token is stale. Online requests will still require
             // a fresh backend-accepted session.
-            setActiveAccount(persistedSession.user.id);
+            await prepareLegacyMigrationOwner(persistedSession.user.id);
+            activateOfflineAccount(persistedSession.user.id);
             set(() => ({
                 session: persistedSession,
                 status: "authenticated",
                 hasOfflineLoginCredentials: cachedOfflineLogin !== null,
             }));
         } catch {
+            activateOfflineAccount(null);
             set(() => ({
                 session: null,
                 status: "unauthenticated",
@@ -101,7 +107,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
             await saveAuthSession(session);
             await saveOfflineLoginCredentials(payload);
 
-            setActiveAccount(session.user.id);
+            activateOfflineAccount(session.user.id);
             set(() => ({
                 session,
                 status: "authenticated",
@@ -122,7 +128,8 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
                     cachedCredentials.email === normalizedEmail &&
                     cachedCredentials.password === payload.password
                 ) {
-                    setActiveAccount(cachedSession.user.id);
+                    await prepareLegacyMigrationOwner(cachedSession.user.id);
+                    activateOfflineAccount(cachedSession.user.id);
                     set(() => ({
                         session: cachedSession,
                         status: "authenticated",
@@ -135,6 +142,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
             }
 
             const message = toAuthErrorMessage(error);
+            activateOfflineAccount(null);
 
             set(() => ({
                 session: null,
@@ -161,7 +169,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
                 password: payload.password,
             });
 
-            setActiveAccount(session.user.id);
+            activateOfflineAccount(session.user.id);
             set(() => ({
                 session,
                 status: "authenticated",
@@ -171,6 +179,7 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
             }));
         } catch (error) {
             const message = toAuthErrorMessage(error);
+            activateOfflineAccount(null);
 
             set(() => ({
                 session: null,
@@ -184,12 +193,14 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
     },
 
     logout: async () => {
+        // Invalidate stale hydration, refresh, and drain work synchronously before
+        // any secure-storage await gives it a chance to mutate another account.
+        activateOfflineAccount(null);
         await clearAuthSession();
         await clearOfflineLoginCredentials();
         // Clear the active-account pointer only. Drafts and the sync queue are
         // intentionally preserved so token-expiry logout never loses unsynced
         // field work; they are removed only on explicit account removal.
-        setActiveAccount(null);
         set(() => ({
             session: null,
             status: "unauthenticated",
@@ -205,6 +216,11 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
         }));
     },
 }));
+
+function activateOfflineAccount(accountId: string | null): void {
+    setActiveAccount(accountId);
+    useYeeMobileStore.getState().clearOfflineSnapshot();
+}
 
 /**
  * Bound startup storage reads so a native SecureStore stall cannot trap the app on splash.

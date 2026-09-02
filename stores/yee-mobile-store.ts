@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import type { AuthSession } from "lib/auth/types";
 import {
+    captureYeeAccountLease,
+    isYeeAccountLeaseCurrent,
+    type YeeAccountLease,
+} from "lib/yee-account-scope";
+import {
     YeeMobileApiError,
     fetchAssignedPlaces,
     fetchAuditState,
@@ -22,8 +27,10 @@ import {
     parseIncompleteAuditResponses,
     selectDrainableItems,
 } from "lib/yee-sync-logic";
+import { YeeSyncCoordinator } from "lib/yee-sync-coordinator";
 import {
     deleteDraft,
+    hasAnyAssignedPlacesCache,
     readAssignedPlacesCache,
     readDraft,
     readDraftMap,
@@ -81,10 +88,8 @@ function runSerialized<T>(operation: () => Promise<T>): Promise<T> {
  * starting a second overlapping drain (which could double-submit items that are
  * mid-flight). Reset to null in a `finally` so the next trigger starts fresh.
  */
-let activeDrain: Promise<void> | null = null;
-
-/** Account whose hydration is currently running, so it is not started twice. */
-let hydrationInFlightFor: string | null = null;
+let activeHydration: { readonly lease: YeeAccountLease; readonly promise: Promise<void> } | null =
+    null;
 
 /**
  * Shortest gap between two drain STARTS.
@@ -95,10 +100,7 @@ let hydrationInFlightFor: string | null = null;
  * requests a minute instead of taking the backend down.
  */
 const MIN_DRAIN_INTERVAL_MS = 5_000;
-
-let lastDrainStartedAtMs = 0;
-/** A drain deferred by the interval floor, so a request is delayed, never dropped. */
-let trailingDrain: { timer: ReturnType<typeof setTimeout>; promise: Promise<void> } | null = null;
+const syncCoordinator = new YeeSyncCoordinator(MIN_DRAIN_INTERVAL_MS);
 
 /** The in-memory offline snapshot with nothing loaded. Never touches storage. */
 function emptyOfflineSnapshot() {
@@ -203,7 +205,7 @@ interface YeeMobileStoreState {
 
 export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
     status: "idle",
-    isOnline: true,
+    isOnline: false,
     assignedPlaces: [],
     submittedAudits: [],
     draftsByPlace: {},
@@ -227,10 +229,13 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
         // guard here rather than in a React dependency is deliberate: an effect
         // that both reads and writes the same state is what produced the
         // production request storm.
-        if (get().hydratedAccountId === accountId || hydrationInFlightFor === accountId) {
+        const lease = captureYeeAccountLease(accountId);
+        if (lease === null || get().hydratedAccountId === accountId) {
             return;
         }
-        hydrationInFlightFor = accountId;
+        if (activeHydration?.lease.generation === lease.generation) {
+            return activeHydration.promise;
+        }
         // Switching accounts: drop the previous auditor's snapshot before
         // reading, so their drafts are never briefly visible to the new one.
         if (get().hydratedAccountId !== null) {
@@ -238,63 +243,74 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
         }
         set(() => ({ status: "loading", errorMessage: null }));
 
-        try {
-            const [
-                assignedPlaces,
-                submittedAudits,
-                draftsByPlace,
-                syncQueue,
-                metadata,
-                cachedInstrument,
-            ] = await Promise.all([
-                readAssignedPlacesCache(),
-                readSubmittedAuditsCache(),
-                readDraftMap(),
-                readSyncQueue(),
-                readOfflineMetadata(),
-                readInstrumentCache(),
-            ]);
-            const hasCachedAssignedPlaces = assignedPlaces.length > 0;
-            const hasCachedInstrument = cachedInstrument !== null;
+        const promise = (async () => {
+            try {
+                const [
+                    assignedPlaces,
+                    submittedAudits,
+                    draftsByPlace,
+                    syncQueue,
+                    metadata,
+                    cachedInstrument,
+                ] = await Promise.all([
+                    readAssignedPlacesCache(accountId),
+                    readSubmittedAuditsCache(accountId),
+                    readDraftMap(accountId),
+                    readSyncQueue(accountId),
+                    readOfflineMetadata(accountId),
+                    readInstrumentCache(undefined, accountId),
+                ]);
+                const hasCachedAssignedPlaces = assignedPlaces.length > 0;
+                const hasCachedInstrument = cachedInstrument !== null;
 
-            set(() => ({
-                status: "ready",
-                hydratedAccountId: accountId,
-                assignedPlaces,
-                submittedAudits,
-                draftsByPlace,
-                syncQueue,
-                lastPlacesSyncAt: metadata.lastPlacesSyncAt,
-                lastAuditsSyncAt: metadata.lastAuditsSyncAt,
-                lastDraftSyncAt: metadata.lastDraftSyncAt,
-                hasCachedAssignedPlaces,
-                hasCachedInstrument,
-                isOfflineReady: hasCachedAssignedPlaces && hasCachedInstrument,
-            }));
-        } catch (error) {
-            // Deliberately leaves `hydratedAccountId` null. The store still holds
-            // the empty default, and treating that as loaded is exactly how an
-            // audit taken offline went missing. Nothing drains until a later
-            // attempt succeeds — foregrounding the app retries.
-            set(() => ({
-                status: "error",
-                errorMessage:
-                    error instanceof Error
-                        ? error.message
-                        : "Failed to load offline YEE mobile state.",
-            }));
-        } finally {
-            hydrationInFlightFor = null;
-        }
+                if (!isYeeAccountLeaseCurrent(lease)) {
+                    return;
+                }
+                set(() => ({
+                    status: "ready",
+                    hydratedAccountId: accountId,
+                    assignedPlaces,
+                    submittedAudits,
+                    draftsByPlace,
+                    syncQueue,
+                    lastPlacesSyncAt: metadata.lastPlacesSyncAt,
+                    lastAuditsSyncAt: metadata.lastAuditsSyncAt,
+                    lastDraftSyncAt: metadata.lastDraftSyncAt,
+                    hasCachedAssignedPlaces,
+                    hasCachedInstrument,
+                    isOfflineReady: hasCachedAssignedPlaces && hasCachedInstrument,
+                }));
+            } catch (error) {
+                if (!isYeeAccountLeaseCurrent(lease)) {
+                    return;
+                }
+                // Deliberately leaves `hydratedAccountId` null. The store still holds
+                // the empty default, and treating that as loaded is exactly how an
+                // audit taken offline went missing. Nothing drains until a later
+                // attempt succeeds — foregrounding the app retries.
+                set(() => ({
+                    status: "error",
+                    errorMessage:
+                        error instanceof Error
+                            ? error.message
+                            : "Failed to load offline YEE mobile state.",
+                }));
+            }
+        })();
+        activeHydration = { lease, promise };
+        return promise.finally(() => {
+            if (activeHydration?.promise === promise) {
+                activeHydration = null;
+            }
+        });
     },
 
     probeOfflineReadiness: async () => {
         try {
-            const [assignedPlaces, cachedInstrument] = await Promise.all([
-                readAssignedPlacesCache(),
+            const [hasCachedAssignedPlaces, cachedInstrument] = await Promise.all([
+                hasAnyAssignedPlacesCache(),
                 readInstrumentCache(),
             ]);
-            const hasCachedAssignedPlaces = assignedPlaces.length > 0;
             const hasCachedInstrument = cachedInstrument !== null;
             set(() => ({
                 hasCachedAssignedPlaces,
@@ -303,52 +319,75 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
             }));
         } catch {
             // A readiness checklist that cannot be read simply stays unchecked.
+            set(() => ({
+                hasCachedAssignedPlaces: false,
+                hasCachedInstrument: false,
+                isOfflineReady: false,
+            }));
         }
     },
 
     clearOfflineSnapshot: () => {
+        syncCoordinator.cancelDeferredDrain();
+        syncCoordinator.cancelScheduledRetry();
         set(() => emptyOfflineSnapshot());
     },
 
     refreshRemoteState: async (session: AuthSession) => {
+        const lease = captureYeeAccountLease(session.user.id);
+        if (lease === null || get().hydratedAccountId !== session.user.id) {
+            return;
+        }
         set(() => ({ status: "loading", errorMessage: null }));
+        const previousSubmittedAudits = get().submittedAudits;
+        const previousLastDraftSyncAt = get().lastDraftSyncAt;
 
         try {
             const [assignedPlaces, submittedAudits, cachedInstrument] = await Promise.all([
                 fetchAssignedPlaces(session),
                 fetchMyAudits(session),
-                readInstrumentCache(),
+                readInstrumentCache(undefined, lease.accountId),
             ]);
+            if (!isYeeAccountLeaseCurrent(lease)) {
+                return;
+            }
             const now = new Date().toISOString();
             let hasCachedInstrument = cachedInstrument !== null;
 
             if (!hasCachedInstrument) {
                 try {
                     const instrument = await fetchYeeInstrument();
-                    await writeInstrumentCache(instrument);
+                    await writeInstrumentCache(instrument, {}, lease.accountId);
                     hasCachedInstrument = true;
                 } catch {
                     // keep offline readiness false until instrument can be cached
+                    hasCachedInstrument = false;
                 }
             }
             const hasCachedAssignedPlaces = assignedPlaces.length > 0;
 
             await Promise.all([
-                writeAssignedPlacesCache(assignedPlaces),
-                writeOfflineMetadata({
-                    lastPlacesSyncAt: now,
-                    lastAuditsSyncAt: now,
-                    lastDraftSyncAt: get().lastDraftSyncAt,
-                }),
+                writeAssignedPlacesCache(assignedPlaces, lease.accountId),
+                writeOfflineMetadata(
+                    {
+                        lastPlacesSyncAt: now,
+                        lastAuditsSyncAt: now,
+                        lastDraftSyncAt: previousLastDraftSyncAt,
+                    },
+                    lease.accountId,
+                ),
             ]);
 
             const mergedSubmittedAudits = mergeSubmittedAuditSummaries(
                 submittedAudits,
-                get().submittedAudits,
+                previousSubmittedAudits,
             );
 
-            await writeSubmittedAuditsCache(mergedSubmittedAudits);
+            await writeSubmittedAuditsCache(mergedSubmittedAudits, lease.accountId);
 
+            if (!isYeeAccountLeaseCurrent(lease)) {
+                return;
+            }
             set((state) => ({
                 status: "ready",
                 assignedPlaces,
@@ -362,6 +401,9 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                 isOfflineReady: hasCachedAssignedPlaces && hasCachedInstrument,
             }));
         } catch (error) {
+            if (!isYeeAccountLeaseCurrent(lease)) {
+                return;
+            }
             set(() => ({
                 status: "error",
                 errorMessage:
@@ -371,29 +413,37 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
     },
 
     saveDraftLocally: async (draft: YeeLocalDraft) => {
+        const lease = requireHydratedAccountLease(get);
         const savedAt = new Date().toISOString();
-        await writeDraft(draft);
-        const currentMetadata = await readOfflineMetadata();
-        await writeOfflineMetadata({
-            ...currentMetadata,
-            lastDraftSyncAt: savedAt,
-        });
-        set((state) => ({
-            draftsByPlace: {
-                ...state.draftsByPlace,
-                [draft.placeId]: draft,
+        await writeDraft(draft, lease.accountId);
+        const currentMetadata = await readOfflineMetadata(lease.accountId);
+        await writeOfflineMetadata(
+            {
+                ...currentMetadata,
+                lastDraftSyncAt: savedAt,
             },
-            lastDraftSyncAt: savedAt,
-        }));
+            lease.accountId,
+        );
+        if (isYeeAccountLeaseCurrent(lease)) {
+            set((state) => ({
+                draftsByPlace: {
+                    ...state.draftsByPlace,
+                    [draft.placeId]: draft,
+                },
+                lastDraftSyncAt: savedAt,
+            }));
+        }
     },
 
     queueDraftSync: async (draft: YeeLocalDraft) => {
+        const lease = requireHydratedAccountLease(get);
         await runSerialized(async () => {
             const now = new Date().toISOString();
             const itemId = `draft-${draft.placeId}`;
+            const persistedQueue = await readSyncQueue(lease.accountId);
             // Preserve an existing item's attempt/backoff bookkeeping on re-enqueue
             // so a fresh draft edit does not silently reset a failing item.
-            const existing = get().syncQueue.find((entry) => entry.id === itemId) ?? null;
+            const existing = persistedQueue.find((entry) => entry.id === itemId) ?? null;
             const queueItem: YeeSyncQueueItem = {
                 id: itemId,
                 placeId: draft.placeId,
@@ -419,72 +469,52 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                 failureReason: existing?.failureReason ?? null,
             };
 
-            await upsertSyncQueueItem(queueItem);
-            await writeDraft({
-                ...draft,
-                syncState: "pending_upload",
-            });
-
-            set((state) => ({
-                draftsByPlace: {
-                    ...state.draftsByPlace,
-                    [draft.placeId]: {
-                        ...draft,
-                        syncState: "pending_upload",
-                    },
+            await upsertSyncQueueItem(queueItem, lease.accountId);
+            await writeDraft(
+                {
+                    ...draft,
+                    syncState: "pending_upload",
                 },
-                syncQueue: upsertLocalQueue(state.syncQueue, queueItem),
-            }));
+                lease.accountId,
+            );
+
+            if (isYeeAccountLeaseCurrent(lease)) {
+                set((state) => ({
+                    draftsByPlace: {
+                        ...state.draftsByPlace,
+                        [draft.placeId]: {
+                            ...draft,
+                            syncState: "pending_upload",
+                        },
+                    },
+                    syncQueue: upsertLocalQueue(state.syncQueue, queueItem),
+                }));
+            }
         });
     },
 
     queueSubmissionSync: async (draft: YeeLocalDraft, provisionalSubmission = null) => {
+        const lease = requireHydratedAccountLease(get);
         await runSerialized(async () => {
-            await queueSubmissionInternal(draft, provisionalSubmission, get, set);
+            await queueSubmissionInternal(draft, provisionalSubmission, lease, set);
         });
     },
 
     syncPendingQueue: async (session: AuthSession, options = {}) => {
-        // Single-flight: a drain already in progress is shared with the caller
-        // rather than starting a second overlapping pass that could double-submit
-        // an in-flight item.
-        if (activeDrain !== null) {
-            return activeDrain;
+        const lease = captureYeeAccountLease(session.user.id);
+        if (lease === null || get().hydratedAccountId !== session.user.id || !get().isOnline) {
+            return;
         }
-
-        // Interval floor. A request arriving inside the window is DEFERRED, never
-        // dropped — dropping it could strand queued work, which is the failure
-        // this whole path exists to prevent. Concurrent requests inside one
-        // window coalesce onto the single deferred run.
-        const sinceLastMs = Date.now() - lastDrainStartedAtMs;
-        if (options.throttle === true && sinceLastMs < MIN_DRAIN_INTERVAL_MS) {
-            if (trailingDrain !== null) {
-                return trailingDrain.promise;
-            }
-            let settle: () => void = () => undefined;
-            const promise = new Promise<void>((resolve) => {
-                settle = resolve;
-            });
-            const timer = setTimeout(() => {
-                trailingDrain = null;
-                // Re-check ownership at FIRE time, not schedule time: the account
-                // may have changed while this was waiting, and drainQueue must
-                // never run for a session that no longer owns the loaded queue.
-                void useYeeMobileStore.getState().syncPendingQueue(session).finally(settle);
-            }, MIN_DRAIN_INTERVAL_MS - sinceLastMs);
-            trailingDrain = { timer, promise };
-            return promise;
-        }
-
-        lastDrainStartedAtMs = Date.now();
-        const drain = runSerialized(() => drainQueue(session, get, set)).finally(() => {
-            activeDrain = null;
-        });
-        activeDrain = drain;
-        return drain;
+        return syncCoordinator.request(lease, options.throttle === true, () =>
+            runSerialized(() => drainQueue(session, lease, get, set)),
+        );
     },
 
     reconcilePlaceSubmission: async (placeId: string, session: AuthSession) => {
+        const lease = captureYeeAccountLease(session.user.id);
+        if (lease === null || get().hydratedAccountId !== lease.accountId) {
+            return null;
+        }
         let auditState: YeeAuditStateResponse;
         try {
             auditState = await fetchAuditState(placeId, session);
@@ -502,55 +532,74 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
         // Backend confirms the audit landed. Resolve the local provisional record
         // through the serialized writer so it cannot race a concurrent drain.
         await runSerialized(async () => {
+            const persistedQueue = await readSyncQueue(lease.accountId);
             const queuedSubmission =
-                get().syncQueue.find(
+                persistedQueue.find(
                     (item) => item.kind === "submission" && item.placeId === placeId,
                 ) ?? null;
 
             if (queuedSubmission !== null) {
-                await removeSyncQueueItem(queuedSubmission.id);
+                await removeSyncQueueItem(queuedSubmission.id, lease.accountId);
             }
-            await deleteDraft(placeId);
+            await deleteDraft(placeId, lease.accountId);
 
-            set((state) => {
-                const nextDraftsByPlace = { ...state.draftsByPlace };
-                delete nextDraftsByPlace[placeId];
-                return {
-                    syncQueue: state.syncQueue.filter(
-                        (item) => queuedSubmission === null || item.id !== queuedSubmission.id,
-                    ),
-                    draftsByPlace: nextDraftsByPlace,
-                };
-            });
+            if (isYeeAccountLeaseCurrent(lease)) {
+                set((state) => {
+                    const nextDraftsByPlace = { ...state.draftsByPlace };
+                    delete nextDraftsByPlace[placeId];
+                    return {
+                        syncQueue: state.syncQueue.filter(
+                            (item) => queuedSubmission === null || item.id !== queuedSubmission.id,
+                        ),
+                        draftsByPlace: nextDraftsByPlace,
+                    };
+                });
+            }
         });
 
         // Pull the authoritative submitted summary so the local provisional id is
         // replaced by the real synced record.
         try {
+            if (!isYeeAccountLeaseCurrent(lease)) {
+                return "SUBMITTED";
+            }
             const submittedAudits = await fetchMyAudits(session);
+            const cachedAudits = await readSubmittedAuditsCache(lease.accountId);
             const mergedSubmittedAudits = mergeSubmittedAuditSummaries(
                 submittedAudits,
-                get().submittedAudits.filter((audit) => audit.place_id !== placeId),
+                cachedAudits.filter((audit) => audit.place_id !== placeId),
             );
-            await writeSubmittedAuditsCache(mergedSubmittedAudits);
-            set(() => ({
-                submittedAudits: mergedSubmittedAudits,
-                lastAuditsSyncAt: new Date().toISOString(),
-            }));
+            await writeSubmittedAuditsCache(mergedSubmittedAudits, lease.accountId);
+            if (isYeeAccountLeaseCurrent(lease)) {
+                set(() => ({
+                    submittedAudits: mergedSubmittedAudits,
+                    lastAuditsSyncAt: new Date().toISOString(),
+                }));
+            }
         } catch {
             // The reconciliation already removed the queued item; a failed refresh
             // just leaves the synced summary to be filled on the next refresh.
+            return "SUBMITTED";
         }
 
         return "SUBMITTED";
     },
 
     loadPlaceAuditState: async (placeId: string, session: AuthSession) => {
+        const lease = captureYeeAccountLease(session.user.id);
         const state = await fetchAuditState(placeId, session);
 
-        if (state.status === "DRAFT") {
-            const previousDraft = get().draftsByPlace[placeId] ?? null;
-            const hasPendingQueueItem = get().syncQueue.some((item) => item.placeId === placeId);
+        if (
+            state.status === "DRAFT" &&
+            lease !== null &&
+            get().hydratedAccountId === lease.accountId &&
+            isYeeAccountLeaseCurrent(lease)
+        ) {
+            const [previousDraft, persistedQueue] = await Promise.all([
+                readDraft(placeId, lease.accountId),
+                readSyncQueue(lease.accountId),
+            ]);
+            const hasPendingQueueItem = persistedQueue.some((item) => item.placeId === placeId);
 
             // Protect local truth: the remote DRAFT is only a mirror. Hydrate it
             // into local storage ONLY when there is nothing unsynced to clobber —
@@ -581,13 +630,15 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                 scorePreview: state.score,
                 syncState: "synced",
             };
-            await writeDraft(localDraft);
-            set((currentState) => ({
-                draftsByPlace: {
-                    ...currentState.draftsByPlace,
-                    [placeId]: localDraft,
-                },
-            }));
+            await writeDraft(localDraft, lease.accountId);
+            if (isYeeAccountLeaseCurrent(lease)) {
+                set((currentState) => ({
+                    draftsByPlace: {
+                        ...currentState.draftsByPlace,
+                        [placeId]: localDraft,
+                    },
+                }));
+            }
         }
 
         return state;
@@ -648,6 +699,15 @@ type StoreSet = (
         | ((state: YeeMobileStoreState) => Partial<YeeMobileStoreState>),
 ) => void;
 
+function requireHydratedAccountLease(get: StoreGet): YeeAccountLease {
+    const accountId = get().hydratedAccountId;
+    const lease = accountId === null ? null : captureYeeAccountLease(accountId);
+    if (lease === null) {
+        throw new Error("Offline data is not ready for the active account.");
+    }
+    return lease;
+}
+
 /**
  * Enqueue (or idempotently re-enqueue) a submission.
  *
@@ -659,12 +719,13 @@ type StoreSet = (
 async function queueSubmissionInternal(
     draft: YeeLocalDraft,
     provisionalSubmission: YeeSubmissionResponse | null,
-    get: StoreGet,
+    lease: YeeAccountLease,
     set: StoreSet,
 ): Promise<void> {
     const now = new Date().toISOString();
     const itemId = `submission-${draft.placeId}`;
-    const existing = get().syncQueue.find((entry) => entry.id === itemId) ?? null;
+    const persistedQueue = await readSyncQueue(lease.accountId);
+    const existing = persistedQueue.find((entry) => entry.id === itemId) ?? null;
     const idempotencyKey = existing?.payload.idempotency_key ?? buildIdempotencyKey(draft.placeId);
 
     const queueItem: YeeSyncQueueItem = {
@@ -702,16 +763,19 @@ async function queueSubmissionInternal(
     // draft PUT can neither run after nor compete with the submission — this is
     // serialized with the drain, so no draft_save can be mid-flight here.
     const draftMirrorId = `draft-${draft.placeId}`;
-    const pendingDraftMirror = get().syncQueue.find((entry) => entry.id === draftMirrorId) ?? null;
+    const pendingDraftMirror = persistedQueue.find((entry) => entry.id === draftMirrorId) ?? null;
     if (pendingDraftMirror !== null) {
-        await removeSyncQueueItem(draftMirrorId);
+        await removeSyncQueueItem(draftMirrorId, lease.accountId);
     }
 
-    await upsertSyncQueueItem(queueItem);
-    await writeDraft({
-        ...draft,
-        syncState: "pending_upload",
-    });
+    await upsertSyncQueueItem(queueItem, lease.accountId);
+    await writeDraft(
+        {
+            ...draft,
+            syncState: "pending_upload",
+        },
+        lease.accountId,
+    );
 
     const nextLocalSummary =
         provisionalSubmission === null
@@ -729,21 +793,20 @@ async function queueSubmissionInternal(
                   syncState: "pending_upload" as const,
               };
 
-    set((state) => {
-        const nextSubmittedAudits =
-            nextLocalSummary === null
-                ? state.submittedAudits
-                : [
-                      ...state.submittedAudits.filter((audit) => audit.id !== nextLocalSummary.id),
-                      nextLocalSummary,
-                  ].sort(
-                      (left, right) =>
-                          Date.parse(right.submitted_at) - Date.parse(left.submitted_at),
-                  );
+    const cachedAudits = await readSubmittedAuditsCache(lease.accountId);
+    const nextSubmittedAudits =
+        nextLocalSummary === null
+            ? cachedAudits
+            : [
+                  ...cachedAudits.filter((audit) => audit.id !== nextLocalSummary.id),
+                  nextLocalSummary,
+              ].sort(
+                  (left, right) => Date.parse(right.submitted_at) - Date.parse(left.submitted_at),
+              );
+    await writeSubmittedAuditsCache(nextSubmittedAudits, lease.accountId);
 
-        void writeSubmittedAuditsCache(nextSubmittedAudits);
-
-        return {
+    if (isYeeAccountLeaseCurrent(lease)) {
+        set((state) => ({
             draftsByPlace: {
                 ...state.draftsByPlace,
                 [draft.placeId]: {
@@ -756,8 +819,8 @@ async function queueSubmissionInternal(
                 queueItem,
             ),
             submittedAudits: nextSubmittedAudits,
-        };
-    });
+        }));
+    }
 }
 
 /**
@@ -792,10 +855,11 @@ const UNRESOLVED_INSTRUMENT_MESSAGE =
 async function readInstrumentForQueuedItem(
     stampKey: string,
     stampVersion: string,
+    accountId: string,
 ): Promise<ReturnType<typeof normalizeInstrument> | null> {
     try {
         if (stampKey === "" && stampVersion === "") {
-            const active = await readInstrumentCache();
+            const active = await readInstrumentCache(undefined, accountId);
             if (active === null || (active.authoring ?? null) !== null) {
                 return null;
             }
@@ -805,10 +869,13 @@ async function readInstrumentForQueuedItem(
             // Half a stamp names no version, so there is nothing to look up.
             return null;
         }
-        const exact = await readInstrumentCache({
-            instrumentKey: stampKey,
-            instrumentVersion: stampVersion,
-        });
+        const exact = await readInstrumentCache(
+            {
+                instrumentKey: stampKey,
+                instrumentVersion: stampVersion,
+            },
+            accountId,
+        );
         return exact === null ? null : normalizeInstrument(exact);
     } catch {
         // An unreadable cache is the same as an absent one, and the gate already
@@ -819,13 +886,16 @@ async function readInstrumentForQueuedItem(
 }
 
 /** Whether a queued submission may be POSTed, decided from local state alone. */
-async function resolveQueuedSubmissionGate(item: YeeSyncQueueItem): Promise<QueuedSubmissionGate> {
+async function resolveQueuedSubmissionGate(
+    item: YeeSyncQueueItem,
+    accountId: string,
+): Promise<QueuedSubmissionGate> {
     const stampKey = (item.payload.instrument_key ?? "").trim();
     const stampVersion = (item.payload.instrument_version ?? "").trim();
     return gateQueuedSubmission({
         stampKey,
         stampVersion,
-        instrument: await readInstrumentForQueuedItem(stampKey, stampVersion),
+        instrument: await readInstrumentForQueuedItem(stampKey, stampVersion, accountId),
         responses: toAuditResponses(item.payload.responses),
     });
 }
@@ -839,13 +909,16 @@ async function resolveQueuedSubmissionGate(item: YeeSyncQueueItem): Promise<Queu
 async function applyQueuedSubmissionGate(
     item: YeeSyncQueueItem,
     gate: Exclude<QueuedSubmissionGate, { readonly outcome: "submit" }>,
+    lease: YeeAccountLease,
     set: StoreSet,
 ): Promise<void> {
     if (gate.outcome === "retain_unresolved_instrument") {
         // Nothing failed and nothing is lost. The payload and its stamp stay
         // queued exactly as they are until that version is cached again, so this
         // is a message rather than a persisted failure.
-        set(() => ({ errorMessage: UNRESOLVED_INSTRUMENT_MESSAGE }));
+        if (isYeeAccountLeaseCurrent(lease)) {
+            set(() => ({ errorMessage: UNRESOLVED_INSTRUMENT_MESSAGE }));
+        }
         return;
     }
 
@@ -861,12 +934,18 @@ async function applyQueuedSubmissionGate(
             firstMissingStep: gate.incomplete.firstMissingStep,
         },
     };
-    await upsertSyncQueueItem(parkedItem);
-    set((state) => ({
-        syncQueue: upsertLocalQueue(state.syncQueue, parkedItem),
-        draftsByPlace: stampDraftSyncState(state.draftsByPlace, parkedItem.placeId, "sync_failed"),
-        errorMessage: INCOMPLETE_SUBMISSION_MESSAGE,
-    }));
+    await upsertSyncQueueItem(parkedItem, lease.accountId);
+    if (isYeeAccountLeaseCurrent(lease)) {
+        set((state) => ({
+            syncQueue: upsertLocalQueue(state.syncQueue, parkedItem),
+            draftsByPlace: stampDraftSyncState(
+                state.draftsByPlace,
+                parkedItem.placeId,
+                "sync_failed",
+            ),
+            errorMessage: INCOMPLETE_SUBMISSION_MESSAGE,
+        }));
+    }
 }
 
 /**
@@ -875,7 +954,12 @@ async function applyQueuedSubmissionGate(
  * terminally-failed items as `sync_failed`. Uses the pure logic in
  * lib/yee-sync-logic.ts for every retry decision.
  */
-async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): Promise<void> {
+async function drainQueue(
+    session: AuthSession,
+    lease: YeeAccountLease,
+    get: StoreGet,
+    set: StoreSet,
+): Promise<void> {
     // The queue in memory belongs to whichever account was hydrated. MMKV is
     // namespaced per account and re-pointed on sign-in, so without this an
     // account switch could transmit one auditor's queued work under another's
@@ -884,12 +968,13 @@ async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): P
     // Checked HERE rather than only at the trigger because six call sites reach
     // this function and only the lifecycle ones consult `shouldDrainQueue`. An
     // invariant worth having is worth having on every path.
-    if (get().hydratedAccountId !== session.user.id) {
+    if (!isYeeAccountLeaseCurrent(lease) || get().hydratedAccountId !== session.user.id) {
         return;
     }
 
+    const initialState = get();
     const nowIso = new Date().toISOString();
-    const drainable = selectDrainableItems(get().syncQueue, nowIso);
+    const drainable = selectDrainableItems(initialState.syncQueue, nowIso);
     if (drainable.length === 0) {
         return;
     }
@@ -897,21 +982,18 @@ async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): P
     set(() => ({ errorMessage: null }));
     let auditListNeedsRefresh = false;
 
-    for (const item of drainable) {
-        // The queue may have been re-driven between iterations; re-read the live
-        // item so we never act on a stale snapshot.
-        const liveItem = get().syncQueue.find((entry) => entry.id === item.id) ?? null;
-        if (liveItem === null) {
-            continue;
+    for (const liveItem of drainable) {
+        if (!isYeeAccountLeaseCurrent(lease)) {
+            break;
         }
 
         // Decide locally, before any network call, whether this submission may
         // go at all. A payload the backend would reject for missing answers is
         // parked here instead of being POSTed and rejected.
         if (liveItem.kind === "submission") {
-            const gate = await resolveQueuedSubmissionGate(liveItem);
+            const gate = await resolveQueuedSubmissionGate(liveItem, lease.accountId);
             if (gate.outcome !== "submit") {
-                await applyQueuedSubmissionGate(liveItem, gate, set);
+                await applyQueuedSubmissionGate(liveItem, gate, lease, set);
                 continue;
             }
         }
@@ -919,34 +1001,41 @@ async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): P
         try {
             let syncedDraft: YeeLocalDraft | null = null;
             if (liveItem.kind === "draft_save") {
-                syncedDraft = await drainDraftSave(liveItem, session, get);
+                syncedDraft = await drainDraftSave(liveItem, session, lease.accountId);
             } else {
                 auditListNeedsRefresh = true;
-                await drainSubmission(liveItem, session, get, set);
+                await drainSubmission(liveItem, session, lease, set);
             }
 
-            await removeSyncQueueItem(liveItem.id);
+            await removeSyncQueueItem(liveItem.id, lease.accountId);
             const syncedAt = new Date().toISOString();
-            const currentMetadata = await readOfflineMetadata();
-            await writeOfflineMetadata({
-                ...currentMetadata,
-                lastDraftSyncAt: syncedAt,
-                lastAuditsSyncAt:
-                    liveItem.kind === "submission" ? syncedAt : currentMetadata.lastAuditsSyncAt,
-            });
-            set((state) => ({
-                syncQueue: state.syncQueue.filter((entry) => entry.id !== liveItem.id),
-                draftsByPlace:
-                    syncedDraft === null
-                        ? state.draftsByPlace
-                        : {
-                              ...state.draftsByPlace,
-                              [syncedDraft.placeId]: syncedDraft,
-                          },
-                lastDraftSyncAt: syncedAt,
-                lastAuditsSyncAt:
-                    liveItem.kind === "submission" ? syncedAt : state.lastAuditsSyncAt,
-            }));
+            const currentMetadata = await readOfflineMetadata(lease.accountId);
+            await writeOfflineMetadata(
+                {
+                    ...currentMetadata,
+                    lastDraftSyncAt: syncedAt,
+                    lastAuditsSyncAt:
+                        liveItem.kind === "submission"
+                            ? syncedAt
+                            : currentMetadata.lastAuditsSyncAt,
+                },
+                lease.accountId,
+            );
+            if (isYeeAccountLeaseCurrent(lease)) {
+                set((state) => ({
+                    syncQueue: state.syncQueue.filter((entry) => entry.id !== liveItem.id),
+                    draftsByPlace:
+                        syncedDraft === null
+                            ? state.draftsByPlace
+                            : {
+                                  ...state.draftsByPlace,
+                                  [syncedDraft.placeId]: syncedDraft,
+                              },
+                    lastDraftSyncAt: syncedAt,
+                    lastAuditsSyncAt:
+                        liveItem.kind === "submission" ? syncedAt : state.lastAuditsSyncAt,
+                }));
+            }
         } catch (error) {
             const statusCode = statusCodeFromError(error);
             const classification = classifyError(statusCode);
@@ -979,16 +1068,18 @@ async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): P
                 // and an absent key is what an unaffected item should have.
                 ...(incomplete === null ? {} : { incompleteQuestionIds: incomplete }),
             };
-            await upsertSyncQueueItem(failedItem);
-            set((state) => ({
-                syncQueue: upsertLocalQueue(state.syncQueue, failedItem),
-                draftsByPlace: stampDraftSyncState(
-                    state.draftsByPlace,
-                    failedItem.placeId,
-                    next.syncState,
-                ),
-                errorMessage: next.lastError,
-            }));
+            await upsertSyncQueueItem(failedItem, lease.accountId);
+            if (isYeeAccountLeaseCurrent(lease)) {
+                set((state) => ({
+                    syncQueue: upsertLocalQueue(state.syncQueue, failedItem),
+                    draftsByPlace: stampDraftSyncState(
+                        state.draftsByPlace,
+                        failedItem.placeId,
+                        next.syncState,
+                    ),
+                    errorMessage: next.lastError,
+                }));
+            }
 
             // Auth pause: a 401 means the session is dead for the whole queue.
             // Stop the drain so we wait for a fresh session rather than burning
@@ -999,22 +1090,59 @@ async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): P
         }
     }
 
-    if (auditListNeedsRefresh) {
+    if (auditListNeedsRefresh && isYeeAccountLeaseCurrent(lease)) {
         try {
             const submittedAudits = await fetchMyAudits(session);
+            const cachedAudits = await readSubmittedAuditsCache(lease.accountId);
             const mergedSubmittedAudits = mergeSubmittedAuditSummaries(
                 submittedAudits,
-                get().submittedAudits,
+                cachedAudits,
             );
-            await writeSubmittedAuditsCache(mergedSubmittedAudits);
-            set(() => ({
-                submittedAudits: mergedSubmittedAudits,
-                lastAuditsSyncAt: new Date().toISOString(),
-            }));
+            await writeSubmittedAuditsCache(mergedSubmittedAudits, lease.accountId);
+            if (isYeeAccountLeaseCurrent(lease)) {
+                set(() => ({
+                    submittedAudits: mergedSubmittedAudits,
+                    lastAuditsSyncAt: new Date().toISOString(),
+                }));
+            }
         } catch {
             // keep local optimistic updates if refresh fails
+            auditListNeedsRefresh = false;
         }
     }
+
+    if (!isYeeAccountLeaseCurrent(lease)) {
+        return;
+    }
+    const remainingQueue = await readSyncQueue(lease.accountId);
+    const retryAtMs = findNextRetryDeadline(remainingQueue);
+    if (retryAtMs !== null) {
+        syncCoordinator.scheduleRetry(lease, retryAtMs, () => {
+            if (
+                !isYeeAccountLeaseCurrent(lease) ||
+                !get().isOnline ||
+                get().hydratedAccountId !== lease.accountId
+            ) {
+                return Promise.resolve();
+            }
+            return runSerialized(() => drainQueue(session, lease, get, set));
+        });
+    }
+}
+
+function findNextRetryDeadline(queue: readonly YeeSyncQueueItem[]): number | null {
+    let earliest: number | null = null;
+    for (const item of queue) {
+        if (item.isTerminal === true || item.attempts >= item.maxAttempts) {
+            continue;
+        }
+        const candidate =
+            item.nextAttemptAtIso === null ? Number.NaN : Date.parse(item.nextAttemptAtIso);
+        if (Number.isFinite(candidate) && (earliest === null || candidate < earliest)) {
+            earliest = candidate;
+        }
+    }
+    return earliest;
 }
 
 /**
@@ -1037,7 +1165,7 @@ async function drainQueue(session: AuthSession, get: StoreGet, set: StoreSet): P
 async function drainDraftSave(
     item: YeeSyncQueueItem,
     session: AuthSession,
-    get: StoreGet,
+    accountId: string,
 ): Promise<YeeLocalDraft | null> {
     // Throws on failure — the caller applies backoff + retention (durable UX).
     const savedState = await saveAuditDraft(item.placeId, session, {
@@ -1049,7 +1177,7 @@ async function drainDraftSave(
             : {}),
     });
 
-    const existingDraft = get().draftsByPlace[item.placeId] ?? null;
+    const existingDraft = await readDraft(item.placeId, accountId);
     if (existingDraft === null) {
         return null;
     }
@@ -1073,7 +1201,7 @@ async function drainDraftSave(
         updatedAt: syncedAtIso,
         lastUpdatedIso: syncedAtIso,
     };
-    await writeDraft(syncedDraft);
+    await writeDraft(syncedDraft, accountId);
     return syncedDraft;
 }
 
@@ -1087,7 +1215,7 @@ async function drainDraftSave(
 async function drainSubmission(
     item: YeeSyncQueueItem,
     session: AuthSession,
-    get: StoreGet,
+    lease: YeeAccountLease,
     set: StoreSet,
 ): Promise<void> {
     const submission = await submitAudit(session, {
@@ -1105,13 +1233,13 @@ async function drainSubmission(
     // since this submission was enqueued. `draft_version` is the version at
     // enqueue; a higher current version means a newer local edit we must keep.
     const queuedVersion = item.payload.draft_version;
-    const currentDraft = await readDraft(item.placeId);
+    const currentDraft = await readDraft(item.placeId, lease.accountId);
     const draftWasEditedSinceEnqueue =
         currentDraft !== null &&
         typeof queuedVersion === "number" &&
         currentDraft.version > queuedVersion;
     if (!draftWasEditedSinceEnqueue) {
-        await deleteDraft(item.placeId);
+        await deleteDraft(item.placeId, lease.accountId);
     }
 
     const syncedSubmissionSummary: YeeMyAuditItem = {
@@ -1125,8 +1253,9 @@ async function drainSubmission(
             submission.instrument_version ?? item.payload.instrument_version ?? null,
         syncState: "synced",
     };
+    const cachedAudits = await readSubmittedAuditsCache(lease.accountId);
     const nextSubmittedAudits = [
-        ...get().submittedAudits.filter(
+        ...cachedAudits.filter(
             (audit) =>
                 audit.id !== submission.id &&
                 audit.id !== item.payload.provisional_submission_id &&
@@ -1137,18 +1266,20 @@ async function drainSubmission(
         ),
         syncedSubmissionSummary,
     ].sort((left, right) => Date.parse(right.submitted_at) - Date.parse(left.submitted_at));
-    await writeSubmittedAuditsCache(nextSubmittedAudits);
+    await writeSubmittedAuditsCache(nextSubmittedAudits, lease.accountId);
 
-    set((state) => {
-        const nextDraftsByPlace = { ...state.draftsByPlace };
-        if (!draftWasEditedSinceEnqueue) {
-            delete nextDraftsByPlace[item.placeId];
-        }
-        return {
-            draftsByPlace: nextDraftsByPlace,
-            submittedAudits: nextSubmittedAudits,
-        };
-    });
+    if (isYeeAccountLeaseCurrent(lease)) {
+        set((state) => {
+            const nextDraftsByPlace = { ...state.draftsByPlace };
+            if (!draftWasEditedSinceEnqueue) {
+                delete nextDraftsByPlace[item.placeId];
+            }
+            return {
+                draftsByPlace: nextDraftsByPlace,
+                submittedAudits: nextSubmittedAudits,
+            };
+        });
+    }
 }
 
 /** Immutably stamp a draft's syncState in the draftsByPlace map, if present. */

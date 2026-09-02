@@ -25,6 +25,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createMMKV } from "react-native-mmkv";
 import { readAuthSession } from "lib/auth/storage";
+import { activateYeeAccount, getActiveYeeAccountId } from "lib/yee-account-scope";
+import { migrateLegacyDraftStorage, YeeLegacyMigrationError } from "lib/yee-legacy-draft-migration";
 import type { YeeInstrumentResponse, YeeLocalDraft, YeeSyncQueueItem } from "lib/yee-types";
 
 /**
@@ -62,11 +64,8 @@ const DRAFT_KEY_PREFIX = "draft.";
 const QUEUE_KEY_PREFIX = "queue.";
 const INSTRUMENT_KEY_PREFIX = "instrument.version.";
 const ACTIVE_INSTRUMENT_STAMP_KEY = "instrument.active-stamp";
-const MIGRATION_MARKER_KEY = "yee.migration.async-to-mmkv.v1";
 const INSTRUMENT_MIGRATION_MARKER_KEY = "yee.migration.instrument-to-mmkv.v1";
 
-const LEGACY_DRAFTS_KEY = "yee.mobile.local-drafts.v1";
-const LEGACY_SYNC_QUEUE_KEY = "yee.mobile.sync-queue.v1";
 const LEGACY_INSTRUMENT_KEY = "yee.mobile.instrument.v1";
 
 export interface YeeInstrumentStamp {
@@ -91,8 +90,6 @@ const instancesByAccount = new Map<string, MmkvInstance>();
  * auth session so existing store actions (which do not pass an account id) keep
  * working without signature changes.
  */
-let activeAccountId: string | null = null;
-
 /**
  * Set or switch the active account whose draft store should be used.
  *
@@ -104,7 +101,7 @@ let activeAccountId: string | null = null;
  * @param accountId Authenticated user id, or null to clear.
  */
 export function setActiveAccount(accountId: string | null): void {
-    activeAccountId = accountId !== null && accountId.trim().length > 0 ? accountId : null;
+    activateYeeAccount(accountId);
 }
 
 /**
@@ -118,6 +115,7 @@ export function setActiveAccount(accountId: string | null): void {
  * @throws {YeeStorageError} When no account can be resolved.
  */
 async function resolveAccountId(): Promise<string> {
+    const activeAccountId = getActiveYeeAccountId();
     if (activeAccountId !== null) {
         return activeAccountId;
     }
@@ -131,7 +129,7 @@ async function resolveAccountId(): Promise<string> {
         );
     }
 
-    activeAccountId = accountId;
+    activateYeeAccount(accountId);
     return accountId;
 }
 
@@ -165,10 +163,17 @@ function getInstance(accountId: string): MmkvInstance {
  * Resolve the active account's MMKV instance, running the one-time migration if
  * it has not yet completed for this account.
  */
-async function getActiveInstance(): Promise<MmkvInstance> {
-    const accountId = await resolveAccountId();
+async function getActiveInstance(explicitAccountId?: string): Promise<MmkvInstance> {
+    const accountId = explicitAccountId ?? (await resolveAccountId());
     const instance = getInstance(accountId);
-    await runMigrationIfNeeded(instance);
+    try {
+        await migrateLegacyDraftStorage(accountId, instance);
+    } catch (error) {
+        if (error instanceof YeeLegacyMigrationError) {
+            throw new YeeStorageError(error.message, error.key, { cause: error });
+        }
+        throw error;
+    }
     await runInstrumentMigrationIfNeeded(instance);
     return instance;
 }
@@ -201,62 +206,6 @@ function parseJson<T>(raw: string, key: string): T {
     }
 }
 
-// ---------------------------------------------------------------------------
-// One-time AsyncStorage -> MMKV migration (idempotent per account)
-// ---------------------------------------------------------------------------
-
-/**
- * Copy legacy AsyncStorage drafts and sync queue into MMKV exactly once.
- *
- * Idempotent: a completion marker is written to MMKV after a successful copy, so
- * a second launch short-circuits and never duplicates entries. Corrupt legacy
- * payloads are NOT dropped — a {@link YeeStorageError} is raised so the failure
- * is surfaced.
- *
- * @param instance The active account's MMKV instance.
- */
-async function runMigrationIfNeeded(instance: MmkvInstance): Promise<void> {
-    if (instance.contains(MIGRATION_MARKER_KEY)) {
-        return;
-    }
-
-    const [legacyDraftsRaw, legacyQueueRaw] = await Promise.all([
-        readLegacyAsyncValue(LEGACY_DRAFTS_KEY),
-        readLegacyAsyncValue(LEGACY_SYNC_QUEUE_KEY),
-    ]);
-
-    if (legacyDraftsRaw !== null) {
-        const draftMap = parseJson<Record<string, YeeLocalDraft>>(
-            legacyDraftsRaw,
-            LEGACY_DRAFTS_KEY,
-        );
-        for (const draft of Object.values(draftMap)) {
-            if (
-                draft !== null &&
-                typeof draft === "object" &&
-                !instance.contains(draftKey(draft.placeId))
-            ) {
-                instance.set(draftKey(draft.placeId), JSON.stringify(draft));
-            }
-        }
-    }
-
-    if (legacyQueueRaw !== null) {
-        const queue = parseJson<readonly YeeSyncQueueItem[]>(legacyQueueRaw, LEGACY_SYNC_QUEUE_KEY);
-        for (const item of queue) {
-            if (
-                item !== null &&
-                typeof item === "object" &&
-                !instance.contains(queueKey(item.id))
-            ) {
-                instance.set(queueKey(item.id), JSON.stringify(item));
-            }
-        }
-    }
-
-    instance.set(MIGRATION_MARKER_KEY, new Date().toISOString());
-}
-
 async function runInstrumentMigrationIfNeeded(instance: MmkvInstance): Promise<void> {
     if (instance.contains(INSTRUMENT_MIGRATION_MARKER_KEY)) {
         return;
@@ -282,7 +231,10 @@ async function runInstrumentMigrationIfNeeded(instance: MmkvInstance): Promise<v
                     instance.set(ACTIVE_INSTRUMENT_STAMP_KEY, JSON.stringify(stamp));
                 }
             }
-        } catch {}
+        } catch {
+            instance.set(INSTRUMENT_MIGRATION_MARKER_KEY, new Date().toISOString());
+            return;
+        }
     }
 
     instance.set(INSTRUMENT_MIGRATION_MARKER_KEY, new Date().toISOString());
@@ -319,8 +271,9 @@ function sameInstrumentStamp(left: YeeInstrumentStamp, right: YeeInstrumentStamp
 
 export async function readInstrumentFromMmkv(
     stamp: YeeInstrumentStamp,
+    accountId?: string,
 ): Promise<YeeInstrumentResponse | null> {
-    const instance = await getActiveInstance();
+    const instance = await getActiveInstance(accountId);
     const key = instrumentStorageKey(stamp);
     const raw = instance.getString(key);
     if (raw === undefined) {
@@ -329,8 +282,10 @@ export async function readInstrumentFromMmkv(
     return parseJson<InstrumentCacheEntry>(raw, key).instrument;
 }
 
-export async function readActiveInstrumentFromMmkv(): Promise<YeeInstrumentResponse | null> {
-    const instance = await getActiveInstance();
+export async function readActiveInstrumentFromMmkv(
+    accountId?: string,
+): Promise<YeeInstrumentResponse | null> {
+    const instance = await getActiveInstance(accountId);
     const rawStamp = instance.getString(ACTIVE_INSTRUMENT_STAMP_KEY);
     if (rawStamp === undefined) {
         return null;
@@ -350,8 +305,9 @@ export async function readActiveInstrumentFromMmkv(): Promise<YeeInstrumentRespo
 export async function writeInstrumentToMmkv(
     instrument: YeeInstrumentResponse,
     options: { readonly asActive?: boolean } = {},
+    accountId?: string,
 ): Promise<YeeInstrumentStamp> {
-    const instance = await getActiveInstance();
+    const instance = await getActiveInstance(accountId);
     const stamp = instrumentStamp(instrument);
     if (stamp === null) {
         throw new YeeStorageError(
@@ -375,8 +331,9 @@ export async function writeInstrumentToMmkv(
 
 export async function evictUnpinnedInstrumentsFromMmkv(
     pinnedStamps: readonly YeeInstrumentStamp[],
+    accountId?: string,
 ): Promise<void> {
-    const instance = await getActiveInstance();
+    const instance = await getActiveInstance(accountId);
     const rawActive = instance.getString(ACTIVE_INSTRUMENT_STAMP_KEY);
     const activeStamp =
         rawActive === undefined
@@ -409,8 +366,10 @@ export async function evictUnpinnedInstrumentsFromMmkv(
     }
 }
 
-export async function listCachedInstrumentStampsFromMmkv(): Promise<readonly YeeInstrumentStamp[]> {
-    const instance = await getActiveInstance();
+export async function listCachedInstrumentStampsFromMmkv(
+    accountId?: string,
+): Promise<readonly YeeInstrumentStamp[]> {
+    const instance = await getActiveInstance(accountId);
     const stamps: YeeInstrumentStamp[] = [];
     for (const key of instance.getAllKeys()) {
         if (!key.startsWith(INSTRUMENT_KEY_PREFIX)) {
@@ -437,8 +396,10 @@ export async function listCachedInstrumentStampsFromMmkv(): Promise<readonly Yee
  *
  * @throws {YeeStorageError} If any persisted draft payload is corrupt.
  */
-export async function readDraftMapFromMmkv(): Promise<Record<string, YeeLocalDraft>> {
-    const instance = await getActiveInstance();
+export async function readDraftMapFromMmkv(
+    accountId?: string,
+): Promise<Record<string, YeeLocalDraft>> {
+    const instance = await getActiveInstance(accountId);
     const result: Record<string, YeeLocalDraft> = {};
 
     for (const key of instance.getAllKeys()) {
@@ -461,8 +422,11 @@ export async function readDraftMapFromMmkv(): Promise<Record<string, YeeLocalDra
  *
  * @throws {YeeStorageError} If the persisted payload is corrupt.
  */
-export async function readDraftFromMmkv(placeId: string): Promise<YeeLocalDraft | null> {
-    const instance = await getActiveInstance();
+export async function readDraftFromMmkv(
+    placeId: string,
+    accountId?: string,
+): Promise<YeeLocalDraft | null> {
+    const instance = await getActiveInstance(accountId);
     const raw = instance.getString(draftKey(placeId));
     if (raw === undefined) {
         return null;
@@ -471,14 +435,14 @@ export async function readDraftFromMmkv(placeId: string): Promise<YeeLocalDraft 
 }
 
 /** Persist a single draft under its place-id key. */
-export async function writeDraftToMmkv(draft: YeeLocalDraft): Promise<void> {
-    const instance = await getActiveInstance();
+export async function writeDraftToMmkv(draft: YeeLocalDraft, accountId?: string): Promise<void> {
+    const instance = await getActiveInstance(accountId);
     instance.set(draftKey(draft.placeId), JSON.stringify(draft));
 }
 
 /** Remove a single draft by place id. No-op when absent. */
-export async function deleteDraftFromMmkv(placeId: string): Promise<void> {
-    const instance = await getActiveInstance();
+export async function deleteDraftFromMmkv(placeId: string, accountId?: string): Promise<void> {
+    const instance = await getActiveInstance(accountId);
     instance.remove(draftKey(placeId));
 }
 
@@ -491,8 +455,10 @@ export async function deleteDraftFromMmkv(placeId: string): Promise<void> {
  *
  * @throws {YeeStorageError} If any persisted queue payload is corrupt.
  */
-export async function readSyncQueueFromMmkv(): Promise<readonly YeeSyncQueueItem[]> {
-    const instance = await getActiveInstance();
+export async function readSyncQueueFromMmkv(
+    accountId?: string,
+): Promise<readonly YeeSyncQueueItem[]> {
+    const instance = await getActiveInstance(accountId);
     const items: YeeSyncQueueItem[] = [];
 
     for (const key of instance.getAllKeys()) {
@@ -515,14 +481,20 @@ export async function readSyncQueueFromMmkv(): Promise<readonly YeeSyncQueueItem
  * Per-key storage gives idempotent check-and-set semantics for free: writing the
  * same id twice overwrites in place rather than appending a duplicate.
  */
-export async function upsertSyncQueueItemInMmkv(item: YeeSyncQueueItem): Promise<void> {
-    const instance = await getActiveInstance();
+export async function upsertSyncQueueItemInMmkv(
+    item: YeeSyncQueueItem,
+    accountId?: string,
+): Promise<void> {
+    const instance = await getActiveInstance(accountId);
     instance.set(queueKey(item.id), JSON.stringify(item));
 }
 
 /** Remove a single sync queue item by id. No-op when absent. */
-export async function removeSyncQueueItemFromMmkv(itemId: string): Promise<void> {
-    const instance = await getActiveInstance();
+export async function removeSyncQueueItemFromMmkv(
+    itemId: string,
+    accountId?: string,
+): Promise<void> {
+    const instance = await getActiveInstance(accountId);
     instance.remove(queueKey(itemId));
 }
 
@@ -532,8 +504,11 @@ export async function removeSyncQueueItemFromMmkv(itemId: string): Promise<void>
  * Existing queue keys are removed first so the persisted set matches the input
  * exactly, preserving the semantics of the previous whole-array writer.
  */
-export async function writeSyncQueueToMmkv(queue: readonly YeeSyncQueueItem[]): Promise<void> {
-    const instance = await getActiveInstance();
+export async function writeSyncQueueToMmkv(
+    queue: readonly YeeSyncQueueItem[],
+    accountId?: string,
+): Promise<void> {
+    const instance = await getActiveInstance(accountId);
 
     for (const key of instance.getAllKeys()) {
         if (key.startsWith(QUEUE_KEY_PREFIX)) {
@@ -562,8 +537,8 @@ export async function writeSyncQueueToMmkv(queue: readonly YeeSyncQueueItem[]): 
 export function clearAccountStorage(accountId: string): void {
     const instance = getInstance(accountId);
     instance.clearAll();
-    if (activeAccountId === accountId) {
-        activeAccountId = null;
+    if (getActiveYeeAccountId() === accountId) {
+        activateYeeAccount(null);
     }
     instancesByAccount.delete(accountId);
 }

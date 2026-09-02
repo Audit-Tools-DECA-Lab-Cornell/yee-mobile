@@ -15,6 +15,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { prepareLegacyMigrationOwner } from "lib/yee-legacy-draft-migration";
 import {
     YeeStorageError,
     clearAccountStorage,
@@ -105,7 +106,8 @@ describe("migration: AsyncStorage -> MMKV", () => {
             JSON.stringify([makeQueueItem("submission-place-1", "place-1")]),
         );
 
-        freshAccount();
+        const accountId = freshAccount();
+        await prepareLegacyMigrationOwner(accountId);
 
         const drafts = await readDraftMapFromMmkv();
         expect(Object.keys(drafts).sort()).toEqual(["place-1", "place-2"]);
@@ -121,7 +123,8 @@ describe("migration: AsyncStorage -> MMKV", () => {
             JSON.stringify({ "place-1": makeDraft("place-1") }),
         );
 
-        freshAccount();
+        const accountId = freshAccount();
+        await prepareLegacyMigrationOwner(accountId);
         // First access triggers migration.
         await readDraftMapFromMmkv();
 
@@ -137,14 +140,16 @@ describe("migration: AsyncStorage -> MMKV", () => {
 
     it("surfaces a typed YeeStorageError for a corrupt legacy drafts payload (not dropped)", async () => {
         await AsyncStorage.setItem(LEGACY_DRAFTS_KEY, "{not-valid-json");
-        freshAccount();
+        const accountId = freshAccount();
+        await prepareLegacyMigrationOwner(accountId);
 
         await expect(readDraftMapFromMmkv()).rejects.toBeInstanceOf(YeeStorageError);
     });
 
     it("surfaces a typed YeeStorageError for a corrupt legacy queue payload (not dropped)", async () => {
         await AsyncStorage.setItem(LEGACY_SYNC_QUEUE_KEY, "CORRUPTED");
-        freshAccount();
+        const accountId = freshAccount();
+        await prepareLegacyMigrationOwner(accountId);
 
         await expect(readSyncQueueFromMmkv()).rejects.toBeInstanceOf(YeeStorageError);
     });

@@ -597,7 +597,7 @@ async function commitAndQueueRemotePersist(
     //    PUT never gates the caller. Reflect the durable outcome onto the pill.
     set({ saveStatus: "syncing", lastSavedAt: savedAtIso });
     void mobileStore
-        .syncPendingQueue(session)
+        .syncPendingQueue(session, { throttle: true })
         .then(() => reflectMirrorStatus(draft.placeId, set))
         .catch(() => {
             const live = useAuditSessionStore.getState();
