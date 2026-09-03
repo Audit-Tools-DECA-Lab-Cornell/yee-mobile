@@ -71,7 +71,7 @@ import { useAuthStore } from "stores/auth-store";
 import { useYeeMobileStore } from "stores/yee-mobile-store";
 import { useAuditSessionStore } from "stores/yee-audit-session-store";
 import { SurveyDomainContext, useSurveyPalette } from "components/audit/survey-theme";
-import { NoticeCard, SurveyCard } from "components/audit/primitives";
+import { FOLLOW_UP_RAIL_WIDTH, NoticeCard, SurveyCard } from "components/audit/primitives";
 import {
     ReviewSectionCard,
     ReviewSummaryRow,
@@ -1198,11 +1198,16 @@ const WeightingDomainRowBody = memo(function WeightingDomainRowBody({
         <YStack
             rounded={designSystem.radii.md}
             borderWidth={1}
+            // Domain rail on a soft domain tint: six of these stack here, and the
+            // rail is the only part of a row that identifies its domain at a
+            // glance — the tints are all within ~1.1:1 of the white card below.
+            borderLeftWidth={FOLLOW_UP_RAIL_WIDTH}
             p="$3.5"
             gap="$1.5"
             style={{
-                backgroundColor: palette.condition,
-                borderColor: palette.conditionBorder,
+                backgroundColor: palette.card,
+                borderColor: palette.cardBorder,
+                borderLeftColor: palette.rail,
             }}
         >
             <XStack justify="space-between" items="center" gap="$3">

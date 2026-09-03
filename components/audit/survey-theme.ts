@@ -35,6 +35,35 @@ export interface SurveyPalette {
     readonly cardBorder: string;
     readonly inner: string;
     readonly innerBorder: string;
+    /**
+     * Surface for a single question inside a section card. Deliberately NOT
+     * `card`: a question that shares its parent's fill has no boundary, which is
+     * why a domain step used to read as one undifferentiated tint. The question
+     * card steps to a neutral surface so the domain wash keeps saying "where am
+     * I" while the question says "what am I answering".
+     */
+    readonly questionCard: string;
+    readonly questionCardBorder: string;
+    /**
+     * Left rail on a question card — the spine that binds a prompt to its
+     * answers, mirroring the provision rail in the Playspace app. Solid once the
+     * question is complete.
+     */
+    readonly rail: string;
+    /**
+     * Rail tone while the question is still incomplete — the neutral border tone,
+     * so pending/done reads as empty-track vs filled rather than as two strengths
+     * of the same hue (which, at these tints, is a distinction of about 1.5:1).
+     * Redundant with the radio state inside the card, so color is never the sole
+     * carrier of "unanswered" (WCAG 1.4.1).
+     */
+    readonly railPending: string;
+    /**
+     * Idle answer chip. Neutral by design: inside a question card the only
+     * accent-colored surface should be the answer the auditor actually chose.
+     */
+    readonly option: string;
+    readonly optionBorder: string;
     /** Selected option surface — a tint, not a solid fill (web parity). */
     readonly selected: string;
     readonly selectedBorder: string;
@@ -58,8 +87,15 @@ export interface SurveyPalette {
     readonly mutedAccent: string;
     readonly mutedAccentText: string;
     /** Condition follow-up surface nested under an affirmative answer. */
-    readonly condition: string;
-    readonly conditionBorder: string;
+    /**
+     * Rail on the nested follow-up. It has no fill to pair with: every tint
+     * available here lands within 1.1:1 of the card it would sit on, and a tinted
+     * follow-up panel also swallows the selected chip inside it, which is the
+     * same hue. So the follow-up is a rail plus an indent, and this is it — which
+     * is why the alpha is tuned to clear 3:1 (WCAG 1.4.11) on the question card
+     * in both themes for every domain, rather than left at a decorative weight.
+     */
+    readonly conditionRail: string;
     readonly progress: string;
     readonly progressTrack: string;
     readonly stepFill: string;
@@ -76,6 +112,17 @@ export function getSurveyPalette(colors: ColorTokens, domain?: DomainPalette): S
             cardBorder: withAlpha(domain.strong, 0.2),
             inner: colors.input,
             innerBorder: colors.border,
+            // A question sits on a neutral card so the tinted section wrapper above
+            // it stays readable as a container instead of blending into it. Tint on
+            // tint is what made the prompt and its answers read as one green mass.
+            questionCard: colors.surface,
+            questionCardBorder: withAlpha(domain.strong, 0.18),
+            rail: domain.strong,
+            railPending: colors.border,
+            // Neutral chips on the neutral question card: the domain hue is then
+            // free to mean "chosen" rather than "background".
+            option: colors.surfaceMuted,
+            optionBorder: colors.border,
             // Web selected option: domain-strong border + domain-light tint + domain text.
             selected: domain.light,
             selectedBorder: domain.strong,
@@ -90,8 +137,7 @@ export function getSurveyPalette(colors: ColorTokens, domain?: DomainPalette): S
             accentText: domain.text,
             mutedAccent: colors.secondaryForeground,
             mutedAccentText: colors.secondaryForeground,
-            condition: domain.light,
-            conditionBorder: withAlpha(domain.strong, 0.25),
+            conditionRail: withAlpha(domain.strong, 0.75),
             progress: withAlpha(domain.light, 0.5),
             progressTrack: colors.mutedSurface,
             stepFill: colors.primary,
@@ -106,6 +152,15 @@ export function getSurveyPalette(colors: ColorTokens, domain?: DomainPalette): S
         cardBorder: colors.border,
         inner: colors.input,
         innerBorder: colors.border,
+        // Non-domain sections use the plain `surface` card, so the question steps
+        // the other way — down to the muted surface — to keep the same alternation.
+        questionCard: colors.surfaceMuted,
+        questionCardBorder: colors.border,
+        rail: colors.primary,
+        railPending: colors.border,
+        // Already one step off `surfaceMuted`; non-domain option chips are unchanged.
+        option: colors.input,
+        optionBorder: colors.border,
         // Web non-domain fallback: `border-yee-green-600 bg-yee-green-50 text-yee-green-900`.
         selected: colors.primarySoft,
         selectedBorder: colors.ring,
@@ -119,8 +174,7 @@ export function getSurveyPalette(colors: ColorTokens, domain?: DomainPalette): S
         accentText: colors.primaryText,
         mutedAccent: colors.secondaryForeground,
         mutedAccentText: colors.secondaryForeground,
-        condition: colors.input,
-        conditionBorder: colors.border,
+        conditionRail: withAlpha(colors.primary, 0.75),
         progress: colors.surfaceMuted,
         progressTrack: colors.mutedSurface,
         stepFill: colors.primary,

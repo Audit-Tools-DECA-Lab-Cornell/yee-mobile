@@ -8,6 +8,7 @@ import {
     countRequiredFollowUpsRemaining,
     countTotalQuestions,
     firstUnansweredQuestion,
+    isQuestionComplete,
     questionPositionLabel,
     shouldShowFollowUp,
 } from "lib/yee-audit-question-view";
@@ -27,6 +28,7 @@ import { auditRowKey, useAuditRowScroll } from "./audit-scroll";
 import { SurveyDomainContext, useSurveyPalette } from "./survey-theme";
 import {
     CommentField,
+    FOLLOW_UP_RAIL_WIDTH,
     NoticeCard,
     OptionGrid,
     QuestionCard,
@@ -200,6 +202,11 @@ const DomainQuestionCard = memo(function DomainQuestionCard({
     const showFollowUp = useAuditSessionStore((state) =>
         shouldShowFollowUp(question, state.draft?.responses ?? {}),
     );
+    // Drives the rail tone only; the radio state inside the card already says the
+    // same thing, so the muted rail is a scanning aid, not the sole signal.
+    const complete = useAuditSessionStore((state) =>
+        isQuestionComplete(question, state.draft?.responses ?? {}),
+    );
     const setPresenceAnswer = useAuditSessionStore((state) => state.setPresenceAnswer);
     const setConditionAnswer = useAuditSessionStore((state) => state.setConditionAnswer);
     const readOnly = useAuditSessionStore((state) => state.readOnly);
@@ -221,7 +228,12 @@ const DomainQuestionCard = memo(function DomainQuestionCard({
 
     return (
         <View ref={setRowRef} collapsable={false}>
-            <QuestionCard label={question.prompt} eyebrow={positionLabel} testID={questionTestID}>
+            <QuestionCard
+                label={question.prompt}
+                eyebrow={positionLabel}
+                testID={questionTestID}
+                complete={complete}
+            >
                 <OptionGrid
                     value={presenceValue}
                     options={question.presenceAnswers}
@@ -233,13 +245,13 @@ const DomainQuestionCard = memo(function DomainQuestionCard({
                     <YStack
                         testID={`${questionTestID}-follow-up`}
                         gap="$2.5"
-                        rounded={designSystem.radii.sm}
-                        p="$3"
-                        borderWidth={1}
-                        style={{
-                            backgroundColor: palette.condition,
-                            borderColor: palette.conditionBorder,
-                        }}
+                        // A rail and an indent, not a panel: sitting inboard of the
+                        // question card's own rail, this says "belongs to that
+                        // question" without adding a fourth tinted surface to a
+                        // stack where every tint is within ~1.1:1 of its neighbour.
+                        borderLeftWidth={FOLLOW_UP_RAIL_WIDTH}
+                        pl="$3.5"
+                        style={{ borderLeftColor: palette.conditionRail }}
                     >
                         <Paragraph
                             style={{ color: palette.accentText, flexShrink: 1 }}

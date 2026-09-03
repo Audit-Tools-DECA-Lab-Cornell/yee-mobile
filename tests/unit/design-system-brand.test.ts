@@ -92,6 +92,10 @@ describe("survey palette — domain-aware theming", () => {
         expect(base.selected).toBe(designSystem.colors.primarySoft);
         expect(base.selectedBorder).toBe(designSystem.colors.ring);
         expect(base.optionText).toBe(designSystem.colors.foreground);
+        // Non-domain option chips are unchanged; only the question card steps down.
+        expect(base.option).toBe(designSystem.colors.input);
+        expect(base.questionCard).toBe(designSystem.colors.surfaceMuted);
+        expect(base.rail).toBe(designSystem.colors.primary);
     });
 
     it("derives the web option/intro/progress treatment from a domain palette", () => {
@@ -108,6 +112,53 @@ describe("survey palette — domain-aware theming", () => {
         // `/40`-style alpha tints, mirroring web's bg-domain-light/40 wrapper.
         expect(palette.card).toBe(withAlpha(domain.light, 0.4));
         expect(palette.cardBorder).toBe(withAlpha(domain.strong, 0.2));
+    });
+
+    it("never stacks a question card on the tint of the section that holds it", () => {
+        const domain = designSystem.domains.amenities;
+        const palette = getSurveyPalette(designSystem.colors, domain);
+        // The bug this guards: `questionCard === card` gives a nested question no
+        // boundary, so a prompt and its answers read as one undifferentiated tint.
+        expect(palette.questionCard).not.toBe(palette.card);
+        expect(palette.questionCard).toBe(designSystem.colors.surface);
+        // Chips must also differ from the card they sit on, or they disappear.
+        expect(palette.option).not.toBe(palette.questionCard);
+        expect(palette.option).toBe(designSystem.colors.surfaceMuted);
+    });
+
+    it("gives every domain its own rail, straight from the domain palette", () => {
+        // The rail is the one part of a question card that carries domain identity,
+        // so it must come from `domain.strong` for each of the six domains rather
+        // than any fixed colour. A duplicate here means a hard-coded rail slipped in.
+        const keys = Object.keys(designSystem.domains) as (keyof typeof designSystem.domains)[];
+        const rails = keys.map(
+            (key) => getSurveyPalette(designSystem.colors, designSystem.domains[key]).rail,
+        );
+        expect(new Set(rails).size).toBe(keys.length);
+        for (const key of keys) {
+            const palette = getSurveyPalette(designSystem.colors, designSystem.domains[key]);
+            expect(palette.rail).toBe(designSystem.domains[key].strong);
+            expect(palette.conditionRail).toBe(withAlpha(designSystem.domains[key].strong, 0.75));
+            // Pending is deliberately the shared neutral track: two strengths of one
+            // domain hue differ by ~1.5:1, which does not read as a state change.
+            expect(palette.railPending).toBe(designSystem.colors.border);
+            expect(palette.railPending).not.toBe(palette.rail);
+        }
+    });
+
+    it("orders the question and follow-up rails by weight, not just position", () => {
+        const domain = designSystem.domains.amenities;
+        const palette = getSurveyPalette(designSystem.colors, domain);
+        expect(palette.rail).toBe(domain.strong);
+        // Pending is the neutral track tone, not a weaker tint of the same hue:
+        // two strengths of one tint differ by ~1.5:1 here, which does not read.
+        expect(palette.railPending).toBe(designSystem.colors.border);
+        // A nested follow-up rail stays the same hue but never as strong as the
+        // question rail it hangs off.
+        // 0.75 is the lowest alpha that clears 3:1 on the question card for every
+        // domain in both themes; below it the rail is decoration, not structure.
+        expect(palette.conditionRail).toBe(withAlpha(domain.strong, 0.75));
+        expect(palette.conditionRail).not.toBe(palette.rail);
     });
 
     it("scales alpha correctly for hex and pre-tinted rgba colors", () => {

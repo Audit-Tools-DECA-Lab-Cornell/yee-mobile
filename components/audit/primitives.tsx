@@ -26,6 +26,17 @@ import { useSurveyPalette, type SurveyPalette } from "./survey-theme";
 const OPTION_CELL_TWO_UP: ViewStyle = { flexBasis: "48%", flexGrow: 1, minWidth: 0 };
 
 /**
+ * Left-rail weights. The question card owns the heavier rail because it is the
+ * outermost thing a rail is drawn on; a nested follow-up gets the lighter one so
+ * containment reads by weight as well as by indent. Answer chips deliberately
+ * get no rail at all: they already carry a radio/checkbox at their left edge,
+ * and in the tablet 2-up grid a rail on the right-hand column would float with
+ * nothing above it to belong to.
+ */
+const QUESTION_RAIL_WIDTH = 4;
+export const FOLLOW_UP_RAIL_WIDTH = 3;
+
+/**
  * Section container card. The single elevated surface every step's content sits
  * on, giving the survey one consistent card language.
  */
@@ -110,16 +121,32 @@ export const SectionIntroCard = memo(function SectionIntroCard({
     );
 });
 
-/** A single labelled question frame that hosts an answer control. */
+/**
+ * A single labelled question frame that hosts an answer control.
+ *
+ * The left rail is the grouping device: it runs the full height of the card so
+ * a prompt, its answer chips and any nested follow-up read as one unit, and it
+ * marks where that unit ends. It is the same idea as the provision rail in the
+ * Playspace app, but YEE stacks a tinted section card on a domain wash, so the
+ * rail only reads once the question card itself steps to a neutral surface —
+ * see `SurveyPalette.questionCard`.
+ */
 export const QuestionCard = memo(function QuestionCard({
     label,
     eyebrow,
     testID,
+    complete,
     children,
 }: PropsWithChildren<{
     label: string;
     eyebrow?: string;
     testID?: string | undefined;
+    /**
+     * Answer state for the rail: `false` mutes it so an unfinished question is
+     * visible while scanning the left edge of a section. Omit on steps that have
+     * no per-question completion (context, weighting) to keep the rail solid.
+     */
+    complete?: boolean;
 }>) {
     const designSystem = useDesignSystem();
     const palette = useSurveyPalette();
@@ -129,11 +156,13 @@ export const QuestionCard = memo(function QuestionCard({
             testID={testID}
             rounded={designSystem.radii.md}
             borderWidth={1}
+            borderLeftWidth={QUESTION_RAIL_WIDTH}
             p="$4"
             gap="$3"
             style={{
-                backgroundColor: palette.card,
-                borderColor: palette.cardBorder,
+                backgroundColor: palette.questionCard,
+                borderColor: palette.questionCardBorder,
+                borderLeftColor: complete === false ? palette.railPending : palette.rail,
                 boxShadow: designSystem.shadows.card,
             }}
         >
@@ -215,8 +244,8 @@ export const SelectionButton = memo(function SelectionButton({
             onPress={disabled ? undefined : onPress}
             style={{
                 minHeight: layout.formOptionHeight,
-                backgroundColor: selected ? palette.selected : palette.inner,
-                borderColor: selected ? palette.selectedBorder : palette.innerBorder,
+                backgroundColor: selected ? palette.selected : palette.option,
+                borderColor: selected ? palette.selectedBorder : palette.optionBorder,
                 boxShadow: selected ? designSystem.shadows.elevated : "none",
                 // Keep the chosen answer fully legible; fade the rest so a locked
                 // audit still reads clearly as "this is what was selected".
@@ -232,7 +261,7 @@ export const SelectionButton = memo(function SelectionButton({
                 borderWidth={2}
                 style={{
                     borderRadius: multi ? 6 : 999,
-                    borderColor: selected ? palette.selectedControl : palette.innerBorder,
+                    borderColor: selected ? palette.selectedControl : palette.optionBorder,
                     backgroundColor: selected ? palette.selectedControl : "transparent",
                 }}
             >
