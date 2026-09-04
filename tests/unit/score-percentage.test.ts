@@ -10,6 +10,7 @@ import {
     buildMobileSubmissionScorePreview,
     formatScoreFraction,
     scorePercent,
+    scorePercentage,
 } from "lib/yee-mobile-reporting";
 import type { YeeScoreResult } from "lib/yee-types";
 
@@ -107,6 +108,22 @@ describe("buildMobileSubmissionScorePreview", () => {
  * client's `scorePercent` (src/lib/score-format.ts) or the same audit reports
  * two different percentages on the two surfaces.
  */
+describe("scorePercentage", () => {
+    it("returns the precise clamped percentage for aggregate calculations", () => {
+        expect(scorePercentage(50.4, 100)).toBe(50.4);
+        expect(scorePercentage(200, 122)).toBe(100);
+        expect(scorePercentage(-5, 122)).toBe(0);
+    });
+
+    it("returns null when either input is unusable", () => {
+        expect(scorePercentage(18, 0)).toBeNull();
+        expect(scorePercentage(18, -1)).toBeNull();
+        expect(scorePercentage(18, null)).toBeNull();
+        expect(scorePercentage(Number.NaN, 122)).toBeNull();
+        expect(scorePercentage(18, Number.POSITIVE_INFINITY)).toBeNull();
+    });
+});
+
 describe("scorePercent", () => {
     it("divides by the supplied per-audit maximum", () => {
         expect(scorePercent(18, 122)).toBe(15);

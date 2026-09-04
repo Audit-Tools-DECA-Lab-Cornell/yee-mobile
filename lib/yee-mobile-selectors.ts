@@ -4,7 +4,7 @@ import type {
     YeeMyAuditItem,
     YeeSyncQueueItem,
 } from "./yee-types";
-import { scorePercent } from "./yee-mobile-reporting";
+import { scorePercentage } from "./yee-mobile-reporting";
 
 export type MobilePlaceWorkflowStatus = "not_started" | "draft" | "submitted";
 
@@ -209,7 +209,7 @@ export function summarizeMobileAudits(placeViews: readonly MobilePlaceView[]): M
 export function averageSubmittedScore(audits: readonly YeeMyAuditItem[]): number | null {
     const percentages = audits
         .filter(isBackendSyncedAudit)
-        .map((audit) => scorePercent(audit.total_score, audit.total_raw_maximum))
+        .map((audit) => scorePercentage(audit.total_score, audit.total_raw_maximum))
         .filter((percentage): percentage is number => percentage !== null);
     if (percentages.length === 0) {
         return null;
@@ -225,7 +225,7 @@ export function getTopSubmission(audits: readonly YeeMyAuditItem[]): YeeMyAuditI
         .filter(isBackendSyncedAudit)
         .map((audit) => ({
             audit,
-            percentage: scorePercent(audit.total_score, audit.total_raw_maximum),
+            percentage: scorePercentage(audit.total_score, audit.total_raw_maximum),
         }))
         .filter(
             (

@@ -206,6 +206,32 @@ describe("buildMobileAuditProjection", () => {
         expect(projection.topSubmission?.id).toBe("high-percent");
     });
 
+    it("averages precise percentages before rounding the displayed aggregate", () => {
+        const projection = build({
+            submittedAudits: [
+                audit("fraction-one", "hub", "synced", 0.49, 100),
+                audit("fraction-two", "market", "synced", 0.49, 100),
+                audit("fraction-three", "riverside", "synced", 1.49, 100),
+            ],
+        });
+
+        // Precise mean: 0.823... -> 1. Per-row rounding would produce
+        // mean([0, 0, 1]) = 0.333... -> 0.
+        expect(projection.averageScore).toBe(1);
+    });
+
+    it("ranks by precise percentages when displayed whole numbers tie", () => {
+        const projection = build({
+            submittedAudits: [
+                audit("lower-precise-score", "hub", "synced", 50.1, 100),
+                audit("higher-precise-score", "market", "synced", 50.4, 100),
+            ],
+        });
+
+        // Both display as 50%, but the second audit has the higher precise score.
+        expect(projection.topSubmission?.id).toBe("higher-precise-score");
+    });
+
     it("returns unavailable summaries when no synced audit has a valid maximum", () => {
         const projection = build({
             submittedAudits: [

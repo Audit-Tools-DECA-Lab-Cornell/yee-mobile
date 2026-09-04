@@ -5,24 +5,31 @@ import { mobileYeeDomainLabels, type MobileYeeDomainKey } from "lib/yee-mobile-a
 export const SCORE_UNAVAILABLE = "—";
 
 /**
- * Whole-number percent of `value` against `max`, clamped to 0–100.
+ * Precise percent of `value` against `max`, clamped to 0–100.
  *
- * This is the only raw-score percentage calculation in the mobile client. The
- * caller must supply the backend's canonical per-audit maximum; this module
- * never substitutes the current instrument's constants.
+ * The caller must supply the backend's canonical per-audit maximum; this
+ * module never substitutes the current instrument's constants. Aggregate and
+ * ranking calculations must use this unrounded value to avoid introducing
+ * per-audit rounding errors.
  *
- * Returns `null` when either side is missing/non-finite or `max` is non-positive — callers
- * must render {@link SCORE_UNAVAILABLE}, never a fabricated 0%, which would
- * read as a real (and alarming) result.
- *
- * Mirrors `scorePercent` in the web client's `src/lib/score-format.ts`; the two
- * must round identically or the same audit reports different percentages on
- * web and mobile.
+ * Returns `null` when either side is missing/non-finite or `max` is
+ * non-positive, matching the web client's `scorePercentage` contract.
  */
-export function scorePercent(value?: number | null, max?: number | null): number | null {
+export function scorePercentage(value?: number | null, max?: number | null): number | null {
     if (typeof value !== "number" || !Number.isFinite(value)) return null;
     if (typeof max !== "number" || !Number.isFinite(max) || max <= 0) return null;
-    return Math.round(Math.max(0, Math.min(100, (value / max) * 100)));
+    return Math.max(0, Math.min(100, (value / max) * 100));
+}
+
+/**
+ * Whole-number display percentage using {@link scorePercentage}.
+ *
+ * Returns `null` when the precise percentage is unavailable, so callers can
+ * render {@link SCORE_UNAVAILABLE} instead of a fabricated 0%.
+ */
+export function scorePercent(value?: number | null, max?: number | null): number | null {
+    const percentage = scorePercentage(value, max);
+    return percentage === null ? null : Math.round(percentage);
 }
 
 /**
