@@ -105,9 +105,10 @@ through `useDesignSystem()`:
     label needs. `accentFill` is the vivid `fill`, for bars nothing is written on.
 
 - **Score bands** (`designSystem.scoreBands` + `scoreBandKey()` /
-  `getScoreBandTone()`) — deep brand green high, muted gold mid, restrained clay
-  low. Thresholds shared with the web: `<34` low, `<67` mid, otherwise high. Use
-  for score text and progress fills anywhere a score is judged.
+  `getScoreBandTone()`) — vivid traffic-light green high, yellow mid, and red
+  low. Bright `accent` fills are paired with darker `text` colors in light mode.
+  Thresholds shared with the web: `<34` low, `<67` mid, otherwise high. Use for
+  score text and progress fills anywhere a score is judged.
 - **Chart series** (`designSystem.charts`) — five categorical series colors led
   by brand green, plus `grid`/`axis` scaffold colors, for report charts.
 

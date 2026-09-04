@@ -127,22 +127,21 @@ const darkDomains = domainPalette.dark as DomainPalettes;
 export type ScoreBand = "low" | "mid" | "high";
 
 /**
- * Brand-tuned score bands mirroring the web's `--score-*` tokens: deep brand
- * green high, muted gold mid, restrained clay low (deliberately not alarm-red).
- * `accent` is the solid fill/border color and doubles as band text; `surface`
- * is the tinted backdrop.
+ * Score bands mirror the web's vivid traffic-light tokens. `accent` is the
+ * bright solid fill/border color, `text` is its darker accessible label color,
+ * and `surface` is the tinted backdrop.
  */
 const lightScoreBands: Record<ScoreBand, DesignTone> = {
-    high: { accent: "#2B7351", surface: "#DEF5E8", text: "#2B7351" },
-    mid: { accent: "#B18C39", surface: "#F9EDD5", text: "#B18C39" },
-    low: { accent: "#B1604C", surface: "#FFE8E1", text: "#B1604C" },
+    high: { accent: "#22C55E", surface: "#DCFCE7", text: "#166534" },
+    mid: { accent: "#FACC15", surface: "#FEF9C3", text: "#854D0E" },
+    low: { accent: "#EF4444", surface: "#FEE2E2", text: "#991B1B" },
 } as const;
 
 /** Dark-surface score bands (brightened fills, low-alpha tint backdrops). */
 const darkScoreBands: Record<ScoreBand, DesignTone> = {
-    high: { accent: "#76BD97", surface: "rgba(118, 189, 151, 0.16)", text: "#76BD97" },
-    mid: { accent: "#D5B36A", surface: "rgba(213, 179, 106, 0.16)", text: "#D5B36A" },
-    low: { accent: "#DB8E7A", surface: "rgba(219, 142, 122, 0.16)", text: "#DB8E7A" },
+    high: { accent: "#4ADE80", surface: "rgba(74, 222, 128, 0.16)", text: "#4ADE80" },
+    mid: { accent: "#FDE047", surface: "rgba(253, 224, 71, 0.16)", text: "#FDE047" },
+    low: { accent: "#F87171", surface: "rgba(248, 113, 113, 0.16)", text: "#F87171" },
 } as const;
 
 /**

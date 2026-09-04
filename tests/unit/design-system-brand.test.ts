@@ -27,10 +27,13 @@ describe("score bands — web-shared thresholds (yee-frontend/src/lib/score-band
     it("resolves themed tones for both appearances", () => {
         const light = getDesignSystem("light");
         const dark = getDesignSystem("dark");
-        // Light bands are the web-exact hex conversions of the OKLCH tokens.
-        expect(getScoreBandTone(80, light.scoreBands).accent).toBe("#2B7351");
-        expect(getScoreBandTone(50, light.scoreBands).accent).toBe("#B18C39");
-        expect(getScoreBandTone(10, light.scoreBands).accent).toBe("#B1604C");
+        // Light fills match the web and keep darker text colors for legibility.
+        expect(getScoreBandTone(80, light.scoreBands).accent).toBe("#22C55E");
+        expect(getScoreBandTone(50, light.scoreBands).accent).toBe("#FACC15");
+        expect(getScoreBandTone(10, light.scoreBands).accent).toBe("#EF4444");
+        expect(getScoreBandTone(80, light.scoreBands).text).toBe("#166534");
+        expect(getScoreBandTone(50, light.scoreBands).text).toBe("#854D0E");
+        expect(getScoreBandTone(10, light.scoreBands).text).toBe("#991B1B");
         // Dark bands brighten for dark surfaces and tint their backdrops.
         expect(getScoreBandTone(80, dark.scoreBands).accent).toMatch(HEX_COLOR);
         expect(getScoreBandTone(80, dark.scoreBands).surface).toMatch(RGBA_COLOR);
