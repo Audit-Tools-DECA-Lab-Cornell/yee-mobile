@@ -6,7 +6,7 @@ import { FileBarChart, TriangleAlert } from "components/icons";
 import { Button, XStack, YStack } from "tamagui";
 import { ScaledParagraph as Paragraph, ScaledText as Text, ScreenHeader } from "components/ui";
 import { getScoreBandTone, useDesignSystem } from "lib/design-system";
-import { toScorePercentage } from "lib/yee-mobile-reporting";
+import { formatScoreFraction, SCORE_UNAVAILABLE, scorePercent } from "lib/yee-mobile-reporting";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import {
@@ -50,7 +50,21 @@ export default function ReportsScreen() {
     const averageScore = projection.averageScore;
     const topSubmission = projection.topSubmission;
     const focusedSubmission = projection.focusedSubmission;
-    const hasReports = sortedAudits.length > 0;
+    const topPercentage =
+        topSubmission === null
+            ? null
+            : scorePercent(topSubmission.total_score, topSubmission.total_raw_maximum);
+    const focusedPercentage =
+        focusedSubmission === null
+            ? null
+            : scorePercent(focusedSubmission.total_score, focusedSubmission.total_raw_maximum);
+    const focusedFraction =
+        focusedSubmission === null
+            ? null
+            : formatScoreFraction(
+                  focusedSubmission.total_score,
+                  focusedSubmission.total_raw_maximum,
+              );
     const scrollToOffset = useCallback((offset: number) => {
         scrollViewRef.current?.scrollTo({ y: offset, animated: false });
     }, []);
@@ -65,31 +79,29 @@ export default function ReportsScreen() {
         <XStack gap="$3">
             <MetricCard
                 label="Average score"
-                value={hasReports ? `${toScorePercentage(averageScore)}%` : "--"}
+                value={averageScore === null ? SCORE_UNAVAILABLE : `${averageScore}%`}
                 textColor={
-                    hasReports
-                        ? getScoreBandTone(toScorePercentage(averageScore), designSystem.scoreBands)
-                              .text
-                        : designSystem.colors.mutedForeground
+                    averageScore === null
+                        ? designSystem.colors.mutedForeground
+                        : getScoreBandTone(averageScore, designSystem.scoreBands).text
                 }
-                helperText={hasReports ? "Across all reports" : "No reports yet"}
+                helperText={
+                    averageScore === null ? "No canonical scores available" : "Across all reports"
+                }
             />
             <MetricCard
                 label="Top score"
-                value={
-                    topSubmission === null
-                        ? "--"
-                        : `${toScorePercentage(topSubmission.total_score)}%`
-                }
+                value={topPercentage === null ? SCORE_UNAVAILABLE : `${topPercentage}%`}
                 textColor={
-                    topSubmission === null
+                    topPercentage === null
                         ? designSystem.colors.mutedForeground
-                        : getScoreBandTone(
-                              toScorePercentage(topSubmission.total_score),
-                              designSystem.scoreBands,
-                          ).text
+                        : getScoreBandTone(topPercentage, designSystem.scoreBands).text
                 }
-                helperText={topSubmission?.place_name ?? "No reports yet"}
+                helperText={
+                    topPercentage === null
+                        ? "No canonical scores available"
+                        : (topSubmission?.place_name ?? "No reports yet")
+                }
             />
         </XStack>
     );
@@ -149,37 +161,57 @@ export default function ReportsScreen() {
                         >
                             Overall score
                         </Paragraph>
-                        <Text
-                            style={{
-                                color: getScoreBandTone(
-                                    toScorePercentage(focusedSubmission.total_score),
-                                    designSystem.scoreBands,
-                                ).text,
-                            }}
-                            fontFamily={designSystem.fonts.headingBold}
-                            fontSize={26}
-                        >
-                            {toScorePercentage(focusedSubmission.total_score)}%
-                        </Text>
+                        <YStack items="flex-end" gap="$0.5">
+                            <Text
+                                style={{
+                                    color:
+                                        focusedPercentage === null
+                                            ? designSystem.colors.mutedForeground
+                                            : getScoreBandTone(
+                                                  focusedPercentage,
+                                                  designSystem.scoreBands,
+                                              ).text,
+                                }}
+                                fontFamily={designSystem.fonts.headingBold}
+                                fontSize={26}
+                            >
+                                {focusedPercentage === null
+                                    ? SCORE_UNAVAILABLE
+                                    : `${focusedPercentage}%`}
+                            </Text>
+                            {focusedFraction === null ? null : (
+                                <Paragraph
+                                    color={designSystem.colors.mutedForeground}
+                                    fontFamily={designSystem.fonts.bodyMedium}
+                                    fontSize={12}
+                                >
+                                    {focusedFraction}
+                                </Paragraph>
+                            )}
+                        </YStack>
                     </XStack>
-                    <YStack
-                        height={10}
-                        rounded={designSystem.radii.full}
-                        bg={designSystem.colors.mutedSurface}
-                        overflow="hidden"
-                    >
+                    {focusedPercentage === null ? null : (
                         <YStack
                             height={10}
                             rounded={designSystem.radii.full}
-                            style={{
-                                backgroundColor: getScoreBandTone(
-                                    toScorePercentage(focusedSubmission.total_score),
-                                    designSystem.scoreBands,
-                                ).accent,
-                            }}
-                            width={`${toScorePercentage(focusedSubmission.total_score)}%`}
-                        />
-                    </YStack>
+                            bg={designSystem.colors.mutedSurface}
+                            overflow="hidden"
+                        >
+                            {focusedPercentage === 0 ? null : (
+                                <YStack
+                                    height={10}
+                                    rounded={designSystem.radii.full}
+                                    style={{
+                                        backgroundColor: getScoreBandTone(
+                                            focusedPercentage,
+                                            designSystem.scoreBands,
+                                        ).accent,
+                                    }}
+                                    width={`${focusedPercentage}%`}
+                                />
+                            )}
+                        </YStack>
+                    )}
                 </YStack>
                 <Button
                     rounded={designSystem.radii.button}
@@ -244,94 +276,116 @@ export default function ReportsScreen() {
                 Report list
             </Text>
             <YStack gap="$3">
-                {sortedAudits.map((audit) => (
-                    <YStack
-                        key={audit.id}
-                        rounded={designSystem.radii.md}
-                        borderWidth={1}
-                        borderColor={designSystem.colors.border}
-                        bg={designSystem.colors.input}
-                        p="$3"
-                        gap="$2.5"
-                    >
-                        <XStack justify="space-between" items="flex-start" gap="$3">
-                            <YStack flex={1}>
-                                <Text
-                                    color={designSystem.colors.foreground}
-                                    fontFamily={designSystem.fonts.bodyBold}
-                                    fontSize={15}
-                                >
-                                    {audit.place_name}
-                                </Text>
-                                <Paragraph
-                                    color={designSystem.colors.mutedForeground}
-                                    fontFamily={designSystem.fonts.bodyMedium}
-                                    fontSize={12}
-                                >
-                                    {getSubmissionTimestampLabel(audit)}
-                                </Paragraph>
-                            </YStack>
-                            <YStack items="flex-end" gap="$0.5">
-                                <Paragraph
-                                    style={{
-                                        color:
-                                            audit.syncState === "pending_upload"
-                                                ? designSystem.colors.warningText
-                                                : getScoreBandTone(
-                                                      toScorePercentage(audit.total_score),
-                                                      designSystem.scoreBands,
-                                                  ).text,
-                                    }}
-                                    fontFamily={designSystem.fonts.bodyBold}
-                                >
-                                    {toScorePercentage(audit.total_score)}%
-                                </Paragraph>
-                                <Paragraph
-                                    color={designSystem.colors.mutedForeground}
-                                    fontFamily={designSystem.fonts.bodyMedium}
-                                    fontSize={12}
-                                >
-                                    {getSubmissionSyncLabel(audit)}
-                                </Paragraph>
-                            </YStack>
-                        </XStack>
+                {sortedAudits.map((audit) => {
+                    const percentage = scorePercent(audit.total_score, audit.total_raw_maximum);
+                    const fraction = formatScoreFraction(
+                        audit.total_score,
+                        audit.total_raw_maximum,
+                    );
+                    return (
                         <YStack
-                            height={6}
-                            rounded={designSystem.radii.full}
-                            bg={designSystem.colors.mutedSurface}
-                            overflow="hidden"
-                        >
-                            <YStack
-                                height={6}
-                                rounded={designSystem.radii.full}
-                                style={{
-                                    backgroundColor: getScoreBandTone(
-                                        toScorePercentage(audit.total_score),
-                                        designSystem.scoreBands,
-                                    ).accent,
-                                }}
-                                width={`${toScorePercentage(audit.total_score)}%`}
-                            />
-                        </YStack>
-                        <Button
-                            rounded={designSystem.radii.button}
-                            bg={designSystem.colors.surfaceMuted}
+                            key={audit.id}
+                            rounded={designSystem.radii.md}
                             borderWidth={1}
                             borderColor={designSystem.colors.border}
-                            pressStyle={{ opacity: 0.92, scale: 0.985 }}
-                            onPress={() => router.push(`/reports/${audit.id}`)}
+                            bg={designSystem.colors.input}
+                            p="$3"
+                            gap="$2.5"
                         >
-                            <Button.Text
-                                color={designSystem.colors.foreground}
-                                fontFamily={designSystem.fonts.bodyBold}
+                            <XStack justify="space-between" items="flex-start" gap="$3">
+                                <YStack flex={1}>
+                                    <Text
+                                        color={designSystem.colors.foreground}
+                                        fontFamily={designSystem.fonts.bodyBold}
+                                        fontSize={15}
+                                    >
+                                        {audit.place_name}
+                                    </Text>
+                                    <Paragraph
+                                        color={designSystem.colors.mutedForeground}
+                                        fontFamily={designSystem.fonts.bodyMedium}
+                                        fontSize={12}
+                                    >
+                                        {getSubmissionTimestampLabel(audit)}
+                                    </Paragraph>
+                                </YStack>
+                                <YStack items="flex-end" gap="$0.5">
+                                    <Paragraph
+                                        style={{
+                                            color:
+                                                percentage === null
+                                                    ? designSystem.colors.mutedForeground
+                                                    : audit.syncState === "pending_upload"
+                                                      ? designSystem.colors.warningText
+                                                      : getScoreBandTone(
+                                                            percentage,
+                                                            designSystem.scoreBands,
+                                                        ).text,
+                                        }}
+                                        fontFamily={designSystem.fonts.bodyBold}
+                                    >
+                                        {percentage === null ? SCORE_UNAVAILABLE : `${percentage}%`}
+                                    </Paragraph>
+                                    {fraction === null ? null : (
+                                        <Paragraph
+                                            color={designSystem.colors.mutedForeground}
+                                            fontFamily={designSystem.fonts.bodyMedium}
+                                            fontSize={11}
+                                        >
+                                            {fraction}
+                                        </Paragraph>
+                                    )}
+                                    <Paragraph
+                                        color={designSystem.colors.mutedForeground}
+                                        fontFamily={designSystem.fonts.bodyMedium}
+                                        fontSize={12}
+                                    >
+                                        {getSubmissionSyncLabel(audit)}
+                                    </Paragraph>
+                                </YStack>
+                            </XStack>
+                            {percentage === null ? null : (
+                                <YStack
+                                    height={6}
+                                    rounded={designSystem.radii.full}
+                                    bg={designSystem.colors.mutedSurface}
+                                    overflow="hidden"
+                                >
+                                    {percentage === 0 ? null : (
+                                        <YStack
+                                            height={6}
+                                            rounded={designSystem.radii.full}
+                                            style={{
+                                                backgroundColor: getScoreBandTone(
+                                                    percentage,
+                                                    designSystem.scoreBands,
+                                                ).accent,
+                                            }}
+                                            width={`${percentage}%`}
+                                        />
+                                    )}
+                                </YStack>
+                            )}
+                            <Button
+                                rounded={designSystem.radii.button}
+                                bg={designSystem.colors.surfaceMuted}
+                                borderWidth={1}
+                                borderColor={designSystem.colors.border}
+                                pressStyle={{ opacity: 0.92, scale: 0.985 }}
+                                onPress={() => router.push(`/reports/${audit.id}`)}
                             >
-                                {audit.syncState === "pending_upload"
-                                    ? "Open queued report"
-                                    : "Open report"}
-                            </Button.Text>
-                        </Button>
-                    </YStack>
-                ))}
+                                <Button.Text
+                                    color={designSystem.colors.foreground}
+                                    fontFamily={designSystem.fonts.bodyBold}
+                                >
+                                    {audit.syncState === "pending_upload"
+                                        ? "Open queued report"
+                                        : "Open report"}
+                                </Button.Text>
+                            </Button>
+                        </YStack>
+                    );
+                })}
             </YStack>
         </YStack>
     );

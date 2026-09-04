@@ -786,6 +786,9 @@ async function queueSubmissionInternal(
                   place_name: provisionalSubmission.place_name ?? provisionalSubmission.place_id,
                   submitted_at: provisionalSubmission.submitted_at,
                   total_score: provisionalSubmission.score.total_score,
+                  total_raw_maximum: provisionalSubmission.score.total_raw_maximum ?? null,
+                  total_weighted_maximum:
+                      provisionalSubmission.score.total_weighted_maximum ?? null,
                   instrument_key:
                       provisionalSubmission.instrument_key ?? draft.instrumentKey ?? null,
                   instrument_version:
@@ -1248,6 +1251,8 @@ async function drainSubmission(
         place_name: submission.place_name ?? item.placeId,
         submitted_at: submission.submitted_at,
         total_score: submission.score.total_score,
+        total_raw_maximum: submission.score.total_raw_maximum ?? null,
+        total_weighted_maximum: submission.score.total_weighted_maximum ?? null,
         instrument_key: submission.instrument_key ?? item.payload.instrument_key ?? null,
         instrument_version:
             submission.instrument_version ?? item.payload.instrument_version ?? null,

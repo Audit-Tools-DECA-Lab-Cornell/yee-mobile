@@ -195,6 +195,8 @@ describe("syncPendingQueue — successful submit cleanup", () => {
                 place_name: "Place",
                 submitted_at: "2026-06-25T01:00:00.000Z",
                 total_score: 88,
+                total_raw_maximum: 122,
+                total_weighted_maximum: 2.22,
             },
         ]);
 
@@ -550,6 +552,8 @@ describe("refreshRemoteState — same-place submission reconciliation", () => {
                     place_name: "Place",
                     submitted_at: "2026-06-25T00:30:00.000Z",
                     total_score: 0,
+                    total_raw_maximum: null,
+                    total_weighted_maximum: null,
                     syncState: "pending_upload",
                 },
             ],
@@ -561,6 +565,8 @@ describe("refreshRemoteState — same-place submission reconciliation", () => {
                 place_name: "Place",
                 submitted_at: "2026-06-25T01:00:00.000Z",
                 total_score: 88,
+                total_raw_maximum: 122,
+                total_weighted_maximum: 2.22,
             },
         ]);
 

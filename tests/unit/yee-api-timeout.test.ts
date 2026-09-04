@@ -19,7 +19,9 @@ import {
     DRAFT_MIRROR_TIMEOUT_MS,
     SUBMIT_TIMEOUT_MS,
     YeeMobileApiError,
+    fetchMyAudits,
     fetchYeeInstrument,
+    parseMyAuditsResponse,
     saveAuditDraft,
     submitAudit,
 } from "lib/yee-api";
@@ -211,5 +213,83 @@ describe("requestJson — transport vs HTTP errors", () => {
         ) as unknown as typeof fetch;
 
         await expect(fetchYeeInstrument()).resolves.toEqual({ sections: [] });
+    });
+});
+
+describe("/yee/my-audits response contract", () => {
+    it("parses canonical maxima and preserves nullable legacy rows", async () => {
+        globalThis.fetch = vi.fn(async () =>
+            fakeResponse({
+                ok: true,
+                status: 200,
+                body: JSON.stringify([
+                    {
+                        id: "audit-current",
+                        place_id: "place-1",
+                        place_name: "Youth Hub",
+                        submitted_at: "2026-09-04T12:00:00.000Z",
+                        total_score: 61,
+                        total_raw_maximum: 122,
+                        total_weighted_maximum: 2.22,
+                        instrument_key: "yee",
+                        instrument_version: "2026-09",
+                    },
+                    {
+                        id: "audit-legacy",
+                        place_id: "place-2",
+                        place_name: "Legacy Park",
+                        submitted_at: "2025-01-01T12:00:00.000Z",
+                        total_score: 10,
+                        total_raw_maximum: null,
+                        total_weighted_maximum: null,
+                    },
+                ]),
+            }),
+        ) as unknown as typeof fetch;
+
+        await expect(fetchMyAudits(makeSession())).resolves.toMatchObject([
+            {
+                id: "audit-current",
+                total_raw_maximum: 122,
+                total_weighted_maximum: 2.22,
+            },
+            {
+                id: "audit-legacy",
+                total_raw_maximum: null,
+                total_weighted_maximum: null,
+            },
+        ]);
+    });
+
+    it("normalizes omitted and non-finite maxima to unavailable", () => {
+        const [audit] = parseMyAuditsResponse([
+            {
+                id: "audit-corrupt",
+                place_id: "place-1",
+                place_name: "Youth Hub",
+                submitted_at: "2026-09-04T12:00:00.000Z",
+                total_score: 10,
+                total_raw_maximum: Number.POSITIVE_INFINITY,
+            },
+        ]);
+
+        expect(audit?.total_raw_maximum).toBeNull();
+        expect(audit?.total_weighted_maximum).toBeNull();
+    });
+
+    it("rejects maxima with the wrong JSON type", () => {
+        expect(() =>
+            parseMyAuditsResponse([
+                {
+                    id: "audit-invalid",
+                    place_id: "place-1",
+                    place_name: "Youth Hub",
+                    submitted_at: "2026-09-04T12:00:00.000Z",
+                    total_score: 10,
+                    total_raw_maximum: "122",
+                    total_weighted_maximum: null,
+                },
+            ]),
+        ).toThrow("maxima must be numbers or null");
     });
 });

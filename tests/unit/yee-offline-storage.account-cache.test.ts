@@ -27,6 +27,8 @@ const auditA: YeeMyAuditItem = {
     place_name: "A",
     submitted_at: "2026-09-01T00:00:00.000Z",
     total_score: 1,
+    total_raw_maximum: 122,
+    total_weighted_maximum: 2.22,
 };
 
 beforeEach(async () => {

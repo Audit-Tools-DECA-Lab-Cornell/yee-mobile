@@ -70,6 +70,15 @@ export interface YeeMyAuditItem {
     readonly place_name: string;
     readonly submitted_at: string;
     readonly total_score: number;
+    /**
+     * Canonical snapshot-derived maxima for this persisted audit.
+     *
+     * The backend returns `null` when a legacy/corrupt snapshot cannot be
+     * resolved. Consumers must then show the score as unavailable instead of
+     * substituting the current instrument's denominator.
+     */
+    readonly total_raw_maximum: number | null;
+    readonly total_weighted_maximum: number | null;
     readonly syncState?: YeeSyncState;
     readonly instrument_key?: string | null;
     readonly instrument_version?: string | null;

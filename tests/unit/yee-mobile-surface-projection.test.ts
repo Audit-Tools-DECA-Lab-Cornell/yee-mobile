@@ -48,4 +48,31 @@ describe("sync-visible mobile surfaces", () => {
         expect(auditSurface).toContain("getLatestSubmissionForPlace");
         expect(auditSurface).toContain("Audit already submitted");
     });
+
+    it("keeps persisted score surfaces backend-maxima authoritative", () => {
+        const executeSurface = readSurface("app/(tabs)/execute.tsx");
+        const reportsSurface = readSurface("app/(tabs)/reports.tsx");
+        const reportDetailSurface = readSurface("app/reports/[submissionId].tsx");
+        const reviewSurface = readSurface("app/audit/[placeId]/review.tsx");
+        const reportingLogic = readSurface("lib/yee-mobile-reporting.ts");
+
+        for (const surface of [
+            executeSurface,
+            reportsSurface,
+            reportDetailSurface,
+            reviewSurface,
+        ]) {
+            expect(surface).toContain("scorePercent");
+            expect(surface).toContain("SCORE_UNAVAILABLE");
+            expect(surface).not.toContain("toScorePercentage");
+        }
+
+        expect(executeSurface).toContain("audit.total_raw_maximum");
+        expect(reportsSurface).toContain("audit.total_raw_maximum");
+        expect(reportsSurface).toContain("percentage === null ? null");
+        expect(reportDetailSurface).toContain("submission.score.total_raw_maximum");
+        expect(reportingLogic).not.toContain("totalRawScoreMaximum");
+        expect(reportingLogic).not.toContain("rawDomainScoreMaximums");
+        expect(reportingLogic).not.toContain("normalizeWeights");
+    });
 });

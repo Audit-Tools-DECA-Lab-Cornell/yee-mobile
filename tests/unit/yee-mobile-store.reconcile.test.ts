@@ -140,6 +140,8 @@ describe("reconcilePlaceSubmission — SUBMITTED convergence", () => {
                 place_name: "Place",
                 submitted_at: "2026-06-25T01:00:00.000Z",
                 total_score: 91,
+                total_raw_maximum: 122,
+                total_weighted_maximum: 2.22,
             },
         ]);
 

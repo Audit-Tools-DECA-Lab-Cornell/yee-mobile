@@ -34,6 +34,7 @@ import {
     type MobileAuditFormState,
 } from "lib/yee-mobile-draft";
 import { buildMobileAuditProjection } from "lib/yee-mobile-selectors";
+import { formatScoreFraction, SCORE_UNAVAILABLE, scorePercent } from "lib/yee-mobile-reporting";
 import {
     asMobileYeeDomainKey,
     getWeightNumber,
@@ -86,7 +87,26 @@ import {
 type ScorePreviewState =
     | { readonly status: "loading" }
     | { readonly status: "unavailable" }
-    | { readonly status: "ready"; readonly totalScore: number };
+    | {
+          readonly status: "ready";
+          /**
+           * RAW total from the backend, NOT a percentage. Rendering requires the
+           * canonical maximum from the same preview response.
+           */
+          readonly rawTotalScore: number;
+          /** Raw denominator reported by the preview; null when it is absent. */
+          readonly rawMaximum: number | null;
+      };
+
+/**
+ * Raw-score denominator reported by the backend preview, or null when it is
+ * missing or unusable. Never fabricated: without a real maximum the review
+ * shows the percentage on its own rather than an invented fraction.
+ */
+function readRawScoreMaximum(score: YeeScoreResult): number | null {
+    const maximum = score.total_raw_maximum;
+    return typeof maximum === "number" && Number.isFinite(maximum) && maximum > 0 ? maximum : null;
+}
 
 export default function AuditReviewScreen() {
     const designSystem = useDesignSystem();
@@ -262,7 +282,11 @@ export default function AuditReviewScreen() {
                 setScorePreview(
                     score === null
                         ? { status: "unavailable" }
-                        : { status: "ready", totalScore: score.total_score },
+                        : {
+                              status: "ready",
+                              rawTotalScore: score.total_score,
+                              rawMaximum: readRawScoreMaximum(score),
+                          },
                 );
             } catch {
                 if (!cancelled) {
@@ -1237,23 +1261,72 @@ const WeightingDomainRowBody = memo(function WeightingDomainRowBody({
     );
 });
 
+/**
+ * Pre-submit score preview. The percentage leads (large, bold) and the raw
+ * fraction is secondary context, shown only when the backend preview actually
+ * reported a maximum to divide by.
+ */
 const ScorePreviewCard = memo(function ScorePreviewCard({
     scorePreview,
 }: {
     scorePreview: ScorePreviewState;
 }) {
+    const designSystem = useDesignSystem();
+    if (scorePreview.status !== "ready") {
+        return (
+            <SurveyCard title="Score preview">
+                <ReviewSummaryRow
+                    label="Estimated score"
+                    value={
+                        scorePreview.status === "loading"
+                            ? "Calculating..."
+                            : "Available when online"
+                    }
+                />
+            </SurveyCard>
+        );
+    }
+
+    // Missing or invalid maxima stay unavailable. A live preview must never
+    // borrow the current instrument's denominator and present it as canonical.
+    const percent = scorePercent(scorePreview.rawTotalScore, scorePreview.rawMaximum);
+    const percentLabel = percent === null ? SCORE_UNAVAILABLE : `${percent}%`;
+    const fractionLabel = formatScoreFraction(scorePreview.rawTotalScore, scorePreview.rawMaximum);
+    // Read as one phrase; two separate texts announce as two disconnected values.
+    const accessibleLabel =
+        fractionLabel === null
+            ? `Estimated score ${percent === null ? "unavailable" : percentLabel}`
+            : `Estimated score ${percentLabel} ${fractionLabel}`;
+
     return (
         <SurveyCard title="Score preview">
-            <ReviewSummaryRow
-                label="Estimated score"
-                value={
-                    scorePreview.status === "ready"
-                        ? `${scorePreview.totalScore}%`
-                        : scorePreview.status === "loading"
-                          ? "Calculating..."
-                          : "Available when online"
-                }
-            />
+            <YStack gap="$0.5" accessible accessibilityLabel={accessibleLabel}>
+                <Paragraph
+                    color={designSystem.colors.mutedForeground}
+                    fontFamily={designSystem.fonts.bodyBold}
+                    fontSize={11}
+                    textTransform="uppercase"
+                    letterSpacing={1.1}
+                >
+                    Estimated score
+                </Paragraph>
+                <Text
+                    color={designSystem.colors.foreground}
+                    fontFamily={designSystem.fonts.headingBold}
+                    fontSize={28}
+                >
+                    {percentLabel}
+                </Text>
+                {fractionLabel === null ? null : (
+                    <Paragraph
+                        color={designSystem.colors.mutedForeground}
+                        fontFamily={designSystem.fonts.bodyMedium}
+                        fontSize={12}
+                    >
+                        {fractionLabel}
+                    </Paragraph>
+                )}
+            </YStack>
         </SurveyCard>
     );
 });

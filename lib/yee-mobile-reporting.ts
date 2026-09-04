@@ -1,122 +1,92 @@
 import type { YeeScoreResult, YeeSubmissionResponse } from "lib/yee-types";
 import { mobileYeeDomainLabels, type MobileYeeDomainKey } from "lib/yee-mobile-audit-config";
 
-export const rawDomainScoreMaximums: Record<MobileYeeDomainKey, number> = {
-    access: 14,
-    activitySpaces: 26,
-    amenities: 23,
-    experienceOfSpace: 20,
-    aestheticsAndCare: 24,
-    useAndUsability: 18,
-};
-
-export const totalRawScoreMaximum = Object.values(rawDomainScoreMaximums).reduce(
-    (sum, value) => sum + value,
-    0,
-);
-export const totalYouthWeightedScoreMaximum = totalRawScoreMaximum * 3;
+/** Em dash rendered wherever a score or its denominator is unavailable. */
+export const SCORE_UNAVAILABLE = "—";
 
 /**
- * Convert a raw total audit score into a whole-number percentage of the maximum
- * available raw score ({@link totalRawScoreMaximum}).
+ * Whole-number percent of `value` against `max`, clamped to 0–100.
  *
- * `YeeMyAuditItem.total_score` / `YeeScoreResult.total_score` are RAW totals
- * (e.g. 121 out of 125), not percentages. Summary surfaces (reports list, metric
- * cards, the Execute score, progress bars) must render this percentage so they
- * agree with the report detail's `raw / max (pct%)` breakdown — appending `%`
- * to the raw value produces impossible figures like "121%".
+ * This is the only raw-score percentage calculation in the mobile client. The
+ * caller must supply the backend's canonical per-audit maximum; this module
+ * never substitutes the current instrument's constants.
  *
- * @param rawTotalScore Raw total score from a submission.
- * @returns Percentage in the 0–100 range, rounded to a whole number.
+ * Returns `null` when either side is missing/non-finite or `max` is non-positive — callers
+ * must render {@link SCORE_UNAVAILABLE}, never a fabricated 0%, which would
+ * read as a real (and alarming) result.
+ *
+ * Mirrors `scorePercent` in the web client's `src/lib/score-format.ts`; the two
+ * must round identically or the same audit reports different percentages on
+ * web and mobile.
  */
-export function toScorePercentage(rawTotalScore: number): number {
-    if (!Number.isFinite(rawTotalScore) || totalRawScoreMaximum <= 0) {
-        return 0;
-    }
+export function scorePercent(value?: number | null, max?: number | null): number | null {
+    if (typeof value !== "number" || !Number.isFinite(value)) return null;
+    if (typeof max !== "number" || !Number.isFinite(max) || max <= 0) return null;
+    return Math.round(Math.max(0, Math.min(100, (value / max) * 100)));
+}
 
-    const ratio = rawTotalScore / totalRawScoreMaximum;
-    return Math.round(Math.max(0, Math.min(ratio, 1)) * 100);
+/**
+ * Format a canonical numerator and positive maximum as a secondary fraction.
+ * Returns `null` when either side is unusable, so an unavailable percentage is
+ * never paired with a misleading `0 / 0` or non-finite denominator.
+ */
+export function formatScoreFraction(
+    value?: number | null,
+    max?: number | null,
+    fractionDigits = 0,
+): string | null {
+    if (typeof value !== "number" || !Number.isFinite(value)) return null;
+    if (typeof max !== "number" || !Number.isFinite(max) || max <= 0) return null;
+    if (fractionDigits > 0)
+        return `${value.toFixed(fractionDigits)} / ${max.toFixed(fractionDigits)}`;
+    return `${value} / ${max}`;
 }
 
 export interface MobileSubmissionScorePreview {
-    readonly rawDomainScores: Record<MobileYeeDomainKey, number>;
-    readonly rawDomainMaximums: Record<MobileYeeDomainKey, number>;
-    readonly weightedDomainScores: Record<MobileYeeDomainKey, number>;
-    readonly weightedDomainMaximums: Record<MobileYeeDomainKey, number>;
-    readonly selectedWeights: Record<MobileYeeDomainKey, number>;
-    readonly totalRawScore: number;
-    readonly totalRawMax: number;
-    readonly totalWeightedScore: number;
-    readonly totalWeightedMax: number;
+    readonly rawDomainScores: Record<MobileYeeDomainKey, number | null>;
+    readonly rawDomainMaximums: Record<MobileYeeDomainKey, number | null>;
+    readonly weightedDomainScores: Record<MobileYeeDomainKey, number | null>;
+    readonly weightedDomainMaximums: Record<MobileYeeDomainKey, number | null>;
+    readonly selectedWeights: Record<MobileYeeDomainKey, number | null>;
+    readonly totalRawScore: number | null;
+    readonly totalRawMax: number | null;
+    readonly totalWeightedScore: number | null;
+    readonly totalWeightedMax: number | null;
 }
 
 export interface MobileDomainScoreRow {
     readonly domain: MobileYeeDomainKey;
     readonly label: string;
-    readonly rawScore: number;
-    readonly rawMax: number;
-    readonly rawPercentage: number;
-    readonly weightedScore: number;
-    readonly weightedMax: number;
-    readonly weightedPercentage: number;
-    readonly weightValue: number;
+    readonly rawScore: number | null;
+    readonly rawMax: number | null;
+    readonly rawPercentage: number | null;
+    readonly weightedScore: number | null;
+    readonly weightedMax: number | null;
+    readonly weightedPercentage: number | null;
+    readonly weightValue: number | null;
 }
 
+/**
+ * Project a persisted backend score without recreating any scoring data.
+ *
+ * Missing canonical fields remain `null`. In particular, this must never infer
+ * maxima from the bundled instrument or multiply raw scores by current domain
+ * weights because historical audits belong to their stored scoring snapshot.
+ */
 export function buildMobileSubmissionScorePreview(
     score: YeeScoreResult,
-    participantInfo: Record<string, unknown>,
 ): MobileSubmissionScorePreview {
-    const fallbackRawDomainScores = {
-        access: 0,
-        activitySpaces: 0,
-        amenities: 0,
-        experienceOfSpace: 0,
-        aestheticsAndCare: 0,
-        useAndUsability: 0,
-    } satisfies Record<MobileYeeDomainKey, number>;
-
-    for (const [sectionName, value] of Object.entries(score.section_scores ?? {})) {
-        const domain = sectionToDomain(sectionName);
-        if (!domain) continue;
-        fallbackRawDomainScores[domain] += typeof value === "number" ? value : Number(value) || 0;
-    }
-
-    const weights = normalizeWeights(participantInfo.domain_weights);
-    const rawDomainScores = score.raw_domain_scores ?? fallbackRawDomainScores;
-    const rawDomainMaximums = score.raw_domain_maximums ?? rawDomainScoreMaximums;
-    const weightedDomainScores =
-        score.weighted_domain_scores ??
-        (Object.fromEntries(
-            (Object.keys(rawDomainScores) as MobileYeeDomainKey[]).map((domain) => [
-                domain,
-                rawDomainScores[domain] * weights[domain],
-            ]),
-        ) as Record<MobileYeeDomainKey, number>);
-    const weightedDomainMaximums =
-        score.weighted_domain_maximums ??
-        (Object.fromEntries(
-            (Object.keys(rawDomainMaximums) as MobileYeeDomainKey[]).map((domain) => [
-                domain,
-                rawDomainMaximums[domain] * weights[domain],
-            ]),
-        ) as Record<MobileYeeDomainKey, number>);
-
     return {
-        rawDomainScores,
-        rawDomainMaximums,
-        weightedDomainScores,
-        weightedDomainMaximums,
-        selectedWeights: score.selected_weights ?? weights,
+        rawDomainScores: readDomainNumbers(score.raw_domain_scores),
+        rawDomainMaximums: readDomainNumbers(score.raw_domain_maximums),
+        weightedDomainScores: readDomainNumbers(score.weighted_domain_scores),
+        weightedDomainMaximums: readDomainNumbers(score.weighted_domain_maximums),
+        selectedWeights: readDomainNumbers(score.selected_weights),
         totalRawScore:
-            score.total_raw_score ??
-            Object.values(rawDomainScores).reduce((sum, value) => sum + value, 0),
-        totalRawMax: score.total_raw_maximum ?? totalRawScoreMaximum,
-        totalWeightedScore:
-            score.total_weighted_score ??
-            Object.values(weightedDomainScores).reduce((sum, value) => sum + value, 0),
-        totalWeightedMax:
-            score.total_weighted_maximum ??
-            Object.values(weightedDomainMaximums).reduce((sum, value) => sum + value, 0),
+            readFiniteNumber(score.total_raw_score) ?? readFiniteNumber(score.total_score),
+        totalRawMax: readFiniteNumber(score.total_raw_maximum),
+        totalWeightedScore: readFiniteNumber(score.total_weighted_score),
+        totalWeightedMax: readFiniteNumber(score.total_weighted_maximum),
     };
 }
 
@@ -135,22 +105,30 @@ export function buildDomainScoreRows(
             label: mobileYeeDomainLabels[domain],
             rawScore,
             rawMax,
-            rawPercentage: rawMax === 0 ? 0 : clampPercentage((rawScore / rawMax) * 100),
+            rawPercentage: scorePercent(rawScore, rawMax),
             weightedScore,
             weightedMax,
-            weightedPercentage:
-                weightedMax === 0 ? 0 : clampPercentage((weightedScore / weightedMax) * 100),
+            weightedPercentage: scorePercent(weightedScore, weightedMax),
             weightValue,
         };
     });
 }
 
-export function getYouthWeightedScoreMaximum(
-    weights: Partial<Record<MobileYeeDomainKey, string | number>>,
-): number {
-    return (Object.keys(rawDomainScoreMaximums) as MobileYeeDomainKey[]).reduce((sum, domain) => {
-        return sum + rawDomainScoreMaximums[domain] * normalizeWeightValue(weights[domain]);
-    }, 0);
+function readDomainNumbers(
+    source: Partial<Record<MobileYeeDomainKey, number>> | undefined,
+): Record<MobileYeeDomainKey, number | null> {
+    return {
+        access: readFiniteNumber(source?.access),
+        activitySpaces: readFiniteNumber(source?.activitySpaces),
+        amenities: readFiniteNumber(source?.amenities),
+        experienceOfSpace: readFiniteNumber(source?.experienceOfSpace),
+        aestheticsAndCare: readFiniteNumber(source?.aestheticsAndCare),
+        useAndUsability: readFiniteNumber(source?.useAndUsability),
+    };
+}
+
+function readFiniteNumber(value: number | undefined): number | null {
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 export function getSectionComments(
@@ -236,45 +214,10 @@ export function buildSubmissionCsv(submission: YeeSubmissionResponse): string {
     ].join("\n");
 }
 
-function sectionToDomain(sectionName: string): MobileYeeDomainKey | null {
-    const normalized = sectionName.toLowerCase();
-    if (normalized.includes("access")) return "access";
-    if (normalized.includes("activity spaces")) return "activitySpaces";
-    if (normalized.includes("amenities")) return "amenities";
-    if (normalized.includes("experience")) return "experienceOfSpace";
-    if (normalized.includes("aesthetics")) return "aestheticsAndCare";
-    if (normalized.includes("use & usability")) return "useAndUsability";
-    return null;
-}
-
-function normalizeWeights(raw: unknown): Record<MobileYeeDomainKey, number> {
-    const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-    return {
-        access: normalizeWeightValue(source.access),
-        activitySpaces: normalizeWeightValue(source.activitySpaces),
-        amenities: normalizeWeightValue(source.amenities),
-        experienceOfSpace: normalizeWeightValue(source.experienceOfSpace),
-        aestheticsAndCare: normalizeWeightValue(source.aestheticsAndCare),
-        useAndUsability: normalizeWeightValue(source.useAndUsability),
-    };
-}
-
-function normalizeWeightValue(weight: unknown): number {
-    const numeric = Number(weight);
-    if (Number.isFinite(numeric) && numeric >= 1 && numeric <= 3) {
-        return numeric;
-    }
-    return 1;
-}
-
 function readOptionalString(value: unknown): string | undefined {
     if (typeof value !== "string") {
         return undefined;
     }
     const trimmed = value.trim();
     return trimmed.length === 0 ? undefined : trimmed;
-}
-
-function clampPercentage(value: number): number {
-    return Math.max(0, Math.min(100, value));
 }

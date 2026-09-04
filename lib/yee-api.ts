@@ -87,7 +87,46 @@ export async function fetchAssignedPlaces(
 }
 
 export async function fetchMyAudits(session: AuthSession): Promise<readonly YeeMyAuditItem[]> {
-    return getAuthedJson<readonly YeeMyAuditItem[]>("/yee/my-audits", session);
+    const payload = await getAuthedJson<unknown>("/yee/my-audits", session);
+    return parseMyAuditsResponse(payload);
+}
+
+/**
+ * Validate and normalize the `/yee/my-audits` response boundary.
+ *
+ * Maximums intentionally normalize an omitted or non-finite numeric value to
+ * `null`. This keeps staged backend rollouts and malformed legacy snapshots
+ * honest in the UI: the score becomes unavailable instead of inheriting a
+ * client-side denominator.
+ */
+export function parseMyAuditsResponse(payload: unknown): readonly YeeMyAuditItem[] {
+    if (!Array.isArray(payload)) {
+        throw new TypeError("Invalid /yee/my-audits response: expected an array.");
+    }
+
+    return payload.map((entry, index) => {
+        if (!isRecord(entry)) {
+            throw new TypeError(
+                `Invalid /yee/my-audits item at index ${index}: expected an object.`,
+            );
+        }
+
+        return {
+            id: readRequiredString(entry.id, "id", index),
+            place_id: readRequiredString(entry.place_id, "place_id", index),
+            place_name: readRequiredString(entry.place_name, "place_name", index),
+            submitted_at: readRequiredString(entry.submitted_at, "submitted_at", index),
+            total_score: readRequiredFiniteNumber(entry.total_score, "total_score", index),
+            total_raw_maximum: readNullableMaximum(entry.total_raw_maximum, index),
+            total_weighted_maximum: readNullableMaximum(entry.total_weighted_maximum, index),
+            instrument_key: readNullableString(entry.instrument_key, "instrument_key", index),
+            instrument_version: readNullableString(
+                entry.instrument_version,
+                "instrument_version",
+                index,
+            ),
+        };
+    });
 }
 
 export async function fetchAuditState(
@@ -291,6 +330,52 @@ function safeParseJson(text: string): unknown {
     } catch {
         return text;
     }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function readRequiredString(value: unknown, field: string, index: number): string {
+    if (typeof value !== "string") {
+        throw new TypeError(
+            `Invalid /yee/my-audits item at index ${index}: ${field} must be a string.`,
+        );
+    }
+    return value;
+}
+
+function readRequiredFiniteNumber(value: unknown, field: string, index: number): number {
+    if (typeof value !== "number" || !Number.isFinite(value)) {
+        throw new TypeError(
+            `Invalid /yee/my-audits item at index ${index}: ${field} must be a finite number.`,
+        );
+    }
+    return value;
+}
+
+function readNullableMaximum(value: unknown, index: number): number | null {
+    if (value === null || value === undefined) {
+        return null;
+    }
+    if (typeof value !== "number") {
+        throw new TypeError(
+            `Invalid /yee/my-audits item at index ${index}: maxima must be numbers or null.`,
+        );
+    }
+    return Number.isFinite(value) ? value : null;
+}
+
+function readNullableString(value: unknown, field: string, index: number): string | null {
+    if (value === null || value === undefined) {
+        return null;
+    }
+    if (typeof value !== "string") {
+        throw new TypeError(
+            `Invalid /yee/my-audits item at index ${index}: ${field} must be a string or null.`,
+        );
+    }
+    return value;
 }
 
 function extractErrorDetails(payload: unknown, fallback: string): string | null {

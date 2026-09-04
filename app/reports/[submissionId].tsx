@@ -31,7 +31,9 @@ import {
     getReadableWeather,
     getSectionComments,
     getWeightingComments,
-    totalRawScoreMaximum,
+    formatScoreFraction,
+    SCORE_UNAVAILABLE,
+    scorePercent,
 } from "lib/yee-mobile-reporting";
 import {
     getOpenHoursAccessLabel,
@@ -150,7 +152,7 @@ export default function MobileReportDetailScreen() {
 
     const preview = useMemo(() => {
         if (!submission) return null;
-        return buildMobileSubmissionScorePreview(submission.score, submission.participant_info);
+        return buildMobileSubmissionScorePreview(submission.score);
     }, [submission]);
     const rows = useMemo(() => (preview ? buildDomainScoreRows(preview) : []), [preview]);
     const submissionListItem = useMemo(() => {
@@ -167,6 +169,8 @@ export default function MobileReportDetailScreen() {
             place_name: submission.place_name ?? submission.place_id,
             submitted_at: submission.submitted_at,
             total_score: submission.score.total_score,
+            total_raw_maximum: submission.score.total_raw_maximum ?? null,
+            total_weighted_maximum: submission.score.total_weighted_maximum ?? null,
             ...(submission.syncState ? { syncState: submission.syncState } : {}),
         };
     }, [submission, submissionSummary]);
@@ -399,6 +403,10 @@ export default function MobileReportDetailScreen() {
                                                     submission.place_name ?? submission.place_id,
                                                 submitted_at: submission.submitted_at,
                                                 total_score: submission.score.total_score,
+                                                total_raw_maximum:
+                                                    submission.score.total_raw_maximum ?? null,
+                                                total_weighted_maximum:
+                                                    submission.score.total_weighted_maximum ?? null,
                                             },
                                         )}
                                     />
@@ -412,6 +420,10 @@ export default function MobileReportDetailScreen() {
                                                     submission.place_name ?? submission.place_id,
                                                 submitted_at: submission.submitted_at,
                                                 total_score: submission.score.total_score,
+                                                total_raw_maximum:
+                                                    submission.score.total_raw_maximum ?? null,
+                                                total_weighted_maximum:
+                                                    submission.score.total_weighted_maximum ?? null,
                                             },
                                         )}
                                     />
@@ -659,9 +671,9 @@ function WeightingSummaryCard({ rows }: { rows: readonly DomainScoreRow[] }) {
 }
 
 /** Three-segment importance indicator (1-3), filled in the domain's own colour. */
-function ImportanceMeter({ value, domain }: { value: number; domain: MobileYeeDomainKey }) {
+function ImportanceMeter({ value, domain }: { value: number | null; domain: MobileYeeDomainKey }) {
     const designSystem = useDesignSystem();
-    const filled = Math.max(0, Math.min(3, Math.round(value)));
+    const filled = value === null ? 0 : Math.max(0, Math.min(3, Math.round(value)));
     return (
         <XStack items="center" gap="$2">
             <XStack gap={4}>
@@ -687,7 +699,7 @@ function ImportanceMeter({ value, domain }: { value: number; domain: MobileYeeDo
                 width={20}
                 style={{ textAlign: "right" }}
             >
-                {filled}
+                {value === null ? SCORE_UNAVAILABLE : filled}
             </Text>
         </XStack>
     );
@@ -701,6 +713,15 @@ function ScoreResultsTable({
     preview: ReturnType<typeof buildMobileSubmissionScorePreview> | null;
 }) {
     const designSystem = useDesignSystem();
+    // The percentage leads and the fraction is secondary context. Both totals
+    // use only canonical fields returned for this persisted submission.
+    const rawPercent = scorePercent(preview?.totalRawScore, preview?.totalRawMax);
+    const rawFraction = formatScoreFraction(preview?.totalRawScore, preview?.totalRawMax);
+    const weightedPercent = scorePercent(preview?.totalWeightedScore, preview?.totalWeightedMax);
+    const weightedFraction = formatScoreFraction(
+        preview?.totalWeightedScore,
+        preview?.totalWeightedMax,
+    );
     return (
         <Card title="Score results">
             <Paragraph color={designSystem.colors.mutedForeground}>
@@ -717,25 +738,24 @@ function ScoreResultsTable({
             <XStack gap="$3" flexWrap="wrap" mt="$2">
                 <MetricCard
                     label="Total raw score"
-                    value={`${preview?.totalRawScore ?? 0} / ${totalRawScoreMaximum} (${Math.round(((preview?.totalRawScore ?? 0) / totalRawScoreMaximum || 0) * 100)}%)`}
+                    value={rawPercent === null ? SCORE_UNAVAILABLE : `${rawPercent}%`}
+                    secondaryValue={rawFraction ?? undefined}
                     helperText="Sum of all section raw scores."
                     textColor={
-                        getScoreBandTone(
-                            ((preview?.totalRawScore ?? 0) / totalRawScoreMaximum || 0) * 100,
-                            designSystem.scoreBands,
-                        ).text
+                        rawPercent === null
+                            ? designSystem.colors.mutedForeground
+                            : getScoreBandTone(rawPercent, designSystem.scoreBands).text
                     }
                 />
                 <MetricCard
                     label="Total Youth-Weighted average"
-                    value={`${preview?.totalWeightedScore ?? 0} / ${preview?.totalWeightedMax ?? 0} (${Math.round(((preview?.totalWeightedScore ?? 0) / (preview?.totalWeightedMax ?? 1) || 0) * 100)}%)`}
+                    value={weightedPercent === null ? SCORE_UNAVAILABLE : `${weightedPercent}%`}
+                    secondaryValue={weightedFraction ?? undefined}
                     helperText="Backend canonical weighted average."
                     textColor={
-                        getScoreBandTone(
-                            ((preview?.totalWeightedScore ?? 0) /
-                                (preview?.totalWeightedMax ?? 1) || 0) * 100,
-                            designSystem.scoreBands,
-                        ).text
+                        weightedPercent === null
+                            ? designSystem.colors.mutedForeground
+                            : getScoreBandTone(weightedPercent, designSystem.scoreBands).text
                     }
                 />
             </XStack>
@@ -770,6 +790,8 @@ function ScoreTableHeader() {
 
 function ScoreTableRow({ row }: { row: DomainScoreRow }) {
     const designSystem = useDesignSystem();
+    const rawFraction = formatScoreFraction(row.rawScore, row.rawMax);
+    const weightedFraction = formatScoreFraction(row.weightedScore, row.weightedMax, 2);
     return (
         <XStack
             px="$2"
@@ -792,25 +814,41 @@ function ScoreTableRow({ row }: { row: DomainScoreRow }) {
                     {row.label}
                 </Text>
             </XStack>
-            <Paragraph flex={1} color={designSystem.colors.secondaryForeground}>
-                {row.rawScore}/{row.rawMax}{" "}
-                <Text
-                    color={designSystem.colors.foreground}
-                    fontFamily={designSystem.fonts.bodyBold}
-                    fontSize={12}
-                >
-                    ({Math.round(row.rawPercentage)}%)
-                </Text>
+            <Paragraph
+                flex={1}
+                color={designSystem.colors.foreground}
+                fontFamily={designSystem.fonts.bodyBold}
+            >
+                {row.rawPercentage === null
+                    ? SCORE_UNAVAILABLE
+                    : `${Math.round(row.rawPercentage)}%`}
+                {rawFraction === null ? null : (
+                    <Text
+                        color={designSystem.colors.mutedForeground}
+                        fontFamily={designSystem.fonts.bodyMedium}
+                        fontSize={12}
+                    >
+                        {` (${rawFraction})`}
+                    </Text>
+                )}
             </Paragraph>
-            <Paragraph flex={1} color={designSystem.colors.secondaryForeground}>
-                {row.weightedScore}/{row.weightedMax}{" "}
-                <Text
-                    color={designSystem.colors.foreground}
-                    fontFamily={designSystem.fonts.bodyBold}
-                    fontSize={12}
-                >
-                    ({Math.round(row.weightedPercentage)}%)
-                </Text>
+            <Paragraph
+                flex={1}
+                color={designSystem.colors.foreground}
+                fontFamily={designSystem.fonts.bodyBold}
+            >
+                {row.weightedPercentage === null
+                    ? SCORE_UNAVAILABLE
+                    : `${Math.round(row.weightedPercentage)}%`}
+                {weightedFraction === null ? null : (
+                    <Text
+                        color={designSystem.colors.mutedForeground}
+                        fontFamily={designSystem.fonts.bodyMedium}
+                        fontSize={12}
+                    >
+                        {` (${weightedFraction})`}
+                    </Text>
+                )}
             </Paragraph>
         </XStack>
     );
@@ -845,12 +883,20 @@ function SectionScoreChart({ rows }: { rows: readonly DomainScoreRow[] }) {
                         <ChartBar
                             color={rawSeriesColor}
                             percentage={row.rawPercentage}
-                            accessibilityLabel={`${row.label} raw score ${Math.round(row.rawPercentage)} percent`}
+                            accessibilityLabel={
+                                row.rawPercentage === null
+                                    ? `${row.label} raw score unavailable`
+                                    : `${row.label} raw score ${Math.round(row.rawPercentage)} percent`
+                            }
                         />
                         <ChartBar
                             color={weightedSeriesColor}
                             percentage={row.weightedPercentage}
-                            accessibilityLabel={`${row.label} Youth-Weighted average ${Math.round(row.weightedPercentage)} percent`}
+                            accessibilityLabel={
+                                row.weightedPercentage === null
+                                    ? `${row.label} Youth-Weighted average unavailable`
+                                    : `${row.label} Youth-Weighted average ${Math.round(row.weightedPercentage)} percent`
+                            }
                         />
                     </YStack>
                 ))}
@@ -886,17 +932,17 @@ function ChartBar({
     accessibilityLabel,
 }: {
     color: string;
-    percentage: number;
+    percentage: number | null;
     accessibilityLabel: string;
 }) {
     const designSystem = useDesignSystem();
-    const clamped = Math.max(0, Math.min(100, percentage));
+    const clamped = percentage === null ? null : Math.max(0, Math.min(100, Math.round(percentage)));
     return (
         <XStack
             items="center"
             gap="$2.5"
-            accessibilityRole="progressbar"
             accessibilityLabel={accessibilityLabel}
+            {...(clamped === null ? {} : { accessibilityRole: "progressbar" as const })}
         >
             <YStack
                 flex={1}
@@ -905,11 +951,13 @@ function ChartBar({
                 overflow="hidden"
                 style={{ backgroundColor: designSystem.colors.mutedSurface }}
             >
-                <YStack
-                    height={14}
-                    rounded={designSystem.radii.full}
-                    style={{ width: `${Math.max(2, clamped)}%`, backgroundColor: color }}
-                />
+                {clamped === null || clamped === 0 ? null : (
+                    <YStack
+                        height={14}
+                        rounded={designSystem.radii.full}
+                        style={{ width: `${clamped}%`, backgroundColor: color }}
+                    />
+                )}
             </YStack>
             <Text
                 color={designSystem.colors.foreground}
@@ -918,19 +966,27 @@ function ChartBar({
                 width={40}
                 style={{ textAlign: "right" }}
             >
-                {Math.round(percentage)}%
+                {clamped === null ? SCORE_UNAVAILABLE : `${clamped}%`}
             </Text>
         </XStack>
     );
 }
 
 function HighlightsRow({ rows }: { rows: readonly DomainScoreRow[] }) {
-    const highestRaw = [...rows].sort((a, b) => b.rawPercentage - a.rawPercentage)[0];
-    const lowestRaw = [...rows].sort((a, b) => a.rawPercentage - b.rawPercentage)[0];
-    const highestWeighted = [...rows].sort(
-        (a, b) => b.weightedPercentage - a.weightedPercentage,
+    const rawRows = rows.filter((row) => row.rawPercentage !== null);
+    const weightedRows = rows.filter((row) => row.weightedPercentage !== null);
+    const highestRaw = [...rawRows].sort(
+        (a, b) => (b.rawPercentage ?? 0) - (a.rawPercentage ?? 0),
     )[0];
-    const lowestWeighted = [...rows].sort((a, b) => a.weightedPercentage - b.weightedPercentage)[0];
+    const lowestRaw = [...rawRows].sort(
+        (a, b) => (a.rawPercentage ?? 0) - (b.rawPercentage ?? 0),
+    )[0];
+    const highestWeighted = [...weightedRows].sort(
+        (a, b) => (b.weightedPercentage ?? 0) - (a.weightedPercentage ?? 0),
+    )[0];
+    const lowestWeighted = [...weightedRows].sort(
+        (a, b) => (a.weightedPercentage ?? 0) - (b.weightedPercentage ?? 0),
+    )[0];
 
     return (
         <XStack gap="$3" flexWrap="wrap">
@@ -961,8 +1017,9 @@ function DomainHighlightRow({
     mode: "raw" | "weighted";
 }) {
     const designSystem = useDesignSystem();
-    if (row === undefined) return <MetricRow label={label} value="N/A" />;
+    if (row === undefined) return <MetricRow label={label} value={SCORE_UNAVAILABLE} />;
     const percentage = mode === "raw" ? row.rawPercentage : row.weightedPercentage;
+    if (percentage === null) return <MetricRow label={label} value={SCORE_UNAVAILABLE} />;
     return (
         <XStack justify="space-between" items="center" gap="$3" py="$1">
             <Paragraph color={designSystem.colors.mutedForeground}>{label}</Paragraph>
@@ -1024,11 +1081,15 @@ function Card({
 function MetricCard({
     label,
     value,
+    secondaryValue,
     helperText,
     textColor,
 }: {
     label: string;
+    /** Headline figure — the percentage for score cards. */
     value: string;
+    /** Supporting canonical fraction shown small and muted beside the headline. */
+    secondaryValue?: string | undefined;
     helperText: string;
     textColor: string;
 }) {
@@ -1044,13 +1105,24 @@ function MetricCard({
             gap="$2"
             style={{ minWidth: 150, boxShadow: designSystem.shadows.card }}
         >
-            <Text
-                style={{ color: textColor }}
-                fontFamily={designSystem.fonts.headingBold}
-                fontSize={24}
-            >
-                {value}
-            </Text>
+            <XStack items="baseline" gap="$1.5" flexWrap="wrap">
+                <Text
+                    style={{ color: textColor }}
+                    fontFamily={designSystem.fonts.headingBold}
+                    fontSize={24}
+                >
+                    {value}
+                </Text>
+                {secondaryValue === undefined ? null : (
+                    <Text
+                        color={designSystem.colors.mutedForeground}
+                        fontFamily={designSystem.fonts.bodyMedium}
+                        fontSize={13}
+                    >
+                        {secondaryValue}
+                    </Text>
+                )}
+            </XStack>
             <Text
                 color={designSystem.colors.foreground}
                 fontFamily={designSystem.fonts.bodyBold}

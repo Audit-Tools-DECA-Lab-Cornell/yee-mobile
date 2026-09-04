@@ -1,52 +1,20 @@
 /**
- * Guards the raw-score → percentage conversion used by every summary surface
- * (reports list, metric cards, Execute score, progress bars). `total_score` is
- * a RAW total out of `totalRawScoreMaximum` (125), NOT a percentage — appending
- * `%` to the raw value produced impossible figures like "121%". These tests pin
- * the conversion so that regression cannot come back.
+ * Guards the single canonical raw-score percentage conversion used by every
+ * persisted-score surface. Each conversion must use the maximum returned for
+ * that audit and must stay unavailable when the maximum cannot be trusted.
  */
 
 import { describe, expect, it } from "vitest";
 import {
     buildDomainScoreRows,
     buildMobileSubmissionScorePreview,
-    toScorePercentage,
-    totalRawScoreMaximum,
+    formatScoreFraction,
+    scorePercent,
 } from "lib/yee-mobile-reporting";
 import type { YeeScoreResult } from "lib/yee-types";
 
-describe("totalRawScoreMaximum", () => {
-    it("is the summed domain raw maximums (125)", () => {
-        expect(totalRawScoreMaximum).toBe(125);
-    });
-});
-
-describe("toScorePercentage", () => {
-    it("converts a raw score to a whole-number percentage of the maximum", () => {
-        // 121 / 125 = 96.8 -> 97, never "121%".
-        expect(toScorePercentage(121)).toBe(97);
-        // 56 / 125 = 44.8 -> 45 (matches the report detail breakdown).
-        expect(toScorePercentage(56)).toBe(45);
-    });
-
-    it("maps the full raw score to 100 and zero to 0", () => {
-        expect(toScorePercentage(totalRawScoreMaximum)).toBe(100);
-        expect(toScorePercentage(0)).toBe(0);
-    });
-
-    it("never exceeds 100 or drops below 0", () => {
-        expect(toScorePercentage(totalRawScoreMaximum + 50)).toBe(100);
-        expect(toScorePercentage(-10)).toBe(0);
-    });
-
-    it("returns 0 for non-finite input", () => {
-        expect(toScorePercentage(Number.NaN)).toBe(0);
-        expect(toScorePercentage(Number.POSITIVE_INFINITY)).toBe(0);
-    });
-});
-
 describe("buildMobileSubmissionScorePreview", () => {
-    it("uses backend canonical weighted scores instead of multiplying raw score by selected weight", () => {
+    it("uses backend canonical score fields without recomputing them", () => {
         const score: YeeScoreResult = {
             total_score: 35,
             section_scores: {
@@ -56,7 +24,7 @@ describe("buildMobileSubmissionScorePreview", () => {
             category_scores: { Score: 35 },
             matched_scored_answers: 12,
             total_raw_score: 35,
-            total_raw_maximum: 125,
+            total_raw_maximum: 122,
             raw_domain_scores: {
                 access: 10,
                 activitySpaces: 25,
@@ -71,7 +39,7 @@ describe("buildMobileSubmissionScorePreview", () => {
                 amenities: 23,
                 experienceOfSpace: 20,
                 aestheticsAndCare: 24,
-                useAndUsability: 18,
+                useAndUsability: 15,
             },
             total_weighted_score: 0.7,
             total_weighted_maximum: 1.76,
@@ -101,16 +69,91 @@ describe("buildMobileSubmissionScorePreview", () => {
             },
         };
 
-        const preview = buildMobileSubmissionScorePreview(score, {
-            domain_weights: score.selected_weights,
-        });
+        const preview = buildMobileSubmissionScorePreview(score);
         const rows = buildDomainScoreRows(preview);
 
         expect(preview.totalRawScore).toBe(35);
-        expect(preview.totalRawMax).toBe(125);
+        expect(preview.totalRawMax).toBe(122);
         expect(preview.totalWeightedScore).toBe(0.7);
         expect(preview.totalWeightedMax).toBe(1.76);
-        expect(Math.round((preview.totalWeightedScore / preview.totalWeightedMax) * 100)).toBe(40);
+        expect(scorePercent(preview.totalWeightedScore, preview.totalWeightedMax)).toBe(40);
         expect(rows.find((row) => row.domain === "access")?.weightedMax).toBe(0.54);
+    });
+
+    it("leaves missing canonical maxima and domain data unavailable", () => {
+        const preview = buildMobileSubmissionScorePreview({
+            total_score: 35,
+            section_scores: {
+                "Access: Presence, Condition, Provision": 35,
+            },
+            category_scores: { Score: 35 },
+            matched_scored_answers: 1,
+        });
+        const access = buildDomainScoreRows(preview).find((row) => row.domain === "access");
+
+        expect(preview.totalRawScore).toBe(35);
+        expect(preview.totalRawMax).toBeNull();
+        expect(preview.totalWeightedScore).toBeNull();
+        expect(access?.rawScore).toBeNull();
+        expect(access?.rawMax).toBeNull();
+        expect(access?.rawPercentage).toBeNull();
+    });
+});
+
+/**
+ * `scorePercent` divides by the maximum the audit was actually scored out of,
+ * so a submission carrying its own `total_raw_maximum` is never measured
+ * against a bundled constant. It must round exactly like the web
+ * client's `scorePercent` (src/lib/score-format.ts) or the same audit reports
+ * two different percentages on the two surfaces.
+ */
+describe("scorePercent", () => {
+    it("divides by the supplied per-audit maximum", () => {
+        expect(scorePercent(18, 122)).toBe(15);
+        expect(scorePercent(61, 122)).toBe(50);
+    });
+
+    it("returns null rather than a fabricated 0% when either input is unusable", () => {
+        expect(scorePercent(18, 0)).toBeNull();
+        expect(scorePercent(18, -1)).toBeNull();
+        expect(scorePercent(18, null)).toBeNull();
+        expect(scorePercent(18, undefined)).toBeNull();
+        expect(scorePercent(null, 122)).toBeNull();
+        expect(scorePercent(Number.NaN, 122)).toBeNull();
+        expect(scorePercent(Number.NEGATIVE_INFINITY, 122)).toBeNull();
+        expect(scorePercent(18, Number.POSITIVE_INFINITY)).toBeNull();
+    });
+
+    it("clamps out-of-range scores to 0-100", () => {
+        expect(scorePercent(200, 122)).toBe(100);
+        expect(scorePercent(-5, 122)).toBe(0);
+    });
+
+    it("rounds half-up the same way the web client does", () => {
+        // 0.28/2.22 = 12.6% -> 13, matching the web report card.
+        expect(scorePercent(0.28, 2.22)).toBe(13);
+        expect(scorePercent(64, 122)).toBe(52);
+    });
+});
+
+describe("formatScoreFraction", () => {
+    it("formats a raw fraction", () => {
+        expect(formatScoreFraction(18, 122)).toBe("18 / 122");
+    });
+
+    it("formats a weighted fraction to two decimals", () => {
+        expect(formatScoreFraction(0.28, 2.22, 2)).toBe("0.28 / 2.22");
+    });
+
+    it("returns null when either side is missing, so the caller omits the line", () => {
+        expect(formatScoreFraction(18, null)).toBeNull();
+        expect(formatScoreFraction(null, 122)).toBeNull();
+        expect(formatScoreFraction(18, Number.NaN)).toBeNull();
+    });
+
+    it("omits fractions with non-positive maxima", () => {
+        expect(formatScoreFraction(0, 0)).toBeNull();
+        expect(formatScoreFraction(1, -1)).toBeNull();
+        expect(scorePercent(0, 0)).toBeNull();
     });
 });

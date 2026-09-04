@@ -4,6 +4,7 @@ import type {
     YeeMyAuditItem,
     YeeSyncQueueItem,
 } from "./yee-types";
+import { scorePercent } from "./yee-mobile-reporting";
 
 export type MobilePlaceWorkflowStatus = "not_started" | "draft" | "submitted";
 
@@ -41,7 +42,8 @@ export interface MobileAuditProjection {
     readonly placeViews: readonly MobilePlaceView[];
     readonly summary: MobileAuditSummary;
     readonly sortedReports: readonly YeeMyAuditItem[];
-    readonly averageScore: number;
+    /** Mean of valid backend-derived audit percentages, or null when unavailable. */
+    readonly averageScore: number | null;
     readonly topSubmission: YeeMyAuditItem | null;
     readonly selectedPlaceView: MobilePlaceView | null;
     readonly focusedSubmission: YeeMyAuditItem | null;
@@ -204,33 +206,47 @@ export function summarizeMobileAudits(placeViews: readonly MobilePlaceView[]): M
     );
 }
 
-export function averageSubmittedScore(audits: readonly YeeMyAuditItem[]): number {
-    const syncedAudits = audits.filter(isBackendSyncedAudit);
-    if (syncedAudits.length === 0) {
-        return 0;
+export function averageSubmittedScore(audits: readonly YeeMyAuditItem[]): number | null {
+    const percentages = audits
+        .filter(isBackendSyncedAudit)
+        .map((audit) => scorePercent(audit.total_score, audit.total_raw_maximum))
+        .filter((percentage): percentage is number => percentage !== null);
+    if (percentages.length === 0) {
+        return null;
     }
 
-    const total = syncedAudits.reduce((sum, audit) => {
-        return sum + audit.total_score;
-    }, 0);
-
-    return Math.round(total / syncedAudits.length);
+    return Math.round(
+        percentages.reduce((sum, percentage) => sum + percentage, 0) / percentages.length,
+    );
 }
 
 export function getTopSubmission(audits: readonly YeeMyAuditItem[]): YeeMyAuditItem | null {
-    const syncedAudits = audits.filter(isBackendSyncedAudit);
-    const [firstAudit, ...remaining] = syncedAudits;
+    const scoredAudits = audits
+        .filter(isBackendSyncedAudit)
+        .map((audit) => ({
+            audit,
+            percentage: scorePercent(audit.total_score, audit.total_raw_maximum),
+        }))
+        .filter(
+            (
+                entry,
+            ): entry is {
+                readonly audit: YeeMyAuditItem;
+                readonly percentage: number;
+            } => entry.percentage !== null,
+        );
+    const [firstAudit, ...remaining] = scoredAudits;
     if (firstAudit === undefined) {
         return null;
     }
 
     return remaining.reduce((highest, current) => {
-        if (current.total_score > highest.total_score) {
+        if (current.percentage > highest.percentage) {
             return current;
         }
 
         return highest;
-    }, firstAudit);
+    }, firstAudit).audit;
 }
 
 export function sortAuditsNewestFirst(

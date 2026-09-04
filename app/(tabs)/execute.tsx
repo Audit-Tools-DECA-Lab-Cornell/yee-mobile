@@ -13,7 +13,7 @@ import {
 } from "components/ui";
 import { AssignedPlaceCard } from "components/AssignedPlaceCard";
 import { getScoreBandTone, useDesignSystem } from "lib/design-system";
-import { toScorePercentage } from "lib/yee-mobile-reporting";
+import { formatScoreFraction, SCORE_UNAVAILABLE, scorePercent } from "lib/yee-mobile-reporting";
 import { getResponsiveContentContainerStyle, useResponsiveLayout } from "lib/responsive-layout";
 import { useScreenshotScrollAutomation } from "lib/screenshot-automation";
 import { getOfflineReadinessMessage } from "lib/yee-offline-readiness";
@@ -418,7 +418,8 @@ function SubmittedAuditCard({
 }) {
     const designSystem = useDesignSystem();
     const isPending = audit.syncState === "pending_upload" || audit.syncState === "sync_failed";
-    const percentage = toScorePercentage(audit.total_score);
+    const percentage = scorePercent(audit.total_score, audit.total_raw_maximum);
+    const fraction = formatScoreFraction(audit.total_score, audit.total_raw_maximum);
 
     return (
         <YStack
@@ -450,15 +451,27 @@ function SubmittedAuditCard({
                 <YStack items="flex-end" gap="$0.5">
                     <Text
                         style={{
-                            color: isPending
-                                ? designSystem.colors.warningText
-                                : getScoreBandTone(percentage, designSystem.scoreBands).text,
+                            color:
+                                percentage === null
+                                    ? designSystem.colors.mutedForeground
+                                    : isPending
+                                      ? designSystem.colors.warningText
+                                      : getScoreBandTone(percentage, designSystem.scoreBands).text,
                         }}
                         fontFamily={designSystem.fonts.headingBold}
                         fontSize={20}
                     >
-                        {percentage}%
+                        {percentage === null ? SCORE_UNAVAILABLE : `${percentage}%`}
                     </Text>
+                    {fraction === null ? null : (
+                        <Paragraph
+                            color={designSystem.colors.mutedForeground}
+                            fontFamily={designSystem.fonts.bodyMedium}
+                            fontSize={11}
+                        >
+                            {fraction}
+                        </Paragraph>
+                    )}
                     <Paragraph
                         color={designSystem.colors.mutedForeground}
                         fontFamily={designSystem.fonts.bodyMedium}
@@ -469,19 +482,27 @@ function SubmittedAuditCard({
                 </YStack>
             </XStack>
 
-            <YStack
-                height={6}
-                rounded={designSystem.radii.full}
-                bg={designSystem.colors.mutedSurface}
-                overflow="hidden"
-            >
+            {percentage === null ? null : (
                 <YStack
                     height={6}
                     rounded={designSystem.radii.full}
-                    bg={highlighted ? designSystem.colors.success : designSystem.colors.primary}
-                    width={`${percentage}%`}
-                />
-            </YStack>
+                    bg={designSystem.colors.mutedSurface}
+                    overflow="hidden"
+                >
+                    {percentage === 0 ? null : (
+                        <YStack
+                            height={6}
+                            rounded={designSystem.radii.full}
+                            bg={
+                                highlighted
+                                    ? designSystem.colors.success
+                                    : designSystem.colors.primary
+                            }
+                            width={`${percentage}%`}
+                        />
+                    )}
+                </YStack>
+            )}
 
             <Button
                 rounded={designSystem.radii.button}

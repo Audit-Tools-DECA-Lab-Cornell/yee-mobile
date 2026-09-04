@@ -131,6 +131,8 @@ function makeAudit(
         place_name: `Place ${id}`,
         submitted_at: submittedAt,
         total_score: 75,
+        total_raw_maximum: 122,
+        total_weighted_maximum: 2.22,
         syncState,
     };
 }

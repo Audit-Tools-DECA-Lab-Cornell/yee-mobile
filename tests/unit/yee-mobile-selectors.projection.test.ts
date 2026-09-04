@@ -41,6 +41,8 @@ function audit(
     id: string,
     placeId: string,
     syncState: YeeMyAuditItem["syncState"] = "synced",
+    totalScore = 88,
+    totalRawMaximum: number | null = 122,
 ): YeeMyAuditItem {
     return {
         id,
@@ -49,7 +51,9 @@ function audit(
         submitted_at: id.startsWith("local")
             ? "2026-07-04T12:00:00.000Z"
             : "2026-07-04T09:00:00.000Z",
-        total_score: 88,
+        total_score: totalScore,
+        total_raw_maximum: totalRawMaximum,
+        total_weighted_maximum: null,
         syncState,
     };
 }
@@ -187,5 +191,31 @@ describe("buildMobileAuditProjection", () => {
         expect(eastside?.pendingSyncCount).toBe(0);
         expect(eastside?.syncLabel).toBe("Saved on Cloud");
         expect(projection.summary.pendingSyncCount).toBe(0);
+    });
+
+    it("averages and ranks canonical percentages instead of raw totals", () => {
+        const projection = build({
+            submittedAudits: [
+                audit("high-raw", "hub", "synced", 80, 200),
+                audit("high-percent", "market", "synced", 61, 122),
+                audit("unavailable", "riverside", "synced", 100, null),
+            ],
+        });
+
+        expect(projection.averageScore).toBe(45);
+        expect(projection.topSubmission?.id).toBe("high-percent");
+    });
+
+    it("returns unavailable summaries when no synced audit has a valid maximum", () => {
+        const projection = build({
+            submittedAudits: [
+                audit("missing-max", "hub", "synced", 80, null),
+                audit("zero-max", "market", "synced", 0, 0),
+                audit("pending", "riverside", "pending_upload", 61, 122),
+            ],
+        });
+
+        expect(projection.averageScore).toBeNull();
+        expect(projection.topSubmission).toBeNull();
     });
 });

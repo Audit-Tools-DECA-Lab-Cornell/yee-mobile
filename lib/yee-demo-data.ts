@@ -265,27 +265,3 @@ export const FIELD_PRIORITY_ITEMS: readonly FieldPriorityItem[] = [
         value: "11",
     },
 ];
-
-/**
- * Return completion progress as an integer percentage.
- *
- * @param answeredItems Number of answered questions.
- * @param totalItems Number of total questions.
- * @returns Whole-number completion percentage in the 0-100 range.
- */
-export function toCompletionPercent(answeredItems: number, totalItems: number): number {
-    if (totalItems <= 0) {
-        return 0;
-    }
-
-    const safeAnsweredItems = Math.max(answeredItems, 0);
-    const rawPercent = Math.round((safeAnsweredItems / totalItems) * 100);
-
-    if (rawPercent < 0) {
-        return 0;
-    }
-    if (rawPercent > 100) {
-        return 100;
-    }
-    return rawPercent;
-}

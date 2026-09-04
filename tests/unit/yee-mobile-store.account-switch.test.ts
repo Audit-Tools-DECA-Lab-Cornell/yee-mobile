@@ -139,6 +139,8 @@ function auditFor(accountId: string): YeeMyAuditItem {
         place_name: accountId,
         submitted_at: "2026-09-01T01:00:00.000Z",
         total_score: 1,
+        total_raw_maximum: 122,
+        total_weighted_maximum: 2.22,
     };
 }
 
