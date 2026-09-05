@@ -125,7 +125,7 @@ beforeEach(() => {
     resetStore();
 });
 
-describe("reconcilePlaceSubmission — SUBMITTED convergence", () => {
+describe("reconcilePlaceSubmission - SUBMITTED convergence", () => {
     it("drops the queued item and draft when audit-state reports SUBMITTED", async () => {
         const draft = makeDraft("place-1");
         await useYeeMobileStore.getState().saveDraftLocally(draft);
@@ -165,7 +165,7 @@ describe("reconcilePlaceSubmission — SUBMITTED convergence", () => {
     });
 });
 
-describe("reconcilePlaceSubmission — not yet submitted", () => {
+describe("reconcilePlaceSubmission - not yet submitted", () => {
     it("keeps the queued item when audit-state reports DRAFT", async () => {
         const draft = makeDraft("place-1");
         await useYeeMobileStore.getState().saveDraftLocally(draft);

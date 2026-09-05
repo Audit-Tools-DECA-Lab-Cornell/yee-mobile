@@ -14,7 +14,7 @@ vi.mock("react-native", () => ({
 const HEX_COLOR = /^#[0-9A-F]{6}$/;
 const RGBA_COLOR = /^rgba\(\d+, \d+, \d+, [\d.]+\)$/;
 
-describe("score bands — web-shared thresholds (yee-frontend/src/lib/score-band.ts)", () => {
+describe("score bands - web-shared thresholds (yee-frontend/src/lib/score-band.ts)", () => {
     it("maps percentages to low below 34, mid below 67, high otherwise", () => {
         expect(scoreBandKey(0)).toBe("low");
         expect(scoreBandKey(33.9)).toBe("low");
@@ -40,7 +40,7 @@ describe("score bands — web-shared thresholds (yee-frontend/src/lib/score-band
     });
 });
 
-describe("domain palettes — web --domain-* parity", () => {
+describe("domain palettes - web --domain-* parity", () => {
     const domainKeys = Object.keys(mobileYeeDomainLabels) as (keyof typeof mobileYeeDomainLabels)[];
 
     it("defines all four roles for every survey domain in both themes", () => {
@@ -69,7 +69,7 @@ describe("domain palettes — web --domain-* parity", () => {
     });
 });
 
-describe("chart tokens — web --chart-* parity", () => {
+describe("chart tokens - web --chart-* parity", () => {
     it("provides five categorical series led by brand green, plus scaffold colors", () => {
         for (const theme of ["light", "dark"] as const) {
             const { charts } = getDesignSystem(theme);
@@ -81,7 +81,7 @@ describe("chart tokens — web --chart-* parity", () => {
     });
 });
 
-describe("control radius — web --radius-control parity", () => {
+describe("control radius - web --radius-control parity", () => {
     it("keeps interactive controls at the 8px control radius and cards at md/lg", () => {
         expect(designSystem.radii.button).toBe(8);
         expect(designSystem.radii.md).toBe(10);
@@ -89,7 +89,7 @@ describe("control radius — web --radius-control parity", () => {
     });
 });
 
-describe("survey palette — domain-aware theming", () => {
+describe("survey palette - domain-aware theming", () => {
     it("keeps the brand base for non-domain steps", () => {
         const base = getSurveyPalette(designSystem.colors);
         expect(base.selected).toBe(designSystem.colors.primarySoft);

@@ -46,7 +46,7 @@ beforeEach(async () => {
 // ---------------------------------------------------------------------------
 // Valid session round-trip
 // ---------------------------------------------------------------------------
-describe("saveAuthSession / readAuthSession — valid session", () => {
+describe("saveAuthSession / readAuthSession - valid session", () => {
     it("persists and retrieves a full valid session", async () => {
         const session = makeSession();
         await saveAuthSession(session);
@@ -62,7 +62,7 @@ describe("saveAuthSession / readAuthSession — valid session", () => {
     });
 
     it("preserves expiresAt verbatim (expiry is checked at API-call time, not here)", async () => {
-        // Deliberately use a past date — the storage layer must NOT reject it.
+        // Deliberately use a past date - the storage layer must NOT reject it.
         const session = makeSession({ expiresAt: "2000-01-01T00:00:00.000Z" });
         await saveAuthSession(session);
         const result = await readAuthSession();
@@ -127,7 +127,7 @@ describe("clearAuthSession", () => {
 // ---------------------------------------------------------------------------
 // Invalid / partial persisted payloads are rejected
 // ---------------------------------------------------------------------------
-describe("readAuthSession — invalid persisted payloads", () => {
+describe("readAuthSession - invalid persisted payloads", () => {
     it("returns null and clears when stored JSON is corrupted", async () => {
         vi.spyOn(SecureStore, "getItemAsync").mockResolvedValueOnce("{not valid json");
         const result = await readAuthSession();
@@ -229,9 +229,9 @@ describe("readAuthSession — invalid persisted payloads", () => {
 });
 
 // ---------------------------------------------------------------------------
-// SecureStore unavailable — falls back to in-memory storage
+// SecureStore unavailable - falls back to in-memory storage
 // ---------------------------------------------------------------------------
-describe("saveAuthSession — SecureStore unavailable", () => {
+describe("saveAuthSession - SecureStore unavailable", () => {
     it("stores session in memory when SecureStore is not available", async () => {
         vi.spyOn(SecureStore, "isAvailableAsync").mockResolvedValueOnce(false);
         const session = makeSession();

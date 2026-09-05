@@ -39,10 +39,10 @@ import { DomainStep } from "components/audit/DomainStep";
  * autosave, remote merge, or commit can ever fire.
  *
  * Data source, in priority order:
- *   1. A local draft for the place (queued/unsynced audits — works offline).
+ *   1. A local draft for the place (queued/unsynced audits - works offline).
  *   2. Otherwise the canonical submission fetched from the backend (online only:
  *      a synced audit's local draft is deleted on submit, so the answers live
- *      only on the server — same constraint as the report screen).
+ *      only on the server - same constraint as the report screen).
  */
 export default function AuditViewScreen() {
     const designSystem = useDesignSystem();
@@ -122,7 +122,7 @@ export default function AuditViewScreen() {
                 summary?.syncState === "pending_upload" || summary?.syncState === "sync_failed";
 
             // 1) A not-yet-uploaded (queued / failed) submission keeps its local
-            // draft, which holds exactly the submitted answers — view it straight
+            // draft, which holds exactly the submitted answers - view it straight
             // from there so it works offline. A synced submission's draft is deleted
             // on upload, so we never trust a stray local draft for it; the backend
             // is the only authority (branch 2).
@@ -151,7 +151,7 @@ export default function AuditViewScreen() {
                 return;
             }
 
-            // 2) Synced submission — fetch the canonical answers from the backend.
+            // 2) Synced submission - fetch the canonical answers from the backend.
             if (submissionId.length === 0) {
                 setErrorMessage("This submitted audit is not available on this device.");
                 setLoading(false);
@@ -222,7 +222,7 @@ export default function AuditViewScreen() {
             cancelled = true;
         };
         // isOnline / draft / summary are read from the live store inside `load`, so
-        // they are intentionally not deps — a connectivity blip must not reset the
+        // they are intentionally not deps - a connectivity blip must not reset the
         // walkthrough to step 1.
     }, [submissionId, effectivePlaceId, session, openReadOnly]);
 
@@ -420,7 +420,7 @@ export default function AuditViewScreen() {
     );
 }
 
-/** Choose the step body — mirrors the editable shell's switch. */
+/** Choose the step body - mirrors the editable shell's switch. */
 function AuditStepContent({ step }: { step: MobileYeeStepNumber }) {
     if (step === 1) {
         return <ContextStep />;
@@ -464,7 +464,7 @@ function ReadOnlyNotice() {
                 fontFamily={designSystem.fonts.bodyMedium}
                 fontSize={12}
             >
-                Read-only — this audit has been submitted and cannot be edited.
+                Read-only. This audit has been submitted and cannot be edited.
             </Text>
         </XStack>
     );

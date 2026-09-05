@@ -1,6 +1,6 @@
 # Fast single-login smoke run. Launches + logs in ONCE (via the idempotent
 # login.yaml, no clearState), then exercises every smoke check in sequence in the
-# SAME app session — no per-flow cold restart, Metro reconnect, or re-login.
+# SAME app session - no per-flow cold restart, Metro reconnect, or re-login.
 #
 # Prefer this for local dev-build iteration:
 #   maestro test maestro/smoke.yaml
@@ -16,7 +16,7 @@ appId: com.andisha2004.audit-tools-yee-mobile
 # --- Dashboard tab bar ---
 # Maestro requires the regex to FULL-MATCH an element's text, and the tab accessibility
 # labels are "Home, tab, 1 of 4" / "Places, tab, 2 of 4" / ... (confirmed from the
-# Maestro view-hierarchy dump). So wrap with .* — a bare "home" never matches the whole
+# Maestro view-hierarchy dump). So wrap with .* - a bare "home" never matches the whole
 # label. These a11y labels are also unique, so they can't collide with the stat cards.
 - assertVisible: ".*Home, tab.*"
 - assertVisible: ".*Places, tab.*"

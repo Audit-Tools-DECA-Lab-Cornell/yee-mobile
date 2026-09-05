@@ -30,7 +30,7 @@ export interface BrandSpinnerProps {
 }
 
 /**
- * Brand spinner — a two-part arc (faint track + solid brand sweep) instead of
+ * Brand spinner - a two-part arc (faint track + solid brand sweep) instead of
  * a generic ring, ported from the web's `Spinner` (`components/ui/spinner.tsx`:
  * same 24-unit viewBox, r=9 track at 15% opacity, quarter-arc sweep). Freezes
  * when the system requests reduced motion.

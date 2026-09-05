@@ -152,7 +152,7 @@ beforeEach(() => {
     resetStore();
 });
 
-describe("queueSubmissionSync — idempotency", () => {
+describe("queueSubmissionSync - idempotency", () => {
     it("generates an idempotency_key once and persists it", async () => {
         const draft = makeDraft("place-1");
         await useYeeMobileStore.getState().queueSubmissionSync(draft, null);
@@ -178,7 +178,7 @@ describe("queueSubmissionSync — idempotency", () => {
     });
 });
 
-describe("syncPendingQueue — successful submit cleanup", () => {
+describe("syncPendingQueue - successful submit cleanup", () => {
     it("submits with the persisted idempotency_key, removes the item, deletes the draft", async () => {
         const draft = makeDraft("place-1");
         await useYeeMobileStore.getState().saveDraftLocally(draft);
@@ -234,7 +234,7 @@ describe("syncPendingQueue — successful submit cleanup", () => {
     });
 });
 
-describe("syncPendingQueue — network failure backoff", () => {
+describe("syncPendingQueue - network failure backoff", () => {
     it("retries at the persisted deadline without waiting for another app event", async () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date("2026-06-25T12:00:00.000Z"));
@@ -295,7 +295,7 @@ describe("syncPendingQueue — network failure backoff", () => {
     });
 });
 
-describe("syncPendingQueue — 401 auth pause", () => {
+describe("syncPendingQueue - 401 auth pause", () => {
     it("does NOT burn an attempt and pauses (failureReason auth, no backoff timer)", async () => {
         const draft = makeDraft("place-1");
         await useYeeMobileStore.getState().saveDraftLocally(draft);
@@ -324,7 +324,7 @@ describe("syncPendingQueue — 401 auth pause", () => {
     });
 });
 
-describe("syncPendingQueue — maxAttempts exhaustion", () => {
+describe("syncPendingQueue - maxAttempts exhaustion", () => {
     it("parks the item as terminal sync_failed once attempts reach maxAttempts", async () => {
         const draft = makeDraft("place-1");
         await useYeeMobileStore.getState().saveDraftLocally(draft);
@@ -360,7 +360,7 @@ describe("syncPendingQueue — maxAttempts exhaustion", () => {
     });
 });
 
-describe("syncPendingQueue — deletion-race protection", () => {
+describe("syncPendingQueue - deletion-race protection", () => {
     it("does NOT delete the local draft if it was edited (version bumped) after enqueue", async () => {
         // Enqueue a submission capturing draft_version = 1.
         const draft = makeDraft("place-1", 1);
@@ -392,7 +392,7 @@ describe("syncPendingQueue — deletion-race protection", () => {
     });
 });
 
-describe("syncPendingQueue — backoff window respected", () => {
+describe("syncPendingQueue - backoff window respected", () => {
     it("skips an item whose nextAttemptAtIso is still in the future", async () => {
         const draft = makeDraft("place-1");
         await useYeeMobileStore.getState().queueSubmissionSync(draft, null);
@@ -410,7 +410,7 @@ describe("syncPendingQueue — backoff window respected", () => {
     });
 });
 
-describe("queueDraftSync — remote mirror (best-effort, durable retry)", () => {
+describe("queueDraftSync - remote mirror (best-effort, durable retry)", () => {
     it("stamps the local draft_version on the queued payload", async () => {
         await useYeeMobileStore.getState().queueDraftSync(makeDraft("place-1", 3));
         const queue = await readSyncQueue();
@@ -453,7 +453,7 @@ describe("queueDraftSync — remote mirror (best-effort, durable retry)", () => 
 
         await useYeeMobileStore.getState().syncPendingQueue(makeSession());
 
-        // New policy: the mirror is retryable like any queue item — retained with
+        // New policy: the mirror is retryable like any queue item - retained with
         // backoff so "Queued / Sync issue" stays truthful. Local draft untouched.
         const queue = await readSyncQueue();
         expect(queue).toHaveLength(1);
@@ -494,7 +494,7 @@ describe("queueDraftSync — remote mirror (best-effort, durable retry)", () => 
         await useYeeMobileStore.getState().syncPendingQueue(makeSession());
 
         // The PUT landed (item removed), but the newer local draft is NOT stamped
-        // synced — the backend only has the older content.
+        // synced - the backend only has the older content.
         expect(await readSyncQueue()).toHaveLength(0);
         const draft = useYeeMobileStore.getState().draftsByPlace["place-1"];
         expect(draft?.version).toBe(2);
@@ -521,7 +521,7 @@ describe("queueDraftSync — remote mirror (best-effort, durable retry)", () => 
     });
 });
 
-describe("queueSubmissionSync — drops the pending draft mirror", () => {
+describe("queueSubmissionSync - drops the pending draft mirror", () => {
     it("removes any draft-${placeId} item when a submission is enqueued for that place", async () => {
         const draft = makeDraft("place-1");
         await useYeeMobileStore.getState().saveDraftLocally(draft);
@@ -542,7 +542,7 @@ describe("queueSubmissionSync — drops the pending draft mirror", () => {
     });
 });
 
-describe("refreshRemoteState — same-place submission reconciliation", () => {
+describe("refreshRemoteState - same-place submission reconciliation", () => {
     it("drops stale local pending summaries when refresh returns the remote submission for the same place", async () => {
         useYeeMobileStore.setState({
             submittedAudits: [
@@ -618,7 +618,7 @@ function stampedDraft(
     };
 }
 
-describe("syncPendingQueue — drain-time completeness gate", () => {
+describe("syncPendingQueue - drain-time completeness gate", () => {
     it("parks an incomplete stamped submission WITHOUT calling the API", async () => {
         await writeInstrumentCache(STAMPED_INSTRUMENT);
         const draft = stampedDraft("place-1", { "QID1#1": { "1": "1" } });

@@ -10,7 +10,7 @@ import { getStepTone, type StepStatus } from "./survey-theme";
 /**
  * Persistent step rail. Every step wraps onto the grid at an equal width so the
  * whole audit is visible up front with no horizontal scrolling. Each button
- * advertises its state — done ✓ / current / has-unanswered / not-yet-reached —
+ * advertises its state - done ✓ / current / has-unanswered / not-yet-reached -
  * and tapping one jumps in place (no route change). A trailing Review button
  * (the 10th control) unlocks only once every section is complete, routing to the
  * review-and-submit screen.

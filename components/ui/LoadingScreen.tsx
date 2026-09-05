@@ -38,7 +38,7 @@ export interface LoadingScreenProps {
 }
 
 /**
- * Full-screen branded loader — the YEE mark inside a soft pulsing brand ring
+ * Full-screen branded loader - the YEE mark inside a soft pulsing brand ring
  * (one integrated visual unit) with a caption below, ported from the web's
  * `LoadingScreen`. Use on route gates and heavy first loads instead of a bare
  * spinner. The pulse pauses when the system requests reduced motion.
@@ -118,7 +118,7 @@ export interface InlineLoaderProps {
 }
 
 /**
- * Inline branded loader for use inside cards/panels — a small brand spinner
+ * Inline branded loader for use inside cards/panels - a small brand spinner
  * with a message, ported from the web's `InlineLoader`. Reserve for small
  * inline async; full screens use {@link LoadingScreen} or a skeleton.
  */

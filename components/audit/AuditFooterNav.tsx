@@ -8,7 +8,7 @@ import { useDesignSystem } from "lib/design-system";
 /**
  * Sticky footer navigation. Back / Save & exit / Next (or Review on the final
  * step), with an optional Submit shortcut when the audit is complete. Purely
- * presentational — the shell owns all navigation and persistence.
+ * presentational - the shell owns all navigation and persistence.
  */
 export const AuditFooterNav = memo(function AuditFooterNav({
     busy,

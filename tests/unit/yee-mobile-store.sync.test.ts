@@ -5,7 +5,7 @@
  * Native modules (NetInfo, AsyncStorage, etc.) and runs side-effects on module
  * load. Fully testing it in Node requires those imports to be resolvable, which
  * our setup.ts mocks handle. However, the store's action methods mix React state,
- * async storage, and network calls — making them expensive to unit-test in
+ * async storage, and network calls - making them expensive to unit-test in
  * isolation without the full store harness.
  *
  * Strategy chosen (as documented in the plan):
@@ -17,8 +17,8 @@
  *     after Stage 3 extracts pure queue/sync helpers into their own module.
  *
  * Pure helpers under test (extracted inline here; Stage 3 will export them):
- *   upsertLocalQueue — deduplicates by id, inserts new items at the end.
- *   mergeSubmittedAuditSummaries — prefers remote synced state, keeps local
+ *   upsertLocalQueue - deduplicates by id, inserts new items at the end.
+ *   mergeSubmittedAuditSummaries - prefers remote synced state, keeps local
  *     pending/failed items that are not yet reflected remotely.
  */
 
@@ -26,7 +26,7 @@ import { describe, expect, it } from "vitest";
 import type { YeeMyAuditItem, YeeSyncQueueItem } from "lib/yee-types";
 
 // ---------------------------------------------------------------------------
-// upsertLocalQueue — pure shape logic mirrored from the store
+// upsertLocalQueue - pure shape logic mirrored from the store
 // ---------------------------------------------------------------------------
 
 function upsertLocalQueue(
@@ -97,7 +97,7 @@ describe("upsertLocalQueue (pure helper)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// mergeSubmittedAuditSummaries — pure shape logic mirrored from the store
+// mergeSubmittedAuditSummaries - pure shape logic mirrored from the store
 // ---------------------------------------------------------------------------
 
 function mergeSubmittedAuditSummaries(
@@ -197,7 +197,7 @@ describe("mergeSubmittedAuditSummaries (pure helper)", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Queue submission id shape — deterministic id format validation
+// Queue submission id shape - deterministic id format validation
 // (validates the naming convention used in the store: `submission-${placeId}`)
 // ---------------------------------------------------------------------------
 describe("queue item id conventions", () => {

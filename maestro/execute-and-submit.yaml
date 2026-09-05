@@ -1,4 +1,4 @@
-# SCAFFOLD — full auditor execute → review → submit journey.
+# SCAFFOLD - full auditor execute → review → submit journey.
 #
 # Keep this OUT of smoke CI until the per-question survey controls carry stable
 # accessibility labels / testIDs. The YEE audit is 9 steps / 71 items

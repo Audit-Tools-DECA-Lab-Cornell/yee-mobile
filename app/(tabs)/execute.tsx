@@ -332,7 +332,7 @@ function TodoList({
                     fontFamily={designSystem.fonts.bodyMedium}
                 >
                     Every assigned audit on this device has been submitted. Submitted audits are
-                    locked for editing — open the Submitted tab to review them.
+                    locked for editing. Open the Submitted tab to review them.
                 </Paragraph>
                 <Button
                     rounded={designSystem.radii.button}

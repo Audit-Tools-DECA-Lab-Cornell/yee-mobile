@@ -161,7 +161,7 @@ interface YeeMobileStoreState {
      *
      * Full hydration is account-bound and runs after sign-in, so the login screen
      * would otherwise always report "not ready". This reads the same caches that
-     * checklist describes and deliberately sets nothing else — in particular not
+     * checklist describes and deliberately sets nothing else - in particular not
      * `hydratedAccountId`, so it can never open the drain gate.
      */
     probeOfflineReadiness: () => Promise<void>;
@@ -179,7 +179,7 @@ interface YeeMobileStoreState {
      *
      * `throttle` is for AUTOMATIC triggers (lifecycle, foreground), which are the
      * ones that can misfire in a loop; they are held to a minimum interval and
-     * coalesced. A user-initiated drain — tapping submit, pulling to refresh —
+     * coalesced. A user-initiated drain - tapping submit, pulling to refresh -
      * runs immediately, because a person tapping cannot storm the backend and
      * must not be made to wait on a cooldown.
      */
@@ -224,8 +224,8 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
     },
 
     hydrateOfflineState: async (accountId: string) => {
-        // Idempotent and single-flight PER ACCOUNT, so callers can ask freely —
-        // on sign-in, on foreground, on retry — without coordinating. Keeping the
+        // Idempotent and single-flight PER ACCOUNT, so callers can ask freely -
+        // on sign-in, on foreground, on retry - without coordinating. Keeping the
         // guard here rather than in a React dependency is deliberate: an effect
         // that both reads and writes the same state is what produced the
         // production request storm.
@@ -287,7 +287,7 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                 // Deliberately leaves `hydratedAccountId` null. The store still holds
                 // the empty default, and treating that as loaded is exactly how an
                 // audit taken offline went missing. Nothing drains until a later
-                // attempt succeeds — foregrounding the app retries.
+                // attempt succeeds - foregrounding the app retries.
                 set(() => ({
                     status: "error",
                     errorMessage:
@@ -455,7 +455,7 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
                     responses: draft.responses,
                     // Stamp the local revision this payload carries. The drain uses
                     // it to avoid marking a NEWER local edit as synced off the back
-                    // of this (older) mirror PUT — the stale-draft guard.
+                    // of this (older) mirror PUT - the stale-draft guard.
                     draft_version: draft.version,
                     ...(draft.instrumentKey ? { instrument_key: draft.instrumentKey } : {}),
                     ...(draft.instrumentVersion
@@ -602,7 +602,7 @@ export const useYeeMobileStore = create<YeeMobileStoreState>((set, get) => ({
             const hasPendingQueueItem = persistedQueue.some((item) => item.placeId === placeId);
 
             // Protect local truth: the remote DRAFT is only a mirror. Hydrate it
-            // into local storage ONLY when there is nothing unsynced to clobber —
+            // into local storage ONLY when there is nothing unsynced to clobber -
             // no local draft, or a fully `synced` one with no pending queue item.
             // Any local-only / pending / failed draft, or a queued mirror/submit,
             // means the device holds newer work that must win.
@@ -689,7 +689,7 @@ function mergeSubmittedAuditSummaries(
 }
 
 // ---------------------------------------------------------------------------
-// Queue helpers (serialized — only ever invoked inside runSerialized)
+// Queue helpers (serialized - only ever invoked inside runSerialized)
 // ---------------------------------------------------------------------------
 
 type StoreGet = () => YeeMobileStoreState;
@@ -760,7 +760,7 @@ async function queueSubmissionInternal(
 
     // Once a submission is queued, the final submit is authoritative for this
     // place. Drop any pending draft mirror (`draft-${placeId}`) so an optional
-    // draft PUT can neither run after nor compete with the submission — this is
+    // draft PUT can neither run after nor compete with the submission - this is
     // serialized with the drain, so no draft_save can be mid-flight here.
     const draftMirrorId = `draft-${draft.placeId}`;
     const pendingDraftMirror = persistedQueue.find((entry) => entry.id === draftMirrorId) ?? null;
@@ -847,7 +847,7 @@ const UNRESOLVED_INSTRUMENT_MESSAGE =
 /**
  * The instrument a queued submission must be judged against, from local cache.
  *
- * A payload carrying a stamp resolves to that EXACT version or to nothing —
+ * A payload carrying a stamp resolves to that EXACT version or to nothing -
  * never to whatever is active now, which would judge an audit against a
  * contract it was never taken under. A payload carrying no stamp at all
  * predates stamping, so it is checked against the cached active instrument only
@@ -966,7 +966,7 @@ async function drainQueue(
     // The queue in memory belongs to whichever account was hydrated. MMKV is
     // namespaced per account and re-pointed on sign-in, so without this an
     // account switch could transmit one auditor's queued work under another's
-    // session — and persist it into the new account's storage on failure.
+    // session - and persist it into the new account's storage on failure.
     //
     // Checked HERE rather than only at the trigger because six call sites reach
     // this function and only the lifecycle ones consult `shouldDrainQueue`. An
@@ -1158,7 +1158,7 @@ function findNextRetryDeadline(queue: readonly YeeSyncQueueItem[]): number | nul
  *    anything is enqueued, so the worst case here is a delayed mirror.
  * 2. **Retryable like any other queue item.** A failure THROWS so the caller's
  *    shared backoff/retention policy parks it as "Queued / Sync issue" instead
- *    of silently dropping it — the durable-sync UX depends on that honesty.
+ *    of silently dropping it - the durable-sync UX depends on that honesty.
  *
  * On success the CURRENT local draft is stamped `synced` only when it is still
  * the exact revision this payload carried (`draft_version`). If a newer local
@@ -1170,7 +1170,7 @@ async function drainDraftSave(
     session: AuthSession,
     accountId: string,
 ): Promise<YeeLocalDraft | null> {
-    // Throws on failure — the caller applies backoff + retention (durable UX).
+    // Throws on failure - the caller applies backoff + retention (durable UX).
     const savedState = await saveAuditDraft(item.placeId, session, {
         participant_info: item.payload.participant_info,
         responses: item.payload.responses,

@@ -3,9 +3,9 @@
  *
  * This module is intentionally free of React Native imports and side effects so
  * it can be unit-tested in plain Node. It owns three concerns:
- *   1. {@link computeBackoffMs} — how long to wait before the next retry.
- *   2. {@link classifyError} — bucketing an HTTP status into retry semantics.
- *   3. {@link decideNextQueueState} — given an item, a classification, and the
+ *   1. {@link computeBackoffMs} - how long to wait before the next retry.
+ *   2. {@link classifyError} - bucketing an HTTP status into retry semantics.
+ *   3. {@link decideNextQueueState} - given an item, a classification, and the
  *      current time, compute the next persisted queue/sync state.
  *
  * The store ({@link stores/yee-mobile-store}) calls these to drive drains and
@@ -19,17 +19,17 @@ import {
     type YeeSyncState,
 } from "lib/yee-types";
 
-/** Base backoff delay (ms) — the wait after the first failed attempt. */
+/** Base backoff delay (ms) - the wait after the first failed attempt. */
 export const YEE_BACKOFF_BASE_MS = 5_000;
 
-/** Maximum backoff delay (ms) — the wait never exceeds this cap. */
+/** Maximum backoff delay (ms) - the wait never exceeds this cap. */
 export const YEE_BACKOFF_CAP_MS = 300_000;
 
 /**
  * How an HTTP status code (or transport failure) maps onto retry semantics.
- * - `retryable` — try again later behind exponential backoff.
- * - `auth`      — token expired; PAUSE and wait for a fresh session (no burn).
- * - `terminal`  — the backend rejected the payload; never retry.
+ * - `retryable` - try again later behind exponential backoff.
+ * - `auth`      - token expired; PAUSE and wait for a fresh session (no burn).
+ * - `terminal`  - the backend rejected the payload; never retry.
  */
 export type YeeErrorClassification = "retryable" | "auth" | "terminal";
 
@@ -232,7 +232,7 @@ const INCOMPLETE_AUDIT_CODE = "incomplete_audit_responses";
 /**
  * Which logical questions a rejected submission still needs answered.
  *
- * Ids only — the backend deliberately sends no question text, so the client
+ * Ids only - the backend deliberately sends no question text, so the client
  * looks the wording up in its own cached instrument.
  */
 export interface IncompleteAuditResponses {
@@ -250,7 +250,7 @@ function stringList(value: unknown): readonly string[] {
  * Read a rejection body as an incomplete-submission report, or `null`.
  *
  * Accepts both the framework-wrapped `{ detail: {...} }` shape and a bare
- * object, and returns `null` for anything that does not carry the exact code —
+ * object, and returns `null` for anything that does not carry the exact code -
  * an unrecognized rejection must stay a plain terminal failure rather than be
  * presented to the auditor as something they can fix by answering a question.
  */
@@ -286,7 +286,7 @@ const TERMINAL_FAILURE_REASONS: readonly YeeSyncFailureReason[] = [
     "terminal",
     "validation",
     // Recoverable by editing the audit, but never by re-POSTing the same
-    // payload — so it must stop draining like any other terminal rejection.
+    // payload - so it must stop draining like any other terminal rejection.
     "incomplete",
 ];
 
@@ -312,7 +312,7 @@ export function isTerminallyFailed(item: YeeSyncQueueItem): boolean {
  * A terminally-failed item is excluded on EVERY reason that means it, not just
  * the literal `"terminal"` string. Filtering on that one value let a rejected
  * payload (recorded as `"validation"`) stay drainable and re-POST on every tick
- * — an unbounded loop against a deterministic rejection, with the audit locked
+ * - an unbounded loop against a deterministic rejection, with the audit locked
  * behind a "Retry upload" affordance that could never succeed.
  */
 export function selectDrainableItems(

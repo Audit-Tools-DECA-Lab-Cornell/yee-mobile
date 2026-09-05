@@ -22,14 +22,14 @@ export type ReviewSection = {
 
 /**
  * One domain's read-only answer summary. Memoized so scrolling the long review
- * list only re-renders the section whose underlying data actually changed —
+ * list only re-renders the section whose underlying data actually changed -
  * every other section keeps its previous render output.
  */
 /**
  * One domain's read-only summary, wrapped in that domain's colour context.
  *
  * The provider is what makes the review screen match the audit itself: every
- * primitive inside — the card tint, the edit button, the nested rows — reads
+ * primitive inside - the card tint, the edit button, the nested rows - reads
  * `useSurveyPalette()`, which resolves the hue from {@link SurveyDomainContext}.
  * Without it all six sections rendered in the same neutral green and the review
  * lost the one cue telling the auditor which section they were looking at.

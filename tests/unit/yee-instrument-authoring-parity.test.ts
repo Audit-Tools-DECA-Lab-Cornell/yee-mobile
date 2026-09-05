@@ -8,7 +8,7 @@
  * same triggers, same requiredness. `yee-instrument.authoring.snapshot.json` is
  * the document the backend actually derives from the fixture beside it.
  *
- * A difference here is not cosmetic — the binding is where an answer is stored,
+ * A difference here is not cosmetic - the binding is where an answer is stored,
  * so a mismatch would file answers under the wrong key and change scores.
  */
 import { describe, expect, it } from "vitest";

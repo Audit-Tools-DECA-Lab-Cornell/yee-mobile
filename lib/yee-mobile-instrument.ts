@@ -415,7 +415,7 @@ function normalizeAuthoringSections(
 
 /**
  * Visit-context questions in display order. Auto-generated ids (auditor_id,
- * audit_date) and the weighting question are excluded — the client renders those
+ * audit_date) and the weighting question are excluded - the client renders those
  * elsewhere. Each question keeps its backend id so the step can bind it to the
  * matching draft slice.
  */
@@ -540,7 +540,7 @@ export function answerLabel(
  *
  * `kind` decides punctuation: `"question"` prompts (the per-row choice labels)
  * get a trailing "?" when the source omits one, while `"answer"` options
- * (Yes / No / Yes, a lot / Poor / Great …) are left verbatim — appending "?" to
+ * (Yes / No / Yes, a lot / Poor / Great …) are left verbatim - appending "?" to
  * an answer produced the reported "Yes?" / "No?" labels.
  */
 function normalizeOptions(

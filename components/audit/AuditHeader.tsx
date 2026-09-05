@@ -101,8 +101,8 @@ const AuditProgressMeter = memo(function AuditProgressMeter() {
     const designSystem = useDesignSystem();
     // Subscribe to the DERIVED count, not the whole draft: the meter then
     // re-renders only when a step flips complete/incomplete, instead of on every
-    // keystroke or answer tap. (Selector still runs per update, but the render —
-    // the expensive part — is gated by Object.is on the number.)
+    // keystroke or answer tap. (Selector still runs per update, but the render -
+    // the expensive part - is gated by Object.is on the number.)
     const completedCount = useAuditSessionStore((state) =>
         state.draft === null ? 0 : getCompletedSteps(state.draft, state.instrument).size,
     );

@@ -191,7 +191,7 @@ export default function AuditReviewScreen() {
     // Shared active-audit session store (populated by the persistent shell at
     // app/audit/[placeId]/index.tsx, which stays mounted underneath review). When
     // the shell already loaded this exact place, its instrument/draft are reused
-    // as-is — no re-fetch, no draft rebuild. Otherwise (deep link / cold entry
+    // as-is - no re-fetch, no draft rebuild. Otherwise (deep link / cold entry
     // where the shell never mounted) we fall back to the screen's own self-load
     // path below so review still works standalone and offline.
     const sessionPlaceId = useAuditSessionStore((state) => state.placeId);
@@ -397,7 +397,7 @@ export default function AuditReviewScreen() {
     // There is no per-step route (app/audit/[placeId]/[step] does not exist):
     // the persistent shell at app/audit/[placeId]/index.tsx swaps step content
     // in place via the shared session store's `step`. When that shell is still
-    // mounted underneath review (the normal case — review is pushed on top of
+    // mounted underneath review (the normal case - review is pushed on top of
     // it), drive it directly and pop back to reveal it, so the shell is never
     // remounted. On cold/deep-link entry where the shell never mounted, fall
     // back to opening the audit route fresh; it lands on the first incomplete
@@ -450,8 +450,8 @@ export default function AuditReviewScreen() {
 
     /**
      * What the primary button does, which depends on why the audit has not
-     * uploaded. A parked-for-missing-answers item has nothing to retry — the
-     * payload as sent is incomplete — so the button opens the earliest gap
+     * uploaded. A parked-for-missing-answers item has nothing to retry - the
+     * payload as sent is incomplete - so the button opens the earliest gap
      * instead. With no recorded step, the ordinary edit path lands on the first
      * incomplete section by itself.
      */
@@ -511,7 +511,7 @@ export default function AuditReviewScreen() {
             // Backend is the only scoring authority: carry the last backend preview
             // score (from a prior /yee/audits/score or draft save) as a provisional
             // placeholder. The canonical score is written once the backend accepts
-            // the submission on sync — no score is computed locally.
+            // the submission on sync - no score is computed locally.
             const provisionalScore = storedDraft?.scorePreview ?? emptyScoreResult();
             const provisionalSubmission = buildLocalQueuedSubmission(
                 finalizedDraft,
@@ -546,7 +546,7 @@ export default function AuditReviewScreen() {
      * summary exists, treat it as submitted.
      *
      * SECONDARY (ambiguous-success) fallback: if the item is STILL queued but we
-     * are online — i.e. the key path was inconclusive (timeout / lost response) —
+     * are online - i.e. the key path was inconclusive (timeout / lost response) -
      * ask the backend directly via GET /yee/places/{placeId}/audit-state
      * (reconcilePlaceSubmission). If it reports SUBMITTED we drop the local
      * provisional record and converge as submitted; otherwise we stay queued.
@@ -802,21 +802,21 @@ function submitStatusCopy(status: SubmitUiStatus): SubmitStatusCopy | null {
             return {
                 title: "Sign in to upload",
                 message:
-                    "Your session expired before the upload finished. The audit is safe on this device — sign in again to upload it.",
+                    "Your session expired before the upload finished. The audit is safe on this device. Sign in again to upload it.",
                 tone: "warning",
             };
         case "answers_incomplete":
             return {
                 title: "Missing required answers",
                 message:
-                    "This audit cannot be sent until a few required answers are filled in. Your answers are safe on this device — open the section below to finish it, then submit again.",
+                    "This audit cannot be sent until a few required answers are filled in. Your answers are safe on this device. Open the section below to finish it, then submit again.",
                 tone: "warning",
             };
         case "sync_failed":
             return {
                 title: "Upload failed",
                 message:
-                    "Upload failed. Your audit is still saved on this device — tap to retry or contact support if the issue persists.",
+                    "Upload failed. Your audit is still saved on this device. Tap to retry, or contact support if the issue persists.",
                 tone: "danger",
             };
         case "submitted":
@@ -1224,7 +1224,7 @@ const WeightingDomainRowBody = memo(function WeightingDomainRowBody({
             borderWidth={1}
             // Domain rail on a soft domain tint: six of these stack here, and the
             // rail is the only part of a row that identifies its domain at a
-            // glance — the tints are all within ~1.1:1 of the white card below.
+            // glance - the tints are all within ~1.1:1 of the white card below.
             borderLeftWidth={FOLLOW_UP_RAIL_WIDTH}
             p="$3.5"
             gap="$1.5"

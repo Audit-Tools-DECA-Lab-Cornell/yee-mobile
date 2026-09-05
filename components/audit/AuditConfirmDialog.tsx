@@ -13,7 +13,7 @@ export interface ConfirmOptions {
 
 /**
  * In-app confirm dialog rendered as an absolute overlay INSIDE the current
- * screen's window — deliberately not a React Native `Alert`/`Modal`. On Android
+ * screen's window - deliberately not a React Native `Alert`/`Modal`. On Android
  * those spawn a separate native dialog window that does not inherit the
  * activity's sticky-immersive flag, so opening one reveals the system
  * navigation bar and pushes the footer (Back / Save & exit / Next) upward. An

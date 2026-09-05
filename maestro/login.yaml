@@ -7,12 +7,12 @@
 # Login screen source: app/(auth)/login.tsx.
 appId: ${APP_ID || "com.andisha2004.audit-tools-yee-mobile"}
 ---
-# IDEMPOTENT login — does NOT clearState. clearState wipes the SecureStore
+# IDEMPOTENT login - does NOT clearState. clearState wipes the SecureStore
 # session (and MMKV drafts) on every launch, forcing a slow cold reconnect to the
 # Metro dev server + a full re-login for EVERY flow. Without it, launchApp restores
 # the persisted session and we only log in when the login screen is actually shown.
 - launchApp
-# Wait for the app to settle on EITHER the login screen or the dashboard — a dev
+# Wait for the app to settle on EITHER the login screen or the dashboard - a dev
 # build can take a while to connect to Metro / load the bundle on first launch.
 - extendedWaitUntil:
       visible: ".*Log in to the YEE workspace.*|.*Active auditor.*|.*Places available.*"
@@ -22,7 +22,7 @@ appId: ${APP_ID || "com.andisha2004.audit-tools-yee-mobile"}
       when:
           visible: "Log in to the YEE workspace."
       commands:
-          # Email field — placeholder is visible while empty, so tap it by text.
+          # Email field - placeholder is visible while empty, so tap it by text.
           - tapOn: "auditor@example.com"
           - inputText: "auditor-demo-1@yee.local"
           - tapOn: "Enter password"
@@ -32,7 +32,7 @@ appId: ${APP_ID || "com.andisha2004.audit-tools-yee-mobile"}
           - tapOn: "Log in to the YEE workspace."
           # The screen has a TITLE Text that is ALSO exactly "Log in" (login.tsx:151),
           # so a plain text match taps the title, not the button. Target the SUBMIT
-          # BUTTON positionally — the "Log in" below the stay-signed-in row.
+          # BUTTON positionally - the "Log in" below the stay-signed-in row.
           - tapOn:
                 text: "Log in"
                 below:

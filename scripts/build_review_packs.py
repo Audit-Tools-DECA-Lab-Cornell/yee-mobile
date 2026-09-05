@@ -228,7 +228,7 @@ def main():
     # write packs (one per distinct route file)
     for route_file, (md, primitives, collected) in slices.items():
         slug = route_slug(route_file)
-        header = (f"# CODE CONTEXT PACK — {route_file}\n"
+        header = (f"# CODE CONTEXT PACK - {route_file}\n"
                   f"_Read `review/core.md` alongside this file._\n\n"
                   f"design_system_components_used: {', '.join(primitives) or '(none)'}\n\n"
                   f"## Screen slice\n")

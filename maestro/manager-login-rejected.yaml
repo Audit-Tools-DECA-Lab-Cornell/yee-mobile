@@ -13,7 +13,7 @@ env:
     MANAGER_EMAIL: manager-demo@yee.local
     MANAGER_PASSWORD: DemoPass123!
 ---
-# clearState so a persisted auditor session cannot skip the login screen —
+# clearState so a persisted auditor session cannot skip the login screen -
 # this flow specifically exercises the login rejection path.
 - launchApp:
       clearState: true

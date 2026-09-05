@@ -95,12 +95,12 @@ export function findIncompleteQuestions(
  *
  * Stamp handling distinguishes two cases that look alike and are not:
  *
- * - **Absent stamp** — a payload queued before stamping existed carries neither
+ * - **Absent stamp** - a payload queued before stamping existed carries neither
  *   field. That is the documented unstamped-legacy path, not an unknown version,
  *   so it submits and the backend resolves it against the frozen schema-v1
  *   contract. Treating it as unresolvable would strand every pre-stamp item
  *   forever.
- * - **Unresolvable stamp** — a stamp is present but its instrument is not on
+ * - **Unresolvable stamp** - a stamp is present but its instrument is not on
  *   this device. The item is retained untouched until that exact version can be
  *   fetched.
  */

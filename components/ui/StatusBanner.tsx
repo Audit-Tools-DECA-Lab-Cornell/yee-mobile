@@ -31,7 +31,7 @@ export function StatusBanner({ isOnline, pendingCount = 0 }: StatusBannerProps) 
             ? `Syncing ${pendingCount} pending ${pendingCount === 1 ? "change" : "changes"}…`
             : "All changes are synced."
         : hasPending
-          ? `${pendingCount} pending ${pendingCount === 1 ? "change" : "changes"} saved locally — they sync when you reconnect.`
+          ? `${pendingCount} pending ${pendingCount === 1 ? "change" : "changes"} saved locally. ${pendingCount === 1 ? "It" : "They"} will sync when you reconnect.`
           : "Drafts are saved locally and stay safe until you reconnect.";
 
     return (

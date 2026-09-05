@@ -68,7 +68,7 @@ function makeQueueItem(id: string, placeId: string): YeeSyncQueueItem {
     };
 }
 
-describe("writeDraft / readDraft — round-trip over MMKV", () => {
+describe("writeDraft / readDraft - round-trip over MMKV", () => {
     it("persists and retrieves a draft by placeId", async () => {
         await writeDraft(makeDraft("place-123", { syncState: "synced" }));
         const result = await readDraft("place-123");

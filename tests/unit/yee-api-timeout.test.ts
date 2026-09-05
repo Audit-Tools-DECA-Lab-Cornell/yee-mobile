@@ -1,9 +1,9 @@
 /**
  * Timeout / error-classification tests for the abortable fetch layer in
- * lib/yee-api.ts (Mobile performance plan — "Network hardening").
+ * lib/yee-api.ts (Mobile performance plan - "Network hardening").
  *
  * A "false online" device (associated to Wi-Fi with no real internet) leaves a
- * bare `fetch` hanging forever, which — before the AbortController guard — could
+ * bare `fetch` hanging forever, which - before the AbortController guard - could
  * stall a blocking draft PUT and freeze navigation. These tests drive the real
  * requestJson pipeline through the public API functions, using a fake-timer
  * clock plus a fetch stub that only rejects when the abort signal fires, so we
@@ -59,7 +59,7 @@ function fakeResponse(init: {
 
 /**
  * A fetch that never resolves on its own and only rejects when the caller's
- * AbortController fires — mimicking a real socket hanging on a false-online link.
+ * AbortController fires - mimicking a real socket hanging on a false-online link.
  */
 function hangingFetch(): typeof fetch {
     return vi.fn((_input: unknown, init?: { signal?: AbortSignal }) => {
@@ -85,7 +85,7 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-describe("requestJson — abort on timeout throws status 0", () => {
+describe("requestJson - abort on timeout throws status 0", () => {
     it("aborts a GET at the default tier and throws a status-0 timeout error", async () => {
         globalThis.fetch = hangingFetch();
 
@@ -146,7 +146,7 @@ describe("requestJson — abort on timeout throws status 0", () => {
             () => (settled = true),
         );
 
-        // At the default read tier the submit is deliberately still in flight —
+        // At the default read tier the submit is deliberately still in flight -
         // the user-critical write gets the longest budget.
         await vi.advanceTimersByTimeAsync(DEFAULT_REQUEST_TIMEOUT_MS);
         expect(settled).toBe(false);
@@ -157,7 +157,7 @@ describe("requestJson — abort on timeout throws status 0", () => {
     });
 });
 
-describe("requestJson — transport vs HTTP errors", () => {
+describe("requestJson - transport vs HTTP errors", () => {
     it("classifies a non-abort transport rejection as status 0 with a reach message", async () => {
         globalThis.fetch = vi.fn(async () => {
             throw new Error("ECONNREFUSED");

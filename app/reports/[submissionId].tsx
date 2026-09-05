@@ -856,7 +856,7 @@ function ScoreTableRow({ row }: { row: DomainScoreRow }) {
 
 /**
  * Single grouped horizontal bar chart for all six domains. Each domain shows two
- * bars — raw score and Youth-Weighted average — sharing a 0–100% scale, with one
+ * bars - raw score and Youth-Weighted average - sharing a 0–100% scale, with one
  * legend describing the two series. Replaces the previous per-domain meter cards.
  */
 function SectionScoreChart({ rows }: { rows: readonly DomainScoreRow[] }) {
@@ -1004,7 +1004,7 @@ function HighlightsRow({ rows }: { rows: readonly DomainScoreRow[] }) {
 
 /**
  * One highlight line. The section named here is a domain, so it is named in that
- * domain's colours rather than as plain text — the same treatment the score
+ * domain's colours rather than as plain text - the same treatment the score
  * table and the section chart use, so the reader can match them at a glance.
  */
 function DomainHighlightRow({
@@ -1086,7 +1086,7 @@ function MetricCard({
     textColor,
 }: {
     label: string;
-    /** Headline figure — the percentage for score cards. */
+    /** Headline figure - the percentage for score cards. */
     value: string;
     /** Supporting canonical fraction shown small and muted beside the headline. */
     secondaryValue?: string | undefined;

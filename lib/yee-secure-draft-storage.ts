@@ -47,7 +47,7 @@ interface MmkvInstance {
 /**
  * Typed storage error surfaced when a persisted payload cannot be parsed.
  *
- * Corrupt payloads are NOT silently dropped — callers receive this error so the
+ * Corrupt payloads are NOT silently dropped - callers receive this error so the
  * failure can be surfaced rather than masked as missing data.
  */
 export class YeeStorageError extends Error {
@@ -94,7 +94,7 @@ const instancesByAccount = new Map<string, MmkvInstance>();
  * Set or switch the active account whose draft store should be used.
  *
  * Call this on login and on hydrate once the persisted session is known. Passing
- * `null` clears the active account (e.g. on logout) WITHOUT deleting any drafts —
+ * `null` clears the active account (e.g. on logout) WITHOUT deleting any drafts -
  * drafts survive logout for the same account by design and are only removed via
  * {@link clearAccountStorage}.
  *
@@ -147,7 +147,7 @@ function getInstance(accountId: string): MmkvInstance {
 
     // TODO(encryption): generate/lookup a per-account key in expo-secure-store and
     // pass it here as `encryptionKey` to encrypt drafts at rest. Deferred by
-    // product decision — drafts are stored in plaintext MMKV for now, matching
+    // product decision - drafts are stored in plaintext MMKV for now, matching
     // the production reference app. The seam below is intentionally left wired so
     // enabling encryption later is a single-line change.
     const encryptionKey: string | undefined = undefined;
@@ -242,7 +242,7 @@ async function runInstrumentMigrationIfNeeded(instance: MmkvInstance): Promise<v
 
 /**
  * Read a legacy AsyncStorage value, tolerating storage failures (treated as
- * "nothing to migrate") but NOT swallowing parse errors — those are surfaced by
+ * "nothing to migrate") but NOT swallowing parse errors - those are surfaced by
  * the caller via {@link parseJson}.
  */
 async function readLegacyAsyncValue(key: string): Promise<string | null> {
@@ -447,7 +447,7 @@ export async function deleteDraftFromMmkv(placeId: string, accountId?: string): 
 }
 
 // ---------------------------------------------------------------------------
-// Sync queue storage (one key per item id) — substrate for Stage 3
+// Sync queue storage (one key per item id) - substrate for Stage 3
 // ---------------------------------------------------------------------------
 
 /**
@@ -529,7 +529,7 @@ export async function writeSyncQueueToMmkv(
  * Delete ALL drafts and queue items for an account.
  *
  * Only called on explicit account removal. Ordinary logout (including
- * token-expiry logout) must NOT call this — unsynced work survives logout for
+ * token-expiry logout) must NOT call this - unsynced work survives logout for
  * the same account by design.
  *
  * @param accountId Account whose storage should be wiped.

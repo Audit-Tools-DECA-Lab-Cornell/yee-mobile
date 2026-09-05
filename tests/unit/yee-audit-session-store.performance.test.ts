@@ -7,9 +7,9 @@
  * AppState-background / reconnect handlers do.
  *
  * What is pinned here:
- *   - the split commit paths — local MMKV is the only blocking write; the remote
+ *   - the split commit paths - local MMKV is the only blocking write; the remote
  *     draft mirror is fire-and-forget and NEVER awaited by navigation,
- *   - dirty tracking — a no-op answer tap does not mark the draft dirty,
+ *   - dirty tracking - a no-op answer tap does not mark the draft dirty,
  *   - autosave debounces a burst of edits into a single local write,
  *   - read-only (submitted) sessions never write, enqueue, or drain,
  *   - presence/condition answer actions write only their exact backend bindings,
@@ -189,7 +189,7 @@ function resetStores(): void {
 /**
  * Seed an editable, ready-to-act session directly (no async open()). loadPhase is
  * left NON-"ready" so the debounced-autosave subscription stays dormant except in
- * the tests that explicitly opt into it — keeping every other test deterministic.
+ * the tests that explicitly opt into it - keeping every other test deterministic.
  */
 function seedEditable(form: MobileAuditFormState): void {
     useAuditSessionStore.setState({
@@ -245,7 +245,7 @@ afterEach(async () => {
     vi.useRealTimers();
 });
 
-describe("commit paths — local blocks, remote mirror never does", () => {
+describe("commit paths - local blocks, remote mirror never does", () => {
     it("commitAndQueueRemote resolves WITHOUT awaiting a hanging remote draft PUT", async () => {
         const session = makeSession();
         useAuthStore.setState({ session });
@@ -318,7 +318,7 @@ describe("commit paths — local blocks, remote mirror never does", () => {
     });
 });
 
-describe("dirty tracking — no-op taps do not create work", () => {
+describe("dirty tracking - no-op taps do not create work", () => {
     it("a no-op answer tap leaves the draft clean; a real edit marks it dirty", async () => {
         seedEditable(makeFormState("place-1", { season: "summer" }));
         const before = useAuditSessionStore.getState().draft;
@@ -344,7 +344,7 @@ describe("dirty tracking — no-op taps do not create work", () => {
 
         // Seed with loadPhase transitioning to "ready" WITHOUT a draft-identity
         // change on the ready transition, so the subscription only schedules from
-        // the burst edits below — not from setup.
+        // the burst edits below - not from setup.
         useAuditSessionStore.setState({
             placeId: "place-1",
             draft: makeFormState("place-1"),
@@ -373,7 +373,7 @@ describe("dirty tracking — no-op taps do not create work", () => {
     });
 });
 
-describe("read-only (submitted) session — inert", () => {
+describe("read-only (submitted) session - inert", () => {
     it("performs no local write, no enqueue, and no network on any action", async () => {
         useAuthStore.setState({ session: makeSession() });
         useYeeMobileStore.setState({ isOnline: true });

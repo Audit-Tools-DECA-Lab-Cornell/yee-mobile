@@ -192,7 +192,7 @@ export function deriveSubmitStatus(input: {
 /**
  * The step to open so an auditor lands on the earliest unanswered question.
  *
- * `null` when nothing was recorded — an item parked by the backend's 422 names
+ * `null` when nothing was recorded - an item parked by the backend's 422 names
  * authoring ids the audit UI cannot navigate to, and a queue item serialized
  * before this existed has no keys at all. The caller falls back to the ordinary
  * "edit audit" path, which finds the first incomplete step on its own.

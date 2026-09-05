@@ -2,7 +2,7 @@
  * Drain-time gate for queued submissions.
  *
  * The dangerous cases are the two that look identical from a distance: a legacy
- * payload with NO stamp (must still go — the backend resolves it) and a stamped
+ * payload with NO stamp (must still go - the backend resolves it) and a stamped
  * payload whose instrument is missing (must never go, and must never silently
  * borrow the active version).
  */

@@ -1,7 +1,7 @@
 /**
  * Lazily-constructed PostHog client singleton.
  *
- * Native import — only pulled in by `AnalyticsProvider` (real app), never by
+ * Native import - only pulled in by `AnalyticsProvider` (real app), never by
  * stores or unit tests. Returns `null` when analytics is disabled so callers can
  * cheaply skip all work.
  */

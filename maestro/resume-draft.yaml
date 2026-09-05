@@ -6,7 +6,7 @@
 appId: com.andisha2004.audit-tools-yee-mobile
 ---
 - runFlow: assigned-places.yaml
-# Enter the audit flow — new or resume, whichever the seeded place offers.
+# Enter the audit flow - new or resume, whichever the seeded place offers.
 # (Maestro full-matches, so .* wrappers are required around the button labels.)
 - runFlow:
       when:
@@ -21,7 +21,7 @@ appId: com.andisha2004.audit-tools-yee-mobile
 - extendedWaitUntil:
       visible: "(?i).*(assigned place|setup and weighting|next|section).*"
       timeout: 30000
-# Kill and relaunch — the draft must be restored from MMKV (no clearState).
+# Kill and relaunch - the draft must be restored from MMKV (no clearState).
 - stopApp
 - launchApp
 - extendedWaitUntil:

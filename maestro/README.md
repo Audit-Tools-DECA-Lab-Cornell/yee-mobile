@@ -1,4 +1,4 @@
-# YEE mobile — Maestro E2E flows
+# YEE mobile - Maestro E2E flows
 
 Native auditor-path E2E flows for the **YEE** Expo app (`yee-mobile`). They assume a
 development build is installed on a simulator/emulator that points at the same backend
@@ -44,7 +44,7 @@ TEST_DATABASE_URL_YEE=... yee/testing/scripts/run-mobile-e2e.sh
 ```
 
 `run-mobile-e2e.sh` validates contracts, seeds the test DB, and invokes `maestro test maestro`.
-It does **not** boot a simulator or install a dev build — that must already be running
+It does **not** boot a simulator or install a dev build - that must already be running
 (native Maestro requires a prepared device; see CI note below).
 
 ## Fast local iteration (and why the app used to restart every step)
@@ -52,7 +52,7 @@ It does **not** boot a simulator or install a dev build — that must already be
 Two things made early runs slow/flaky on a **dev build**:
 
 1. `login.yaml` used `launchApp: { clearState: true }`, which wiped the session (and MMKV
-   drafts) on every launch — forcing a full re-login each time.
+   drafts) on every launch - forcing a full re-login each time.
 2. Every flow runs `runFlow: login.yaml`, and `maestro test maestro` runs each file as an
    independent flow (`launchApp` stops + restarts the app). On a dev build, each restart
    reconnects to the Metro dev server and re-downloads the JS bundle (the "waiting to
@@ -61,9 +61,9 @@ Two things made early runs slow/flaky on a **dev build**:
 Fixes applied:
 
 - **`login.yaml` is now idempotent and does NOT `clearState`.** It restores the persisted
-  SecureStore session and only logs in when the login screen is actually shown — so
+  SecureStore session and only logs in when the login screen is actually shown - so
   repeated flows no longer re-login (and `resume-draft.yaml` now keeps its draft).
-- **`smoke.yaml` runs the whole smoke set in ONE session** — launch + login once, then tab
+- **`smoke.yaml` runs the whole smoke set in ONE session** - launch + login once, then tab
   through dashboard/places/reports without relaunching. Use it for local iteration:
 
     ```bash
@@ -96,7 +96,7 @@ answer in the seeded Eastside Community Green draft. Run it directly when valida
 question UI. It normalizes the initial state to No, verifies Yes reveals the follow-up, returns
 the answer to No, and never enters review or submits data.
 
-**Scaffolds (kept out of smoke — see the file headers):**
+**Scaffolds (kept out of smoke - see the file headers):**
 
 | Flow                         | Why it is a scaffold                                                      |
 | ---------------------------- | ------------------------------------------------------------------------- |

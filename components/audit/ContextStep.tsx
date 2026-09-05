@@ -17,7 +17,7 @@ import {
 } from "./primitives";
 
 /**
- * Step 1 — visit context. Every question prompt and option label now comes from
+ * Step 1 - visit context. Every question prompt and option label now comes from
  * the cached instrument (backend-supplied); the client only owns the binding of
  * each question id to its draft slice. Each control reads and writes exactly its
  * own slice, so a change to one answer never rebuilds the others.

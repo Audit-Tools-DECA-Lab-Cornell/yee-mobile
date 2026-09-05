@@ -42,7 +42,7 @@ import { NoticeCard } from "components/audit/primitives";
 
 /**
  * Persistent audit shell. Mounts once per audit, loads the instrument + draft
- * once, and swaps step content IN PLACE via state — no route change, no remount,
+ * once, and swaps step content IN PLACE via state - no route change, no remount,
  * no re-fetch, no full-screen spinner. This screen deliberately does NOT
  * subscribe to the draft: it reads it imperatively in handlers, so typing and
  * answering never re-render the shell.
@@ -63,7 +63,7 @@ export default function AuditShellScreen() {
     const scrollRef = useRef<KeyboardAwareScrollViewRef>(null);
     // Native node of the scrolled content + a registry of question-row nodes, so
     // "Jump to next unanswered" can measure a row against the content and scroll
-    // to it — without the shell subscribing to the draft.
+    // to it - without the shell subscribing to the draft.
     const contentWrapperRef = useRef<View>(null);
     const rowNodesRef = useRef<Map<string, View>>(new Map());
     const [footerHeight, setFooterHeight] = useState(0);
@@ -123,7 +123,7 @@ export default function AuditShellScreen() {
     }, [editable, commitAndQueueRemote]);
 
     // On reconnect while editing, enqueue the current draft so the freshest content
-    // drains — not just whatever stale queue items already existed. The root layout
+    // drains - not just whatever stale queue items already existed. The root layout
     // still drives the actual queue drain; single-flight dedupes the two triggers.
     const wasOnlineRef = useRef(isOnline);
     useEffect(() => {
@@ -161,7 +161,7 @@ export default function AuditShellScreen() {
                 }
                 // Measure both nodes in window coordinates and scroll by their
                 // delta. On the New Architecture (Fabric) `measureLayout` rejects a
-                // numeric findNodeHandle — it warns "must be called with a ref to a
+                // numeric findNodeHandle - it warns "must be called with a ref to a
                 // native component" and no-ops. Measuring in-window and subtracting
                 // the content-wrapper origin yields the same row offset within the
                 // scrolled content and works on both architectures with no handle.

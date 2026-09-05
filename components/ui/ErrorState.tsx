@@ -6,11 +6,11 @@ import { Card } from "./Card";
 import { ScaledParagraph as Paragraph, ScaledText as Text } from "./ScaledText";
 
 export interface ErrorStateProps {
-    /** Short, human sentence — what failed, in the user's terms. */
+    /** Short, human sentence - what failed, in the user's terms. */
     readonly title?: string;
     /** A likely cause plus reassurance and a next step. */
     readonly description?: string;
-    /** The caught error — its message is shown only in development builds. */
+    /** The caught error - its message is shown only in development builds. */
     readonly error?: Error | null;
     /** Retry handler; renders a "Try again" button when provided. */
     readonly onRetry?: () => void;
@@ -23,7 +23,7 @@ export interface ErrorStateProps {
 /**
  * The humane, branded error surface for recoverable failures (failed sync or
  * load), mirroring the web's `ErrorState`. Never shows a raw stack trace to
- * end users — the technical message is revealed only in development builds.
+ * end users - the technical message is revealed only in development builds.
  *
  * @param props Error-state props including `title`, `description`, `onRetry`.
  * @returns A danger-tinted error card with an alert status region.

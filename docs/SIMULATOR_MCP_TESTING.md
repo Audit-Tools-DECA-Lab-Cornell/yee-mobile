@@ -3,7 +3,7 @@
 How to run and interactively drive this app on an **iOS Simulator** or **Android
 emulator** through the two device-automation MCP servers wired into the
 workspace. This is what lets an assistant (or an automated flow) install, launch,
-screenshot, and tap through the app for smoke tests and visual checks — without a
+screenshot, and tap through the app for smoke tests and visual checks - without a
 human touching the device.
 
 ---
@@ -21,9 +21,9 @@ Both are configured in `~/.claude.json` under the `StudentJob.nosync` project
 - **`ios-simulator`** tools: `open_simulator`, `get_booted_sim_id`,
   `install_app`, `launch_app`, `screenshot`, `record_video`, `ui_tap`,
   `ui_type`, `ui_swipe`, `ui_describe_all`, `ui_find_element`, `ui_view`.
-  Coordinates for the `ui_*` tools are in **points** (not screenshot pixels) —
+  Coordinates for the `ui_*` tools are in **points** (not screenshot pixels) -
   read an element's `frame` with `ui_find_element` and tap its center.
-- **`mobile`** (mobile-mcp, v0.0.62 — 23 tools): `mobile_list_available_devices`,
+- **`mobile`** (mobile-mcp, v0.0.62 - 23 tools): `mobile_list_available_devices`,
   `mobile_list_apps`, `mobile_launch_app`, `mobile_terminate_app`,
   `mobile_install_app`, `mobile_take_screenshot`, `mobile_save_screenshot`,
   `mobile_list_elements_on_screen`, `mobile_click_on_screen_at_coordinates`,
@@ -73,7 +73,7 @@ labor is therefore fixed:
 > **You (in a normal terminal) build the app and run Metro.
 > The MCP drives the device.**
 
-For a Debug **dev-client** build, the native binary is only a shell — all the JS
+For a Debug **dev-client** build, the native binary is only a shell - all the JS
 (screens, stores, components) is served live by Metro. So an existing installed
 `.app`/`.apk` + a fresh Metro renders the **current** source without rebuilding.
 
@@ -130,7 +130,7 @@ AVDs on this machine include `Pixel_9`, `Pixel_9_Pro`, `Pixel_9_Pro_Fold`,
    dev-client connect).
 5. **Launch:** `mobile_launch_app { device, packageName: "com.andisha2004.audittoolsyeemobile" }`.
 6. Drive it: `mobile_take_screenshot`, `mobile_list_elements_on_screen` (returns
-   text/accessibility labels + coordinates — prefer this over raw pixel guessing),
+   text/accessibility labels + coordinates - prefer this over raw pixel guessing),
    `mobile_click_on_screen_at_coordinates`, `mobile_type_keys`,
    `mobile_swipe_on_screen`, `mobile_press_button` (e.g. `BACK`, `HOME`).
 
@@ -148,4 +148,4 @@ AVDs on this machine include `Pixel_9`, `Pixel_9_Pro`, `Pixel_9_Pro_Fold`,
 
 ## Related
 
-- `../README.md` — build, scripts, and quality gates
+- `../README.md` - build, scripts, and quality gates

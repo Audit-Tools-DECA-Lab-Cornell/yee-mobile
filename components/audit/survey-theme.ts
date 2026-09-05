@@ -45,13 +45,13 @@ export interface SurveyPalette {
     readonly questionCard: string;
     readonly questionCardBorder: string;
     /**
-     * Left rail on a question card — the spine that binds a prompt to its
+     * Left rail on a question card - the spine that binds a prompt to its
      * answers, mirroring the provision rail in the Playspace app. Solid once the
      * question is complete.
      */
     readonly rail: string;
     /**
-     * Rail tone while the question is still incomplete — the neutral border tone,
+     * Rail tone while the question is still incomplete - the neutral border tone,
      * so pending/done reads as empty-track vs filled rather than as two strengths
      * of the same hue (which, at these tints, is a distinction of about 1.5:1).
      * Redundant with the radio state inside the card, so color is never the sole
@@ -64,7 +64,7 @@ export interface SurveyPalette {
      */
     readonly option: string;
     readonly optionBorder: string;
-    /** Selected option surface — a tint, not a solid fill (web parity). */
+    /** Selected option surface - a tint, not a solid fill (web parity). */
     readonly selected: string;
     readonly selectedBorder: string;
     /** Label color on a selected option. */
@@ -81,7 +81,7 @@ export interface SurveyPalette {
      * chart mark, which is below the 4.5:1 a button label needs.
      */
     readonly accent: string;
-    /** Chart/progress fill — a bar nothing is written on, so `fill` is right here. */
+    /** Chart/progress fill - a bar nothing is written on, so `fill` is right here. */
     readonly accentFill: string;
     readonly accentText: string;
     readonly mutedAccent: string;
@@ -91,7 +91,7 @@ export interface SurveyPalette {
      * Rail on the nested follow-up. It has no fill to pair with: every tint
      * available here lands within 1.1:1 of the card it would sit on, and a tinted
      * follow-up panel also swallows the selected chip inside it, which is the
-     * same hue. So the follow-up is a rail plus an indent, and this is it — which
+     * same hue. So the follow-up is a rail plus an indent, and this is it - which
      * is why the alpha is tuned to clear 3:1 (WCAG 1.4.11) on the question card
      * in both themes for every domain, rather than left at a decorative weight.
      */
@@ -153,7 +153,7 @@ export function getSurveyPalette(colors: ColorTokens, domain?: DomainPalette): S
         inner: colors.input,
         innerBorder: colors.border,
         // Non-domain sections use the plain `surface` card, so the question steps
-        // the other way — down to the muted surface — to keep the same alternation.
+        // the other way - down to the muted surface - to keep the same alternation.
         questionCard: colors.surfaceMuted,
         questionCardBorder: colors.border,
         rail: colors.primary,

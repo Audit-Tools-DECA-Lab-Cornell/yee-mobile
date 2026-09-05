@@ -9,7 +9,7 @@
  *
  * So the moment auth completes, the drain trigger fires against a store whose
  * `syncQueue` is still the empty default. `drainQueue` sees nothing to send and
- * returns successfully — and because nothing else re-runs it (no interval, and
+ * returns successfully - and because nothing else re-runs it (no interval, and
  * the queue is only re-driven on a connectivity or auth change), a submission
  * created offline stays at "Queued for upload" for the whole session, and for
  * every session after it, since the race repeats on each launch.
@@ -20,12 +20,12 @@
  * could send one auditor's queued work under another's session.
  *
  * Two properties matter in how this is expressed. It is a gate, not an extra
- * trigger — an empty-looking queue must never be read as "nothing to send". And
+ * trigger - an empty-looking queue must never be read as "nothing to send". And
  * nothing it gates on may be written by the work it permits: gating on the
  * store's `status` caused a request storm, because `refreshRemoteState` moves
  * `status` "ready" -> "loading" -> "ready" and the drain effect called it.
  *
- * Pure and free of React Native imports so the rule is unit-tested in Node —
+ * Pure and free of React Native imports so the rule is unit-tested in Node -
  * the effect that consumes it lives in `app/_layout.tsx`, which cannot be
  * rendered in this environment.
  */

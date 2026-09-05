@@ -27,7 +27,7 @@ function resolvePill(
                 icon: "spinner",
             };
         // Durably on-device (source of truth). The positive, reassuring state even
-        // when the cloud mirror hasn't run — the auditor's work is safe.
+        // when the cloud mirror hasn't run - the auditor's work is safe.
         case "saved_local":
             return {
                 label: "Saved locally",
@@ -63,7 +63,7 @@ function resolvePill(
                 text: colors.warningText,
                 icon: "cloud",
             };
-        // Saved on-device; cloud mirror failed. Not alarming — local copy intact.
+        // Saved on-device; cloud mirror failed. Not alarming - local copy intact.
         case "sync_issue":
             return {
                 label: "Sync issue",

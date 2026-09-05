@@ -44,8 +44,8 @@ const PHONE_LAYOUT_TOKENS = {
     heroCardMinHeight: 0,
 } as const;
 
-// Narrow-tablet floor (600dp). This band is where the primary device — the
-// Samsung Tab S5e at ~800dp — and iPad 11" (834dp) live, so it is calibrated for
+// Narrow-tablet floor (600dp). This band is where the primary device - the
+// Samsung Tab S5e at ~800dp - and iPad 11" (834dp) live, so it is calibrated for
 // real ~800dp use rather than as a waypoint to the 960 wide-tablet MAX: padding
 // and section spacing are kept denser here so the 1.3x type does not read airy.
 const TABLET_LAYOUT_TOKENS_MIN = {

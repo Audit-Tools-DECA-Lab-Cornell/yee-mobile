@@ -6,8 +6,8 @@
  * lib/yee-submit-guard.ts, so these tests now import and exercise the REAL
  * function (no drift possible). They also cover the new pure helpers that drive
  * the persisted in-flight guard and the user-facing status mapping:
- *   - findPendingSubmission — locate a persisted submission queue item for a place
- *   - deriveSubmitStatus    — map queue state to a user-facing SubmitUiStatus
+ *   - findPendingSubmission - locate a persisted submission queue item for a place
+ *   - deriveSubmitStatus    - map queue state to a user-facing SubmitUiStatus
  */
 
 import { describe, expect, it } from "vitest";
@@ -133,9 +133,9 @@ function makeSubmissionItem(
 }
 
 // ===========================================================================
-// findFirstIncompleteStep — Step 1 (Context)
+// findFirstIncompleteStep - Step 1 (Context)
 // ===========================================================================
-describe("findFirstIncompleteStep — Step 1 (Context)", () => {
+describe("findFirstIncompleteStep - Step 1 (Context)", () => {
     it("flags step 1 when visitFrequency is empty", () => {
         expect(findFirstIncompleteStep(makeDraft({ visitFrequency: "" }), null)).toEqual({
             step: 1,
@@ -173,9 +173,9 @@ describe("findFirstIncompleteStep — Step 1 (Context)", () => {
 });
 
 // ===========================================================================
-// findFirstIncompleteStep — Step 2 (Weighting)
+// findFirstIncompleteStep - Step 2 (Weighting)
 // ===========================================================================
-describe("findFirstIncompleteStep — Step 2 (Weighting)", () => {
+describe("findFirstIncompleteStep - Step 2 (Weighting)", () => {
     it("flags step 2 when one domain weight is empty", () => {
         const weights: Record<MobileYeeDomainKey, string> = { ...FULL_WEIGHTS, access: "" };
         expect(findFirstIncompleteStep(makeDraft({ weights }), null)).toEqual({
@@ -190,9 +190,9 @@ describe("findFirstIncompleteStep — Step 2 (Weighting)", () => {
 });
 
 // ===========================================================================
-// findFirstIncompleteStep — Steps 3–8 (Domain sections)
+// findFirstIncompleteStep - Steps 3–8 (Domain sections)
 // ===========================================================================
-describe("findFirstIncompleteStep — Steps 3–8 (Domain sections)", () => {
+describe("findFirstIncompleteStep - Steps 3–8 (Domain sections)", () => {
     it("flags step 3 when the Access section has unanswered questions", () => {
         const instrument = makeInstrument([
             makeSection(3, "Access", [makeQuestion("item-1", "ch-1")]),
@@ -288,16 +288,16 @@ describe("findFirstIncompleteStep — Steps 3–8 (Domain sections)", () => {
 });
 
 // ===========================================================================
-// findFirstIncompleteStep — null instrument
+// findFirstIncompleteStep - null instrument
 // ===========================================================================
-describe("findFirstIncompleteStep — null instrument", () => {
+describe("findFirstIncompleteStep - null instrument", () => {
     it("skips domain-section checks when instrument is null", () => {
         expect(findFirstIncompleteStep(makeDraft(), null)).toBeNull();
     });
 });
 
 // ===========================================================================
-// getCompletedSteps — per-step progress for the tablet step rail
+// getCompletedSteps - per-step progress for the tablet step rail
 // ===========================================================================
 describe("getCompletedSteps", () => {
     it("marks steps 1 and 2 complete for a full context + weighting draft", () => {
@@ -351,7 +351,7 @@ describe("getCompletedSteps", () => {
 });
 
 // ===========================================================================
-// findPendingSubmission — persisted in-flight guard
+// findPendingSubmission - persisted in-flight guard
 // ===========================================================================
 describe("findPendingSubmission", () => {
     it("returns null when the queue is empty", () => {
@@ -387,7 +387,7 @@ describe("findPendingSubmission", () => {
 });
 
 // ===========================================================================
-// deriveSubmitStatus — user-facing state mapping
+// deriveSubmitStatus - user-facing state mapping
 // ===========================================================================
 describe("deriveSubmitStatus", () => {
     it("is idle when nothing is queued or submitted", () => {
@@ -456,7 +456,7 @@ describe("deriveSubmitStatus", () => {
 // Recovery from a submission parked for missing answers
 // ---------------------------------------------------------------------------
 
-describe("deriveSubmitStatus — incomplete answers", () => {
+describe("deriveSubmitStatus - incomplete answers", () => {
     it("is answers_incomplete, not queued, when the item was parked for missing answers", () => {
         // "queued" would promise an upload that can never happen: the payload as
         // sent is missing required answers, so it is never retried.

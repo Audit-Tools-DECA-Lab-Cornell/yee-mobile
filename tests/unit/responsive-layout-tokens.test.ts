@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createResponsiveLayoutTokens } from "lib/responsive-layout-tokens";
 
-// Pure token derivation — no react-native dependency, so it needs no window mock.
-describe("createResponsiveLayoutTokens — Samsung Tab S5e narrow-tablet band (~800dp)", () => {
+// Pure token derivation - no react-native dependency, so it needs no window mock.
+describe("createResponsiveLayoutTokens - Samsung Tab S5e narrow-tablet band (~800dp)", () => {
     const tab = createResponsiveLayoutTokens(800);
 
     it("classifies 800dp as a narrow tablet", () => {
@@ -31,7 +31,7 @@ describe("createResponsiveLayoutTokens — Samsung Tab S5e narrow-tablet band (~
     });
 });
 
-describe("createResponsiveLayoutTokens — phone tier", () => {
+describe("createResponsiveLayoutTokens - phone tier", () => {
     const phone = createResponsiveLayoutTokens(390);
 
     it("uses accessible option targets while preserving other phone sizing", () => {
@@ -45,7 +45,7 @@ describe("createResponsiveLayoutTokens — phone tier", () => {
     });
 });
 
-describe('createResponsiveLayoutTokens — iPad Pro 13" wide tablet (1024dp) not regressed', () => {
+describe('createResponsiveLayoutTokens - iPad Pro 13" wide tablet (1024dp) not regressed', () => {
     const wide = createResponsiveLayoutTokens(1024);
 
     it("keeps the 960 MAX spacing and control heights on wide tablets", () => {

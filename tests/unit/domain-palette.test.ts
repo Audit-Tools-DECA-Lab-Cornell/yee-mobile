@@ -1,5 +1,5 @@
 /**
- * Guard tests for the domain colour palette — the mobile half.
+ * Guard tests for the domain colour palette - the mobile half.
  *
  * Mirrors `yee-frontend/tests/unit/domain-palette.spec.ts`. Between them they
  * make "one palette, two apps" an enforced property:
@@ -92,7 +92,7 @@ function linearOf(hex: string, kind?: keyof typeof CVD_MATRICES) {
     ] as const;
 }
 
-/** Euclidean distance in OKLab ×100 — the separation metric the palette is tuned to. */
+/** Euclidean distance in OKLab ×100 - the separation metric the palette is tuned to. */
 function deltaE(a: string, b: string, kind?: keyof typeof CVD_MATRICES): number {
     const [l1, a1, b1] = oklabFromLinear(linearOf(a, kind));
     const [l2, a2, b2] = oklabFromLinear(linearOf(b, kind));
@@ -102,7 +102,7 @@ function deltaE(a: string, b: string, kind?: keyof typeof CVD_MATRICES): number 
 /**
  * Stable, formatting-independent serialization of the spec: keys sorted, no
  * whitespace. The two repos format JSON differently, so the guard has to compare
- * CONTENT — a raw byte hash would fail on a formatter run while the colours were
+ * CONTENT - a raw byte hash would fail on a formatter run while the colours were
  * still identical.
  */
 function canonical(value: unknown): unknown {
@@ -119,7 +119,7 @@ function canonical(value: unknown): unknown {
 
 /* ── tests ────────────────────────────────────────────────────────────────── */
 
-describe.each(MODES)("domain palette — %s theme", (mode) => {
+describe.each(MODES)("domain palette - %s theme", (mode) => {
     const surfaces = DOMAIN_SURFACES[mode];
 
     it("keeps text and strong readable on the card, the app bg and their own tint", () => {
@@ -172,7 +172,7 @@ describe.each(MODES)("domain palette — %s theme", (mode) => {
     });
 });
 
-describe("domain palette — cross-repo", () => {
+describe("domain palette - cross-repo", () => {
     /**
      * What this catches: the spec being edited without the checksum being updated.
      * What it cannot catch on its own: this test reads only this repo's spec and

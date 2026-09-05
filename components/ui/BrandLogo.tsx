@@ -14,7 +14,7 @@ export interface BrandLogoProps {
 
 /**
  * The YEE logo mark, theme-aware (dark surfaces get the white mark). Mirrors
- * the web's `BrandLogo variant="mark"` — the source PNGs are the same brand
+ * the web's `BrandLogo variant="mark"` - the source PNGs are the same brand
  * assets as `yee-frontend/public/brand/logo-mark*.png`.
  */
 export function BrandLogo({ size = 64, accessibilityLabel = "YEE logo" }: BrandLogoProps) {

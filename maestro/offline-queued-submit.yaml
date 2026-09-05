@@ -1,4 +1,4 @@
-# SCAFFOLD — offline submit → queued-sync verification.
+# SCAFFOLD - offline submit → queued-sync verification.
 #
 # MANUAL PRECONDITION (cannot be automated in Maestro): enable airplane mode on
 # the device/simulator BEFORE submitting a completed audit, so the submit lands

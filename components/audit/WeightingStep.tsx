@@ -13,7 +13,7 @@ import {
 } from "./primitives";
 
 /**
- * Step 2 — youth weighting. The step description, the per-domain prompts, and the
+ * Step 2 - youth weighting. The step description, the per-domain prompts, and the
  * importance scale are all backend-supplied via the cached instrument. Each
  * domain importance selection is its own self-subscribing row, and the progress
  * meter subscribes to a derived count, so choosing one weight re-renders only
@@ -56,7 +56,7 @@ const WeightRow = memo(function WeightRow({
         (next: string) => setWeight(domain.key, next),
         [setWeight, domain.key],
     );
-    // The step itself is not a domain, but each row IS one — so the row carries
+    // The step itself is not a domain, but each row IS one - so the row carries
     // that domain's colours, the same ones it will wear on its own audit step.
     return (
         <SurveyDomainContext.Provider value={asMobileYeeDomainKey(domain.key)}>

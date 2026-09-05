@@ -41,7 +41,7 @@ function randomUuidV4(): string {
  * Build a submission idempotency key.
  *
  * Generated ONCE when a submission is first enqueued and persisted with the
- * queue item — NEVER regenerated on retry. Format: `yee-${placeId}-${uuid}`,
+ * queue item - NEVER regenerated on retry. Format: `yee-${placeId}-${uuid}`,
  * truncated to the backend's 64-char maximum.
  *
  * @param placeId Place the submission targets.

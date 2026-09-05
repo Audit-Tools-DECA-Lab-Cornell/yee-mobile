@@ -17,8 +17,8 @@ export class YeeMobileApiError extends Error {
      * The parsed JSON error body, when the response had one.
      *
      * `details` flattens the body to a human string, which loses any structure
-     * the backend sent. A rejection the auditor can act on — a submission
-     * missing required answers names those questions — needs the object, so the
+     * the backend sent. A rejection the auditor can act on - a submission
+     * missing required answers names those questions - needs the object, so the
      * raw payload rides along and typed readers narrow it themselves.
      */
     readonly body: unknown;
@@ -49,12 +49,12 @@ export function getApiBaseUrl(): string {
 /**
  * Per-request timeout tiers (ms). A "false online" device (connected to Wi-Fi
  * with no real internet) otherwise leaves a `fetch` hanging indefinitely, which
- * — before this guard — could block a blocking draft PUT and stall navigation.
+ * - before this guard - could block a blocking draft PUT and stall navigation.
  *
  * - {@link DEFAULT_REQUEST_TIMEOUT_MS}: normal reads/writes (places, audits, state).
  * - {@link DRAFT_MIRROR_TIMEOUT_MS}: OPTIONAL best-effort work (draft mirror,
- *   score preview) — kept short so a stalled mirror gives up fast and requeues.
- * - {@link SUBMIT_TIMEOUT_MS}: the one required, user-critical write — given the
+ *   score preview) - kept short so a stalled mirror gives up fast and requeues.
+ * - {@link SUBMIT_TIMEOUT_MS}: the one required, user-critical write - given the
  *   longest budget so a slow-but-alive backend can still land the submission.
  *
  * A timeout/abort is surfaced as {@link YeeMobileApiError} status `0`, so the
@@ -146,7 +146,7 @@ export async function saveAuditDraft(
         instrument_version?: string;
     },
 ): Promise<YeeAuditStateResponse> {
-    // Best-effort remote mirror — short timeout so a stalled PUT gives up fast
+    // Best-effort remote mirror - short timeout so a stalled PUT gives up fast
     // and stays queued rather than hanging the background drain.
     return sendAuthedJson<YeeAuditStateResponse>(
         `/yee/places/${placeId}/draft`,
@@ -167,7 +167,7 @@ export async function previewScore(
         instrument_version?: string;
     },
 ): Promise<YeeAuditStateResponse["score"]> {
-    // Score preview is optional UI sugar — same short budget as the draft mirror.
+    // Score preview is optional UI sugar - same short budget as the draft mirror.
     return sendAuthedJson<YeeAuditStateResponse["score"]>(
         "/yee/audits/score",
         session,
@@ -204,7 +204,7 @@ export async function submitAudit(
     if (typeof payload.idempotency_key === "string" && payload.idempotency_key.length > 0) {
         body.idempotency_key = payload.idempotency_key;
     }
-    // The one required write — give it the longest budget so a slow-but-alive
+    // The one required write - give it the longest budget so a slow-but-alive
     // backend can still land the submission before we classify it as a timeout.
     return sendAuthedJson<YeeSubmissionResponse>("/yee/audits", session, "POST", body, {
         timeoutMs: SUBMIT_TIMEOUT_MS,

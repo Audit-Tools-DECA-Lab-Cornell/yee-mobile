@@ -4,7 +4,7 @@ import { useDesignSystem } from "lib/design-system";
 import type { MobileYeeDomainKey } from "lib/yee-mobile-audit-config";
 
 /**
- * The two shapes a domain takes outside the audit wizard — the report screen
+ * The two shapes a domain takes outside the audit wizard - the report screen
  * above all, where there is no `SurveyDomainContext` to read from because the
  * screen shows all six domains at once.
  *

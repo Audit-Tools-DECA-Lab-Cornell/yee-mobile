@@ -35,7 +35,7 @@ export interface TwoPaneLayoutProps {
  * phones it renders a plain vertical stack (`main` then `rail`), or `main`
  * alone when `railVisibility` is `tablet-only`.
  *
- * The component adds no horizontal padding or width constraints of its own —
+ * The component adds no horizontal padding or width constraints of its own -
  * it must sit inside the screen's existing centered content track (the
  * container produced by `getResponsiveContentContainerStyle`).
  *

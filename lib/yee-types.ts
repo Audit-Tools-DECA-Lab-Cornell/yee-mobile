@@ -153,15 +153,15 @@ export const YEE_SYNC_MAX_ATTEMPTS = 8;
  *
  * `null` means "no failure yet" (freshly enqueued or succeeded). The non-null
  * values mirror the buckets produced by the pure error classifier:
- * - `network`  — transport/timeout/rate-limit (retryable; backed off).
- * - `auth`     — 401 token expiry (PAUSED; does not burn an attempt).
- * - `validation` — 400/404/409/422 the client cannot interpret (terminal).
- * - `incomplete` — a 422 naming logical questions that are still unanswered.
- * - `server`   — 5xx (retryable; backed off).
- * - `terminal` — attempts exhausted or an otherwise non-recoverable failure.
+ * - `network`  - transport/timeout/rate-limit (retryable; backed off).
+ * - `auth`     - 401 token expiry (PAUSED; does not burn an attempt).
+ * - `validation` - 400/404/409/422 the client cannot interpret (terminal).
+ * - `incomplete` - a 422 naming logical questions that are still unanswered.
+ * - `server`   - 5xx (retryable; backed off).
+ * - `terminal` - attempts exhausted or an otherwise non-recoverable failure.
  *
  * `incomplete` is deliberately separate from `validation`. Both are terminal for
- * the payload as sent, so neither may be re-POSTed — but only `incomplete` names
+ * the payload as sent, so neither may be re-POSTed - but only `incomplete` names
  * questions the auditor can answer to make the same submission succeed, so the
  * UI offers a correction instead of a dead "Retry upload".
  */
@@ -182,7 +182,7 @@ export interface YeeSyncQueueItem {
         /**
          * Stable idempotency key generated ONCE when a submission is first
          * enqueued (format: `yee-${placeId}-${uuid}`) and persisted with the
-         * item. NEVER regenerated on retry — it is the primary duplicate-submit
+         * item. NEVER regenerated on retry - it is the primary duplicate-submit
          * guard that the backend de-dupes on. Only meaningful for `submission`
          * items; absent on `draft_save`.
          */
@@ -214,7 +214,7 @@ export interface YeeSyncQueueItem {
      *
      * Optional because the queue is persisted: items serialized before this
      * field existed simply lack it, and {@link isTerminallyFailed} falls back to
-     * the failure reason for those. Never write `undefined` here — omit the key
+     * the failure reason for those. Never write `undefined` here - omit the key
      * or write a real boolean (`exactOptionalPropertyTypes` is on).
      */
     readonly isTerminal?: boolean;
@@ -224,7 +224,7 @@ export interface YeeSyncQueueItem {
      *
      * Persisted with the item so a correction survives an app restart: the
      * auditor may be offline and hours from the place when they reopen it.
-     * Optional for the same reason as {@link isTerminal} — items serialized
+     * Optional for the same reason as {@link isTerminal} - items serialized
      * before this existed simply lack it.
      */
     readonly incompleteQuestionIds?: {

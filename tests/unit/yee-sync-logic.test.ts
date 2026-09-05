@@ -99,7 +99,7 @@ describe("classifyError", () => {
         }
     });
 
-    it("has NO 403 branch — 403 is never emitted, defaults to terminal", () => {
+    it("has NO 403 branch - 403 is never emitted, defaults to terminal", () => {
         // Backend never returns 403; if it somehow did we must not retry forever.
         expect(classifyError(403)).toBe("terminal");
     });
@@ -120,7 +120,7 @@ describe("decideNextQueueState", () => {
             { classification: "auth", statusCode: 401, message: "expired" },
             nowIso,
         );
-        expect(next.attempts).toBe(2); // unchanged — no burn
+        expect(next.attempts).toBe(2); // unchanged - no burn
         expect(next.isAuthPaused).toBe(true);
         expect(next.isTerminal).toBe(false);
         expect(next.nextAttemptAtIso).toBeNull();

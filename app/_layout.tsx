@@ -201,7 +201,7 @@ function RootLayoutNav() {
 
     useEffect(() => {
         void initializeAuth();
-        // Readiness flags only — the pre-sign-in checklist needs them, and this
+        // Readiness flags only - the pre-sign-in checklist needs them, and this
         // cannot open the drain gate because it never sets a hydrated account.
         void probeOfflineReadiness();
     }, [initializeAuth, probeOfflineReadiness]);
@@ -211,7 +211,7 @@ function RootLayoutNav() {
     // longer a concurrent load for the drain trigger to miss. `hydrateOfflineState`
     // is idempotent per account, so this may fire freely.
     //
-    // Depends only on the account id — never on what it writes.
+    // Depends only on the account id - never on what it writes.
     useEffect(() => {
         if (sessionUserId === null) {
             clearOfflineSnapshot();
@@ -268,7 +268,7 @@ function RootLayoutNav() {
         void syncPendingQueue(session, { throttle: true });
     }, [canDrainQueue, session, syncPendingQueue]);
 
-    // Reopening the app is the other moment a stranded queue can move — and the
+    // Reopening the app is the other moment a stranded queue can move - and the
     // retry for a hydration that failed, since that leaves no account loaded and
     // nothing else would attempt it again this session.
     useEffect(() => {
@@ -278,8 +278,8 @@ function RootLayoutNav() {
             }
             // Read current state at FIRE time rather than capturing it in deps.
             // Depending on `hydratedAccountId` here would make this effect depend
-            // on state its own body writes — the shape of the production request
-            // storm — and would re-register the listener on every change.
+            // on state its own body writes - the shape of the production request
+            // storm - and would re-register the listener on every change.
             const currentSession = useAuthStore.getState().session;
             if (currentSession === null) {
                 return;

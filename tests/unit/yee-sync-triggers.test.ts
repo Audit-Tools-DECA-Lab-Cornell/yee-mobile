@@ -7,7 +7,7 @@
  *    indefinitely: the drain ran at startup against a store whose persisted
  *    queue had not loaded, saw the empty default, and was never re-run.
  * 2. REQUEST STORM. Gating that drain on the store's `status` made the app call
- *    the backend continuously — `refreshRemoteState` moves `status` through
+ *    the backend continuously - `refreshRemoteState` moves `status` through
  *    "loading", and the same effect called it, so the gate re-armed forever.
  * 3. CROSS-ACCOUNT SEND. MMKV is namespaced per account and re-pointed on
  *    sign-in, but this store was never reloaded, so after switching accounts a

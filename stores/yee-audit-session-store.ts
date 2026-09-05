@@ -31,14 +31,14 @@ export type AuditLoadPhase = "idle" | "loading" | "ready" | "error";
  * from the best-effort CLOUD mirror, so the auditor is never told "unsaved" when
  * their work is safely on-device.
  *
- * - `idle`        — nothing to report yet.
- * - `saving`      — a local write is genuinely in progress (used sparingly).
- * - `saved_local` — durably saved on this device; no cloud mirror confirmed.
- * - `syncing`     — cloud mirror in flight (device copy already safe).
- * - `synced`      — cloud mirror confirmed.
- * - `queued`      — cloud mirror queued for later (offline or transient retry).
- * - `sync_issue`  — cloud mirror failed; the on-device copy is still intact.
- * - `error`       — a LOCAL write failed (rare; the only genuinely risky state).
+ * - `idle`        - nothing to report yet.
+ * - `saving`      - a local write is genuinely in progress (used sparingly).
+ * - `saved_local` - durably saved on this device; no cloud mirror confirmed.
+ * - `syncing`     - cloud mirror in flight (device copy already safe).
+ * - `synced`      - cloud mirror confirmed.
+ * - `queued`      - cloud mirror queued for later (offline or transient retry).
+ * - `sync_issue`  - cloud mirror failed; the on-device copy is still intact.
+ * - `error`       - a LOCAL write failed (rare; the only genuinely risky state).
  */
 export type AuditSaveStatus =
     "idle" | "saving" | "saved_local" | "syncing" | "synced" | "queued" | "sync_issue" | "error";
@@ -60,7 +60,7 @@ export interface AuditSessionState {
     /**
      * True when the session was opened purely to VIEW a submitted audit. In this
      * mode every setter is a no-op, autosave never fires, and close() never
-     * flushes — the loaded answers are display-only and must never be written
+     * flushes - the loaded answers are display-only and must never be written
      * back as a draft.
      */
     readonly readOnly: boolean;
@@ -100,7 +100,7 @@ export interface AuditSessionState {
     /**
      * Durable LOCAL-only commit: writes the draft to MMKV (source of truth) with
      * no network and no queue work. Used by the debounced autosave. Navigation
-     * never calls this directly — it uses {@link commitAndQueueRemote}.
+     * never calls this directly - it uses {@link commitAndQueueRemote}.
      */
     commitLocalOnly: () => Promise<void>;
     /**
@@ -126,7 +126,7 @@ const INITIAL_STATE = {
 } satisfies Partial<AuditSessionState>;
 
 // ---------------------------------------------------------------------------
-// Dirty tracking — a monotonic revision counter replaces the old whole-draft
+// Dirty tracking - a monotonic revision counter replaces the old whole-draft
 // JSON.stringify() fingerprint. Every real in-memory edit bumps `draftRevision`
 // (O(1)); `lastPersistedRevision` records the revision last durably written to
 // MMKV. Autosave/commit/close compare the two numbers instead of serializing the
@@ -196,7 +196,7 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
      */
     function patchDraft(mutator: (draft: MobileAuditFormState) => MobileAuditFormState): void {
         set((state) => {
-            // View-only sessions never mutate the draft — belt-and-suspenders on
+            // View-only sessions never mutate the draft - belt-and-suspenders on
             // top of the disabled controls in the step screens.
             if (state.readOnly || state.draft === null) {
                 return {};
@@ -243,7 +243,7 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
                 instrument = null;
             }
 
-            // Abandoned mid-load (audit closed / switched) — drop this result.
+            // Abandoned mid-load (audit closed / switched) - drop this result.
             if (get().placeId !== placeId) {
                 return;
             }
@@ -362,7 +362,7 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
             cancelAutosave();
             // Flush any unpersisted local edits before tearing down so an exit that
             // skipped Save & Exit never loses work. Fire-and-forget against the
-            // captured draft — independent of the store reset below. View-only
+            // captured draft - independent of the store reset below. View-only
             // sessions never flush (nothing was edited).
             const { draft, hasLocalEdits, readOnly } = get();
             if (
@@ -484,7 +484,7 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
             if (readOnly || draft === null) {
                 return;
             }
-            // Skip when nothing changed since the last durable write — the whole
+            // Skip when nothing changed since the last durable write - the whole
             // point of the revision counter (no whole-draft re-serialization).
             if (draftRevision === lastPersistedRevision) {
                 return;
@@ -520,7 +520,7 @@ export const useAuditSessionStore = create<AuditSessionState>((set, get) => {
 });
 
 // ---------------------------------------------------------------------------
-// Persist pipeline (offline-first — DO NOT change the ordering)
+// Persist pipeline (offline-first - DO NOT change the ordering)
 //
 // Local MMKV draft is the SOURCE OF TRUTH. Every path commits it durably BEFORE
 // any network work, mirroring lib/yee-mobile-store's local_only / pending_upload
@@ -552,7 +552,7 @@ async function autosavePersistLocal(draft: MobileAuditFormState, revision: numbe
  * Navigation-time commit: durable LOCAL write first, then enqueue the best-effort
  * remote mirror and drain it in the BACKGROUND. The caller (Next / Home /
  * Save & Exit / review / background / reconnect) only ever awaits the local +
- * enqueue MMKV work — never the network PUT.
+ * enqueue MMKV work - never the network PUT.
  */
 async function commitAndQueueRemotePersist(
     draft: MobileAuditFormState,
@@ -573,7 +573,7 @@ async function commitAndQueueRemotePersist(
         localSyncState,
     );
 
-    // 1) Durable LOCAL commit FIRST — source of truth, before any network work.
+    // 1) Durable LOCAL commit FIRST - source of truth, before any network work.
     await mobileStore.saveDraftLocally({ ...stored, syncState: localSyncState });
     lastPersistedRevision = revision;
 
@@ -637,7 +637,7 @@ function reflectMirrorStatus(placeId: string, set: StoreSet): void {
 
 /**
  * Background, non-blocking refresh after the shell has already painted from
- * cache. Refreshes the instrument, then the remote audit state — but only merges
+ * cache. Refreshes the instrument, then the remote audit state - but only merges
  * the remote draft when the auditor has NOT started editing, so unsaved work is
  * never clobbered.
  */
@@ -717,7 +717,7 @@ async function backgroundRefresh(placeId: string, place: YeeAssignedPlace | null
 }
 
 // ---------------------------------------------------------------------------
-// Centralized autosave — one debounced subscription for the whole audit.
+// Centralized autosave - one debounced subscription for the whole audit.
 // ---------------------------------------------------------------------------
 
 useAuditSessionStore.subscribe((state, previousState) => {
@@ -738,7 +738,7 @@ useAuditSessionStore.subscribe((state, previousState) => {
         autosaveTimer = null;
         // Durable LOCAL-only write. commitLocalOnly is a no-op when nothing has
         // changed since the last persist (revision guard) and sets the pill to
-        // "saved_local" on success — no per-tap spinner flicker.
+        // "saved_local" on success - no per-tap spinner flicker.
         void useAuditSessionStore.getState().commitLocalOnly();
     }, 500);
 });

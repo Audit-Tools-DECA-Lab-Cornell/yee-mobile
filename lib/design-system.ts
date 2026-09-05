@@ -8,7 +8,7 @@ import { domainPalette, type DomainRoleColors } from "./domain-palette";
  * Cool near-white light palette used as the product's default appearance.
  * Derived from the web app's brand tokens (`yee-frontend/globals.css`); see
  * `review/DESIGN_SYNC.md` §1. Semantic accents (`success`/`warning`/…) are
- * fills only — text uses the AA-verified `*Text` tokens.
+ * fills only - text uses the AA-verified `*Text` tokens.
  */
 export const lightColors = {
     background: "#F5F7F9",
@@ -105,7 +105,7 @@ export const darkColors = {
 } as const satisfies ColorTokens;
 
 /**
- * Per-domain colour roles. The VALUES live in `lib/domain-palette.json` — the
+ * Per-domain colour roles. The VALUES live in `lib/domain-palette.json` - the
  * canonical spec, committed byte-for-byte in yee-frontend too, where the same
  * file generates the web's `--domain-*` CSS tokens and feeds its PDF/Excel
  * exports. Never hardcode a domain colour here or anywhere else; see
@@ -216,7 +216,7 @@ const radii = {
     xl: 20,
     /**
      * Shared corner radius for interactive controls (primary/secondary actions,
-     * inputs, nav pills, segmented controls) — the web's `--radius-control` (8px).
+     * inputs, nav pills, segmented controls) - the web's `--radius-control` (8px).
      * Kept deliberately tight so controls read as a polished, professional app
      * rather than fully-rounded "toy" pills. Tune this single knob to adjust
      * control roundness everywhere; survey option rows follow `md` (the web's

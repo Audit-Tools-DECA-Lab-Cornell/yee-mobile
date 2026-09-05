@@ -30,7 +30,7 @@ export type DomainPaletteKey = keyof typeof spec.light;
 
 export type DomainRoleColors = Readonly<Record<DomainRole, string>>;
 
-/** Canonical domain order — audit step order, and the order charts assign in. */
+/** Canonical domain order - audit step order, and the order charts assign in. */
 export const domainPaletteOrder = spec.order as readonly DomainPaletteKey[];
 
 /** Human-readable domain names, used by the guard tests. */
@@ -47,7 +47,7 @@ export const domainPalette: Readonly<
 };
 
 /**
- * SHA-256 of the spec's CONTENT — keys sorted, whitespace stripped — asserted in
+ * SHA-256 of the spec's CONTENT - keys sorted, whitespace stripped - asserted in
  * both repos. Content rather than raw bytes because the two repos format JSON
  * differently (tabs here, four spaces there), so a byte hash would break on a
  * formatter run while the colours were still identical. What must never drift

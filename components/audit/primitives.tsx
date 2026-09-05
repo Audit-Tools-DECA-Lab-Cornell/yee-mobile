@@ -128,7 +128,7 @@ export const SectionIntroCard = memo(function SectionIntroCard({
  * a prompt, its answer chips and any nested follow-up read as one unit, and it
  * marks where that unit ends. It is the same idea as the provision rail in the
  * Playspace app, but YEE stacks a tinted section card on a domain wash, so the
- * rail only reads once the question card itself steps to a neutral surface —
+ * rail only reads once the question card itself steps to a neutral surface -
  * see `SurveyPalette.questionCard`.
  */
 export const QuestionCard = memo(function QuestionCard({
@@ -557,7 +557,7 @@ export const CommentField = memo(function CommentField({
     emptyFallback?: string;
     /**
      * Commit debounce. Pass 0 for short identifier fields so every keystroke
-     * lands in the store immediately — a navigation-time save can then never
+     * lands in the store immediately - a navigation-time save can then never
      * race a pending debounce and drop the typed value. Long comment fields
      * keep the default to avoid per-keystroke draft rebuilds.
      */
@@ -623,7 +623,7 @@ export const CommentField = memo(function CommentField({
     }, []);
 
     // View-only: render the saved comment as locked text rather than a disabled
-    // input frame — clearer that nothing here is editable.
+    // input frame - clearer that nothing here is editable.
     if (disabled) {
         const trimmed = value.trim();
         return (
