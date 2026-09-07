@@ -69,7 +69,7 @@
         "expo-constants": "~55.0.17",
         "expo-dev-client": "~55.0.40",
         "expo-device": "~55.0.21",
-        "expo-file-system": "~55.0.26",
+        "expo-file-system": "~57.0.6",
         "expo-font": "~55.0.8",
         "expo-linking": "~55.0.17",
         "expo-localization": "~55.0.19",
