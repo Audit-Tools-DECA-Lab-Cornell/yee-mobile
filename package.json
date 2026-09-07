@@ -104,7 +104,7 @@
         "@babel/core": "7.29.7",
         "@babel/helper-create-class-features-plugin": "7.29.7",
         "@babel/plugin-transform-class-static-block": "7.29.7",
-        "@expo/metro-runtime": "~55.0.12",
+        "@expo/metro-runtime": "~57.0.15",
         "@playwright/test": "^1.61.1",
         "@tamagui/babel-plugin": "2.4.2",
         "@tamagui/cli": "2.4.2",
