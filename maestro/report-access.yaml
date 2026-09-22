@@ -1,8 +1,8 @@
 # Reports tab smoke. The Reports screen renders submitted-audit summaries (or a
 # documented empty state when none are synced). Source: app/(tabs)/reports.tsx.
-# Android appId: com.andisha2004.audittoolsyeemobile
-# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
-appId: com.andisha2004.audit-tools-yee-mobile
+# Android appId: com.decalab.audittoolsyeemobile
+# iOS bundleId:  com.decalab.audit-tools.yee-mobile
+appId: com.decalab.audit-tools.yee-mobile
 ---
 - runFlow: login.yaml
 # Tap the Reports TAB by its unique a11y label ("Reports, tab, 4 of 4").

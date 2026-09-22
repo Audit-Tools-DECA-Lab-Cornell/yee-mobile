@@ -7,9 +7,9 @@
 # The per-feature flow files (auditor-dashboard / assigned-places / report-access /
 # resume-draft) remain for isolated runs and CI discovery.
 #
-# Android appId: com.andisha2004.audittoolsyeemobile
-# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
-appId: com.andisha2004.audit-tools-yee-mobile
+# Android appId: com.decalab.audittoolsyeemobile
+# iOS bundleId:  com.decalab.audit-tools.yee-mobile
+appId: com.decalab.audit-tools.yee-mobile
 ---
 - runFlow: login.yaml
 

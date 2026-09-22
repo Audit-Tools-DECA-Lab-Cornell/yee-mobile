@@ -10,10 +10,10 @@ The app is **AUDITOR-only** (manager/admin sessions are rejected with 403, see
 
 ## App IDs
 
-| Platform | ID                                       |
-| -------- | ---------------------------------------- |
-| Android  | `com.andisha2004.audittoolsyeemobile`    |
-| iOS      | `com.andisha2004.audit-tools-yee-mobile` |
+| Platform | ID                                   |
+| -------- | ------------------------------------ |
+| Android  | `com.decalab.audittoolsyeemobile`    |
+| iOS      | `com.decalab.audit-tools.yee-mobile` |
 
 Flows default to the **iOS** app ID. Override `APP_ID` with Maestro's `-e` flag when running
 Android; Maestro 2.2 does not provide a `--app-id` test option.
@@ -23,7 +23,7 @@ Android; Maestro 2.2 does not provide a `--app-id` test option.
 maestro test maestro/question-follow-up.yaml
 
 # Android override
-maestro test -e APP_ID=com.andisha2004.audittoolsyeemobile maestro/question-follow-up.yaml
+maestro test -e APP_ID=com.decalab.audittoolsyeemobile maestro/question-follow-up.yaml
 ```
 
 ## Run

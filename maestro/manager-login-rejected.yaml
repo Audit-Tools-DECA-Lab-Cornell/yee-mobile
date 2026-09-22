@@ -6,9 +6,9 @@
 # Requires a seeded manager WITHOUT an auditor profile. The default seed's
 # manager-demo@yee.local qualifies until a dual-role test creates its profile;
 # override with a known profile-less manager via MANAGER_EMAIL if needed.
-# Android appId: com.andisha2004.audittoolsyeemobile
-# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
-appId: com.andisha2004.audit-tools-yee-mobile
+# Android appId: com.decalab.audittoolsyeemobile
+# iOS bundleId:  com.decalab.audit-tools.yee-mobile
+appId: com.decalab.audit-tools.yee-mobile
 env:
     MANAGER_EMAIL: manager-demo@yee.local
     MANAGER_PASSWORD: DemoPass123!

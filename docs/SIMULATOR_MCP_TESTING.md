@@ -44,8 +44,8 @@ Both are configured in `~/.claude.json` under the `StudentJob.nosync` project
 
 | Field              | Value                                                 |
 | ------------------ | ----------------------------------------------------- |
-| iOS bundle id      | `com.andisha2004.audit-tools-yee-mobile`              |
-| Android package    | `com.andisha2004.audittoolsyeemobile`                 |
+| iOS bundle id      | `com.decalab.audit-tools.yee-mobile`                  |
+| Android package    | `com.decalab.audittoolsyeemobile`                     |
 | Expo scheme        | `yee-mobile`                                          |
 | Slug               | `audit-tools-yee-mobile`                              |
 | iOS Xcode project  | `YouthEnablingEnvironmentsAuditTool` (`.xcworkspace`) |
@@ -89,7 +89,7 @@ For a Debug **dev-client** build, the native binary is only a shell - all the JS
    (or under `ios/build/**/Debug-iphonesimulator/`).
    `install_app { app_path, udid }`.
 3. **Start Metro in your own terminal:** `cd yee/yee-mobile && bunx expo start`.
-4. **Launch:** `launch_app { bundle_id: "com.andisha2004.audit-tools-yee-mobile" }`.
+4. **Launch:** `launch_app { bundle_id: "com.decalab.audit-tools.yee-mobile" }`.
 5. On the Expo dev-launcher, `ui_find_element` for the recent server row
    (`… http://<host>:8081`) and `ui_tap` its center → the app bundles and renders.
    `screenshot` to verify.
@@ -128,7 +128,7 @@ AVDs on this machine include `Pixel_9`, `Pixel_9_Pro`, `Pixel_9_Pro_Fold`,
    or `adb install` in your terminal.
 4. **Start Metro:** `cd yee/yee-mobile && bunx expo start` (press `a`, or let the
    dev-client connect).
-5. **Launch:** `mobile_launch_app { device, packageName: "com.andisha2004.audittoolsyeemobile" }`.
+5. **Launch:** `mobile_launch_app { device, packageName: "com.decalab.audittoolsyeemobile" }`.
 6. Drive it: `mobile_take_screenshot`, `mobile_list_elements_on_screen` (returns
    text/accessibility labels + coordinates - prefer this over raw pixel guessing),
    `mobile_click_on_screen_at_coordinates`, `mobile_type_keys`,

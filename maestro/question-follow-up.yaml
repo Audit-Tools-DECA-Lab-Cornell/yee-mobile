@@ -1,8 +1,8 @@
 # Focused editable-domain regression. It changes one local test draft and never
 # opens review or submits an audit.
-# Android appId: com.andisha2004.audittoolsyeemobile
-# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
-appId: ${APP_ID || "com.andisha2004.audit-tools-yee-mobile"}
+# Android appId: com.decalab.audittoolsyeemobile
+# iOS bundleId:  com.decalab.audit-tools.yee-mobile
+appId: ${APP_ID || "com.decalab.audit-tools.yee-mobile"}
 ---
 - runFlow: assigned-places.yaml
 - scrollUntilVisible:

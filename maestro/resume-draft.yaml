@@ -1,9 +1,9 @@
 # Draft durability across an app restart (MMKV per-account draft persistence,
 # lib/yee-secure-draft-storage.ts). Starts/resumes an audit, kills + relaunches
 # the app, and confirms the in-progress draft survives.
-# Android appId: com.andisha2004.audittoolsyeemobile
-# iOS bundleId:  com.andisha2004.audit-tools-yee-mobile
-appId: com.andisha2004.audit-tools-yee-mobile
+# Android appId: com.decalab.audittoolsyeemobile
+# iOS bundleId:  com.decalab.audit-tools.yee-mobile
+appId: com.decalab.audit-tools.yee-mobile
 ---
 - runFlow: assigned-places.yaml
 # Enter the audit flow - new or resume, whichever the seeded place offers.

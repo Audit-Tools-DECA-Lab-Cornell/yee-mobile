@@ -10,7 +10,7 @@ export default {
         assetBundlePatterns: ["**/*"],
         ios: {
             supportsTablet: true,
-            bundleIdentifier: "com.andisha2004.audit-tools-yee-mobile",
+            bundleIdentifier: "com.decalab.audittools.yee-mobile",
             appleTeamId: "ZD947U862S",
             infoPlist: {
                 ITSAppUsesNonExemptEncryption: false,
@@ -24,7 +24,7 @@ export default {
                 backgroundColor: "#F7F1EB",
                 monochromeImage: "./assets/images/adaptive-monochrome.png",
             },
-            package: "com.andisha2004.audittoolsyeemobile",
+            package: "com.decalab.audittoolsyeemobile",
         },
         plugins: [
             "./plugins/withCustomPodfilePatches",
